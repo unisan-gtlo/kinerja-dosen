@@ -46,9 +46,6 @@ def upload_dokumen(instance, filename):
     ext = os.path.splitext(filename)[1].lower()
     return f'dokumen/{instance.user.username}/{filename}'
 
-def upload_bkd(instance, filename):
-    ext = os.path.splitext(filename)[1].lower()
-    return f'bkd/{instance.user.username}/BKD_{instance.semester}_{instance.tahun_akademik}{ext}'
 
 class ProfilDosen(models.Model):
     user = models.OneToOneField(
@@ -100,8 +97,6 @@ class ProfilDosen(models.Model):
     )
     bidang_keahlian = models.CharField(max_length=100, blank=True, null=True)
     mata_kuliah_diampu = models.TextField(blank=True, null=True)
-
-    # Upload langsung — file kecil
     foto = models.ImageField(
         upload_to=upload_profil,
         validators=[validate_file],
@@ -122,10 +117,7 @@ class ProfilDosen(models.Model):
         validators=[validate_file],
         blank=True, null=True
     )
-
-    # Link Drive — untuk dokumen tambahan
     link_dokumen_lain = models.URLField(blank=True, null=True)
-
     tgl_update = models.DateTimeField(auto_now=True)
     updated_by = models.CharField(max_length=50, blank=True, null=True)
 
@@ -167,16 +159,12 @@ class RiwayatJabfung(models.Model):
     tgl_sk = models.DateField(blank=True, null=True)
     tmt_berlaku = models.DateField(blank=True, null=True)
     instansi_penerbit = models.CharField(max_length=100, blank=True, null=True)
-
-    # Upload SK langsung
     file_sk = models.FileField(
         upload_to=upload_jabfung,
         validators=[validate_file],
         blank=True, null=True
     )
-    # Atau link Drive jika file besar
     link_sk = models.URLField(blank=True, null=True)
-
     status = models.CharField(
         max_length=10,
         choices=[('aktif', 'Aktif'), ('nonaktif', 'Nonaktif')],
@@ -192,10 +180,6 @@ class RiwayatJabfung(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.jabatan}"
-
-    @property
-    def bukti_tersedia(self):
-        return bool(self.file_sk or self.link_sk)
 
 
 class RiwayatPendidikan(models.Model):
@@ -216,8 +200,6 @@ class RiwayatPendidikan(models.Model):
     tahun_masuk = models.IntegerField(blank=True, null=True)
     tahun_lulus = models.IntegerField(blank=True, null=True)
     no_ijazah = models.CharField(max_length=50, blank=True, null=True)
-
-    # Upload ijazah & transkrip langsung
     file_ijazah = models.FileField(
         upload_to=upload_ijazah,
         validators=[validate_file],
@@ -228,7 +210,6 @@ class RiwayatPendidikan(models.Model):
         validators=[validate_file],
         blank=True, null=True
     )
-
     tgl_input = models.DateTimeField(auto_now_add=True)
     updated_by = models.CharField(max_length=50, blank=True, null=True)
 
@@ -238,7 +219,7 @@ class RiwayatPendidikan(models.Model):
         ordering = ['-tahun_lulus']
 
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.jenjang} {self.bidang_ilmu}"
+        return f"{self.user.get_full_name()} - {self.jenjang}"
 
 
 class Sertifikat(models.Model):
@@ -260,14 +241,11 @@ class Sertifikat(models.Model):
     lembaga_penerbit = models.CharField(max_length=100, blank=True, null=True)
     tahun_terbit = models.IntegerField(blank=True, null=True)
     masa_berlaku = models.CharField(max_length=20, blank=True, null=True)
-
-    # Upload sertifikat langsung
     file_sertifikat = models.FileField(
         upload_to=upload_sertifikat,
         validators=[validate_file],
         blank=True, null=True
     )
-
     tgl_input = models.DateTimeField(auto_now_add=True)
     updated_by = models.CharField(max_length=50, blank=True, null=True)
 
@@ -289,16 +267,12 @@ class DokumenLain(models.Model):
     no_dokumen = models.CharField(max_length=100, blank=True, null=True)
     tgl_terbit = models.DateField(blank=True, null=True)
     keterangan = models.TextField(blank=True, null=True)
-
-    # Upload langsung untuk dokumen kecil
     file_dokumen = models.FileField(
         upload_to=upload_dokumen,
         validators=[validate_file],
         blank=True, null=True
     )
-    # Link Drive untuk dokumen besar
     link_dokumen = models.URLField(blank=True, null=True)
-
     tgl_input = models.DateTimeField(auto_now_add=True)
     updated_by = models.CharField(max_length=50, blank=True, null=True)
 
@@ -309,48 +283,3 @@ class DokumenLain(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.nama_dokumen}"
-
-class BKD(models.Model):
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='bkd_set'
-    )
-    semester = models.CharField(
-        max_length=10,
-        choices=[('Ganjil', 'Ganjil'), ('Genap', 'Genap')]
-    )
-    tahun_akademik = models.CharField(max_length=10)
-
-    # Hybrid — upload atau link
-    file_bkd = models.FileField(
-        upload_to=upload_bkd,
-        validators=[validate_file],
-        blank=True, null=True,
-        help_text='Upload file PDF BKD (max 5MB)'
-    )
-    link_bkd = models.URLField(
-        blank=True, null=True,
-        help_text='Atau isi link Google Drive jika file besar'
-    )
-
-    keterangan = models.TextField(blank=True, null=True)
-    tgl_input = models.DateTimeField(auto_now_add=True)
-    updated_by = models.CharField(max_length=50, blank=True, null=True)
-
-    class Meta:
-        verbose_name = 'BKD'
-        verbose_name_plural = 'BKD'
-        ordering = ['-tahun_akademik', 'semester']
-        unique_together = ['user', 'semester', 'tahun_akademik']
-
-    def __str__(self):
-        return f"{self.user.get_full_name()} - BKD {self.semester} {self.tahun_akademik}"
-
-    @property
-    def bukti_tersedia(self):
-        return bool(self.file_bkd or self.link_bkd)
-
-    @property
-    def label_status(self):
-        if self.file_bkd or self.link_bkd:
-            return 'Terupload'
-        return 'Belum Upload'

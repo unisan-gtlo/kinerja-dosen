@@ -76,7 +76,23 @@
           <th>Role</th>
           <th>Fakultas</th>
           <th>Prodi</th>
-          <th>Status</th>
+          <th>Status Akun</th>
+            <td>
+              {% if u.status_kepegawaian == 'Aktif' %}
+              <span class="badge bg-success-lt text-success">Aktif</span>
+              {% elif u.status_kepegawaian == 'Tugas Belajar' %}
+              <span class="badge bg-blue-lt text-blue">Tugas Belajar</span>
+              {% elif u.status_kepegawaian == 'Lanjut Studi' %}
+              <span class="badge bg-purple-lt text-purple">Lanjut Studi</span>
+              {% elif u.status_kepegawaian == 'Keluar' %}
+              <span class="badge bg-orange-lt text-orange">Keluar</span>
+              {% elif u.status_kepegawaian == 'Meninggal' %}
+              <span class="badge bg-danger-lt text-danger">Meninggal</span>
+              {% else %}
+              <span class="badge bg-success-lt text-success">Aktif</span>
+              {% endif %}
+            </td>
+          <th>Status Kepegawaian</th>
           <th>Aksi</th>
         </tr>
       </thead>

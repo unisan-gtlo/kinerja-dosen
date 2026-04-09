@@ -7,22 +7,72 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <style>
-    .nav-link { color: rgba(255,255,255,0.7) !important; }
-    .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.1); border-radius: 6px; }
-    .nav-link.active { color: #fff !important; background: rgba(255,255,255,0.15) !important; border-radius: 6px; }
-    .nav-section { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); padding: 12px 16px 4px; }
-    .user-info { background: rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px; margin: 8px; }
+  
+    /* Sidebar */
     .navbar-vertical { background-color: #1e3a5f !important; }
-    .navbar-vertical .navbar-brand { color: #fff !important; }
     .navbar-vertical .nav-link { color: rgba(255,255,255,0.75) !important; }
     .navbar-vertical .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.1) !important; border-radius: 6px; }
     .navbar-vertical .nav-link.active { color: #fff !important; background: rgba(255,255,255,0.2) !important; border-radius: 6px; }
-    .nav-section { color: rgba(255,255,255,0.4) !important; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; padding: 12px 16px 4px; display: block; }
+    .navbar-vertical .navbar-brand { color: #fff !important; }
+    .nav-section { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4) !important; padding: 12px 16px 4px; display: block; }
     .user-info { background: rgba(255,255,255,0.1) !important; border-radius: 8px; padding: 10px 14px; margin: 8px; border: 1px solid rgba(255,255,255,0.15); }
     .user-name { color: #ffffff !important; font-size: 13px; font-weight: 600; }
     .user-role { color: rgba(255,255,255,0.65) !important; font-size: 11px; }
     .user-prodi { color: rgba(255,255,255,0.45) !important; font-size: 10px; }
-  </style>
+
+    /* Tab navigasi */
+    .nav-tabs .nav-link { color: #1e3a5f !important; font-weight: 500; }
+    .nav-tabs .nav-link:hover { color: #1565c0 !important; }
+    .nav-tabs .nav-link.active { color: #1e3a5f !important; font-weight: 600; }
+    .nav-tabs .nav-link .badge { background-color: #dbeafe !important; color: #1e3a5f !important; }
+
+    /* Tombol */
+  /* Paksa semua tombol teks putih */
+    .btn.btn-primary,
+    .btn.btn-primary span,
+    .btn.btn-primary .ti,
+    a.btn.btn-primary {
+        color: #ffffff !important;
+    }
+    .btn.btn-success,
+    .btn.btn-success span,
+    .btn.btn-success .ti {
+        color: #ffffff !important;
+    }
+    .btn.btn-danger,
+    .btn.btn-danger span,
+    .btn.btn-danger .ti {
+        color: #ffffff !important;
+    }
+    .btn.btn-info,
+    .btn.btn-info span,
+    .btn.btn-info .ti {
+        color: #ffffff !important;
+    }
+    .btn.btn-warning,
+    .btn.btn-warning span {
+        color: #ffffff !important;
+    }
+    /* Form dan konten */
+    .page-body { color: #333 !important; }
+    .tab-content label { color: #333 !important; }
+    .tab-content .form-label { color: #333 !important; }
+    .card-body label { color: #333 !important; }
+    h1, h2, h3, h4, h5, h6 { color: #1e3a5f !important; }
+    .page-title { color: #1e3a5f !important; }
+    /* Tombol semua putih */
+    .btn-primary { color: #ffffff !important; }
+    .btn-primary:hover { color: #ffffff !important; }
+    .btn-success { color: #ffffff !important; }
+    .btn-success:hover { color: #ffffff !important; }
+    .btn-danger { color: #ffffff !important; }
+    .btn-danger:hover { color: #ffffff !important; }
+    .btn-info { color: #ffffff !important; }
+    .btn-warning { color: #ffffff !important; }
+    .btn-secondary { color: #ffffff !important; }
+    .btn span { color: inherit !important; }
+</style>
+  
   {% block extra_css %}{% endblock %}
 </head>
 <body class="antialiased">

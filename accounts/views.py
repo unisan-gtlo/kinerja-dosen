@@ -90,6 +90,7 @@ def tambah_user(request):
         kode_fakultas = request.POST.get('kode_fakultas', '').strip()
         kode_prodi = request.POST.get('kode_prodi', '').strip()
         no_hp = request.POST.get('no_hp', '').strip()
+        status_kepegawaian = request.POST.get('status_kepegawaian', 'Aktif')
         password = request.POST.get('password', '').strip()
 
         if not username or not password or not first_name:
@@ -107,6 +108,7 @@ def tambah_user(request):
                 kode_fakultas=kode_fakultas,
                 kode_prodi=kode_prodi,
                 no_hp=no_hp,
+                status_kepegawaian=status_kepegawaian,
                 password=make_password(password),
                 status_akun='aktif'
             )

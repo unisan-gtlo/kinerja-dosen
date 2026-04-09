@@ -25,6 +25,18 @@ class User(AbstractUser):
         choices=[('aktif', 'Aktif'), ('nonaktif', 'Nonaktif')],
         default='aktif'
     )
+    status_kepegawaian = models.CharField(
+    max_length=20,
+    choices=[
+        ('Aktif', 'Aktif'),
+        ('Tugas Belajar', 'Tugas Belajar'),
+        ('Lanjut Studi', 'Lanjut Studi'),
+        ('Keluar', 'Keluar'),
+        ('Meninggal', 'Meninggal'),
+    ],
+    default='Aktif',
+    blank=True, null=True
+    )
 
     class Meta:
         verbose_name = 'Pengguna'

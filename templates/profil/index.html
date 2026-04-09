@@ -1,6 +1,616 @@
 {% extends 'base.html' %}
-{% block title %}Profil — SIKD{% endblock %}
-{% block page_title %}Profil Dosen{% endblock %}
+{% block title %}Profil Dosen — SIKD{% endblock %}
+{% block page_title %}
+  Profil Dosen
+  {% if target_user != request.user %}
+  <small class="text-muted fs-5">— {{ target_user.get_full_name|default:target_user.username }}</small>
+  {% endif %}
+{% endblock %}
+
+
 {% block content %}
-<p>Halaman profil — segera hadir</p>
+<style>
+  body, .page-body, .container-xl { color: #333 !important; }
+  label, .form-label { color: #333 !important; font-weight: 500; }
+  .form-control, .form-select, textarea { color: #333 !important; background-color: #fff !important; }
+  .tab-content { color: #333 !important; }
+  .card-body, .card-body * { color: #333 !important; }
+  h6, h5, h4 { color: #1e3a5f !important; }
+  .text-muted { color: #666 !important; }
+  .badge { color: inherit; }
+  table td, table th { color: #333 !important; }
+  .bg-light label { color: #333 !important; }
+</style>
+{% if not input_terbuka %}
+<div class="alert alert-warning">
+  <span class="ti ti-lock me-1"></span>
+  Input data sedang <strong>dikunci</strong> oleh admin.
+</div>
+{% endif %}
+
+{% if profil %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <small class="text-muted">Kelengkapan Profil</small>
+      <small class="fw-semibold text-primary">{{ profil.persentase_kelengkapan }}%</small>
+    </div>
+    <div class="progress" style="height:6px">
+      <div class="progress-bar bg-primary" style="width:{{ profil.persentase_kelengkapan }}%"></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<ul class="nav nav-tabs mb-0" id="profilTab">
+  <li class="nav-item">
+    <a class="nav-link active" data-bs-toggle="tab" href="#tab-profil">
+      <span class="ti ti-user me-1"></span>Profil Dasar
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-jabfung">
+      <span class="ti ti-id-badge me-1"></span>Jabatan Fungsional
+      <span class="badge bg-blue-lt ms-1">{{ jabfung_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-pendidikan">
+      <span class="ti ti-school me-1"></span>Pendidikan
+      <span class="badge bg-blue-lt ms-1">{{ pendidikan_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-sertifikat">
+      <span class="ti ti-certificate me-1"></span>Sertifikat
+      <span class="badge bg-blue-lt ms-1">{{ sertifikat_list.count }}</span>
+    </a>
+  </li>
+  
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
+
+  <!-- TAB PROFIL DASAR -->
+  <div class="tab-pane fade show active" id="tab-profil">
+    <form method="post" action="{% url 'profil:simpan_profil' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if target_user != request.user %}
+      <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+      {% endif %}
+      <div class="row g-3">
+
+        <!-- Foto -->
+        <div class="col-md-2 text-center">
+          {% if profil and profil.foto %}
+          <img src="{{ profil.foto.url }}" class="rounded-circle mb-2"
+               style="width:80px;height:80px;object-fit:cover">
+          {% else %}
+          <div class="bg-blue-lt rounded-circle d-flex align-items-center justify-content-center mb-2 mx-auto"
+               style="width:80px;height:80px;font-size:28px">
+            <span class="ti ti-user text-blue"></span>
+          </div>
+          {% endif %}
+          {% if bisa_edit %}
+          <label class="form-label small text-muted">Foto</label>
+          <input type="file" name="foto" class="form-control form-control-sm" accept=".jpg,.jpeg,.png">
+          {% endif %}
+        </div>
+
+        <div class="col-md-10">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">NIK</label>
+              <input type="text" name="nik" class="form-control"
+                     value="{{ profil.nik|default:'' }}"
+                     {% if not bisa_edit %}readonly{% endif %}>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Email Pribadi</label>
+              <input type="email" name="email_pribadi" class="form-control"
+                     value="{{ profil.email_pribadi|default:'' }}"
+                     {% if not bisa_edit %}readonly{% endif %}>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Tempat Lahir</label>
+              <input type="text" name="tempat_lahir" class="form-control"
+                     value="{{ profil.tempat_lahir|default:'' }}"
+                     {% if not bisa_edit %}readonly{% endif %}>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Tanggal Lahir</label>
+              <input type="date" name="tgl_lahir" class="form-control"
+                     value="{{ profil.tgl_lahir|date:'Y-m-d'|default:'' }}"
+                     {% if not bisa_edit %}readonly{% endif %}>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Jenis Kelamin</label>
+              <select name="jenis_kelamin" class="form-select"
+                      {% if not bisa_edit %}disabled{% endif %}>
+                <option value="">-- Pilih --</option>
+                <option value="L" {% if profil and profil.jenis_kelamin == 'L' %}selected{% endif %}>Laki-laki</option>
+                <option value="P" {% if profil and profil.jenis_kelamin == 'P' %}selected{% endif %}>Perempuan</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Agama</label>
+          <select name="agama" class="form-select" {% if not bisa_edit %}disabled{% endif %}>
+            <option value="">-- Pilih --</option>
+            <option value="Islam" {% if profil and profil.agama == 'Islam' %}selected{% endif %}>Islam</option>
+            <option value="Kristen" {% if profil and profil.agama == 'Kristen' %}selected{% endif %}>Kristen</option>
+            <option value="Katolik" {% if profil and profil.agama == 'Katolik' %}selected{% endif %}>Katolik</option>
+            <option value="Hindu" {% if profil and profil.agama == 'Hindu' %}selected{% endif %}>Hindu</option>
+            <option value="Buddha" {% if profil and profil.agama == 'Buddha' %}selected{% endif %}>Buddha</option>
+            <option value="Konghucu" {% if profil and profil.agama == 'Konghucu' %}selected{% endif %}>Konghucu</option>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Status Pernikahan</label>
+          <select name="status_pernikahan" class="form-select" {% if not bisa_edit %}disabled{% endif %}>
+            <option value="">-- Pilih --</option>
+            <option value="Belum Menikah" {% if profil and profil.status_pernikahan == 'Belum Menikah' %}selected{% endif %}>Belum Menikah</option>
+            <option value="Menikah" {% if profil and profil.status_pernikahan == 'Menikah' %}selected{% endif %}>Menikah</option>
+            <option value="Cerai" {% if profil and profil.status_pernikahan == 'Cerai' %}selected{% endif %}>Cerai</option>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Jabfung Aktif</label>
+          <select name="jabfung_aktif" class="form-select" {% if not bisa_edit %}disabled{% endif %}>
+            <option value="">-- Pilih --</option>
+            <option value="Tenaga Pengajar" {% if profil and profil.jabfung_aktif == 'Tenaga Pengajar' %}selected{% endif %}>Tenaga Pengajar</option>
+            <option value="Asisten Ahli" {% if profil and profil.jabfung_aktif == 'Asisten Ahli' %}selected{% endif %}>Asisten Ahli</option>
+            <option value="Lektor" {% if profil and profil.jabfung_aktif == 'Lektor' %}selected{% endif %}>Lektor</option>
+            <option value="Lektor Kepala" {% if profil and profil.jabfung_aktif == 'Lektor Kepala' %}selected{% endif %}>Lektor Kepala</option>
+            <option value="Guru Besar" {% if profil and profil.jabfung_aktif == 'Guru Besar' %}selected{% endif %}>Guru Besar</option>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Pendidikan Terakhir</label>
+          <select name="pendidikan_terakhir" class="form-select" {% if not bisa_edit %}disabled{% endif %}>
+            <option value="">-- Pilih --</option>
+            <option value="S1" {% if profil and profil.pendidikan_terakhir == 'S1' %}selected{% endif %}>S1</option>
+            <option value="S2" {% if profil and profil.pendidikan_terakhir == 'S2' %}selected{% endif %}>S2</option>
+            <option value="S3" {% if profil and profil.pendidikan_terakhir == 'S3' %}selected{% endif %}>S3</option>
+          </select>
+        </div>
+
+        <div class="col-md-8">
+          <label class="form-label fw-semibold">Bidang Keahlian</label>
+          <input type="text" name="bidang_keahlian" class="form-control"
+                 value="{{ profil.bidang_keahlian|default:'' }}"
+                 {% if not bisa_edit %}readonly{% endif %}>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label fw-semibold">Alamat</label>
+          <textarea name="alamat" class="form-control" rows="2"
+                    {% if not bisa_edit %}readonly{% endif %}>{{ profil.alamat|default:'' }}</textarea>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label fw-semibold">Mata Kuliah Diampu</label>
+          <textarea name="mata_kuliah_diampu" class="form-control" rows="2"
+                    {% if not bisa_edit %}readonly{% endif %}>{{ profil.mata_kuliah_diampu|default:'' }}</textarea>
+        </div>
+
+        <div class="col-12"><hr><p class="text-muted fw-semibold mb-2">Upload Dokumen Identitas</p></div>
+
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">KTP</label>
+          {% if profil and profil.file_ktp %}
+          <div class="mb-1">
+            <a href="{{ profil.file_ktp.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+              <span class="ti ti-eye me-1"></span>Lihat KTP
+            </a>
+          </div>
+          {% endif %}
+          {% if bisa_edit %}
+          <input type="file" name="file_ktp" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+          {% endif %}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">NPWP</label>
+          {% if profil and profil.file_npwp %}
+          <div class="mb-1">
+            <a href="{{ profil.file_npwp.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+              <span class="ti ti-eye me-1"></span>Lihat NPWP
+            </a>
+          </div>
+          {% endif %}
+          {% if bisa_edit %}
+          <input type="file" name="file_npwp" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+          {% endif %}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">SK Yayasan</label>
+          {% if profil and profil.file_sk_yayasan %}
+          <div class="mb-1">
+            <a href="{{ profil.file_sk_yayasan.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+              <span class="ti ti-eye me-1"></span>Lihat SK
+            </a>
+          </div>
+          {% endif %}
+          {% if bisa_edit %}
+          <input type="file" name="file_sk_yayasan" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+          {% endif %}
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Link Dokumen Lain</label>
+          <input type="url" name="link_dokumen_lain" class="form-control"
+                 value="{{ profil.link_dokumen_lain|default:'' }}"
+                 placeholder="https://drive.google.com/..."
+                 {% if not bisa_edit %}readonly{% endif %}>
+        </div>
+      </div>
+
+      {% if bisa_edit %}
+      <div class="mt-4">
+        <button type="submit" class="btn btn-primary">
+          <span class="ti ti-device-floppy me-1"></span>Simpan Profil
+        </button>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- TAB JABATAN FUNGSIONAL -->
+  <div class="tab-pane fade" id="tab-jabfung">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Riwayat Jabatan Fungsional</h6>
+        <form method="post" action="{% url 'profil:tambah_jabfung' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Jabatan *</label>
+              <select name="jabatan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="Tenaga Pengajar">Tenaga Pengajar</option>
+                <option value="Asisten Ahli">Asisten Ahli</option>
+                <option value="Lektor">Lektor</option>
+                <option value="Lektor Kepala">Lektor Kepala</option>
+                <option value="Guru Besar">Guru Besar</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Nomor SK</label>
+              <input type="text" name="no_sk" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tanggal SK</label>
+              <input type="date" name="tgl_sk" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">TMT Berlaku</label>
+              <input type="date" name="tmt_berlaku" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select">
+                <option value="aktif">Aktif</option>
+                <option value="nonaktif">Nonaktif</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Instansi Penerbit</label>
+              <input type="text" name="instansi_penerbit" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Upload SK (PDF/JPG, max 5MB)</label>
+              <input type="file" name="file_sk" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Atau Link SK Drive</label>
+              <input type="url" name="link_sk" class="form-control" placeholder="https://drive.google.com/...">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Jabatan</th><th>No SK</th><th>Tgl SK</th>
+            <th>TMT</th><th>Status</th><th>Bukti</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for j in jabfung_list %}
+          <tr>
+            <td><strong>{{ j.jabatan }}</strong></td>
+            <td>{{ j.no_sk|default:"-" }}</td>
+            <td>{{ j.tgl_sk|date:'d/m/Y'|default:"-" }}</td>
+            <td>{{ j.tmt_berlaku|date:'d/m/Y'|default:"-" }}</td>
+            <td>
+              {% if j.status == 'aktif' %}
+              <span class="badge bg-success-lt text-success">Aktif</span>
+              {% else %}
+              <span class="badge bg-secondary-lt">Nonaktif</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if j.file_sk %}
+              <a href="{{ j.file_sk.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-file"></span>
+              </a>
+              {% elif j.link_sk %}
+              <a href="{{ j.link_sk }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'profil:hapus_jabfung' j.id %}"
+                    onsubmit="return confirm('Hapus data ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB PENDIDIKAN -->
+  <div class="tab-pane fade" id="tab-pendidikan">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Riwayat Pendidikan</h6>
+        <form method="post" action="{% url 'profil:tambah_pendidikan' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-md-2">
+              <label class="form-label">Jenjang *</label>
+              <select name="jenjang" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="S1">S1</option>
+                <option value="S2">S2</option>
+                <option value="S3">S3</option>
+                <option value="D3">D3</option>
+                <option value="D4">D4</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Bidang Ilmu *</label>
+              <input type="text" name="bidang_ilmu" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Nama Perguruan Tinggi *</label>
+              <input type="text" name="nama_pt" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Kota PT</label>
+              <input type="text" name="kota_pt" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Negara</label>
+              <input type="text" name="negara" class="form-control" value="Indonesia">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Masuk</label>
+              <input type="number" name="tahun_masuk" class="form-control" min="1970" max="2030">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Lulus</label>
+              <input type="number" name="tahun_lulus" class="form-control" min="1970" max="2030">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">No. Ijazah</label>
+              <input type="text" name="no_ijazah" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Upload Ijazah (PDF/JPG, max 5MB)</label>
+              <input type="file" name="file_ijazah" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Upload Transkrip (PDF/JPG, max 5MB)</label>
+              <input type="file" name="file_transkrip" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Jenjang</th><th>Bidang Ilmu</th><th>Perguruan Tinggi</th>
+            <th>Lulus</th><th>Ijazah</th><th>Transkrip</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pendidikan_list %}
+          <tr>
+            <td><span class="badge bg-purple-lt text-purple">{{ p.jenjang }}</span></td>
+            <td>{{ p.bidang_ilmu }}</td>
+            <td>{{ p.nama_pt }}{% if p.kota_pt %}, {{ p.kota_pt }}{% endif %}</td>
+            <td>{{ p.tahun_lulus|default:"-" }}</td>
+            <td>
+              {% if p.file_ijazah %}
+              <a href="{{ p.file_ijazah.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-file"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if p.file_transkrip %}
+              <a href="{{ p.file_transkrip.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-file"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'profil:hapus_pendidikan' p.id %}"
+                    onsubmit="return confirm('Hapus data ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB SERTIFIKAT -->
+  <div class="tab-pane fade" id="tab-sertifikat">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Sertifikat</h6>
+        <form method="post" action="{% url 'profil:tambah_sertifikat' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Jenis *</label>
+              <select name="jenis_sertifikat" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="Serdos">Sertifikat Dosen</option>
+                <option value="Kompetensi">Kompetensi</option>
+                <option value="Profesi">Profesi</option>
+                <option value="Internasional">Internasional</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Nama Sertifikat *</label>
+              <input type="text" name="nama_sertifikat" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">No. Sertifikat</label>
+              <input type="text" name="no_sertifikat" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Lembaga Penerbit</label>
+              <input type="text" name="lembaga_penerbit" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Terbit</label>
+              <input type="number" name="tahun_terbit" class="form-control" min="1990" max="2030">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Masa Berlaku</label>
+              <input type="text" name="masa_berlaku" class="form-control" placeholder="contoh: 2027">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Upload Sertifikat (max 5MB)</label>
+              <input type="file" name="file_sertifikat" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Jenis</th><th>Nama Sertifikat</th><th>No. Sertifikat</th>
+            <th>Lembaga</th><th>Tahun</th><th>File</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sertifikat_list %}
+          <tr>
+            <td><span class="badge bg-teal-lt text-teal">{{ s.jenis_sertifikat }}</span></td>
+            <td>{{ s.nama_sertifikat }}</td>
+            <td>{{ s.no_sertifikat|default:"-" }}</td>
+            <td>{{ s.lembaga_penerbit|default:"-" }}</td>
+            <td>{{ s.tahun_terbit|default:"-" }}</td>
+            <td>
+              {% if s.file_sertifikat %}
+              <a href="{{ s.file_sertifikat.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-file"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'profil:hapus_sertifikat' s.id %}"
+                    onsubmit="return confirm('Hapus sertifikat ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+ 
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const hash = window.location.hash;
+if (hash) {
+  const tab = document.querySelector(`[href="${hash}"]`);
+  if (tab) { new bootstrap.Tab(tab).show(); }
+}
+</script>
 {% endblock %}

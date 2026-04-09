@@ -1,5 +1,68 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from accounts.models import User
+import os
+
+SEMESTER_CHOICES = [
+    ('Ganjil', 'Ganjil'),
+    ('Genap', 'Genap'),
+    ('Keduanya', 'Keduanya'),
+]
+
+def validate_bkd_file(value):
+    ext = os.path.splitext(value.name)[1].lower()
+    if ext not in ['.pdf', '.jpg', '.jpeg', '.png']:
+        raise ValidationError('Hanya file PDF, JPG, dan PNG yang diizinkan.')
+    if value.size > 5 * 1024 * 1024:
+        raise ValidationError('Ukuran file maksimal 5MB.')
+
+def upload_bkd(instance, filename):
+    ext = os.path.splitext(filename)[1].lower()
+    return f'bkd/{instance.user.username}/BKD_{instance.semester}_{instance.tahun_akademik}{ext}'
+
+
+class BKD(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='bkd_set'
+    )
+    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
+    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
+    semester = models.CharField(
+        max_length=10,
+        choices=[('Ganjil', 'Ganjil'), ('Genap', 'Genap')]
+    )
+    tahun_akademik = models.CharField(max_length=10)
+    file_bkd = models.FileField(
+        upload_to=upload_bkd,
+        validators=[validate_bkd_file],
+        blank=True, null=True,
+        help_text='Upload file PDF BKD dari SISTER (max 5MB)'
+    )
+    link_bkd = models.URLField(
+        blank=True, null=True,
+        help_text='Atau isi link Google Drive'
+    )
+    keterangan = models.TextField(blank=True, null=True)
+    tgl_input = models.DateTimeField(auto_now_add=True)
+    updated_by = models.CharField(max_length=50, blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'BKD'
+        verbose_name_plural = 'BKD'
+        ordering = ['-tahun_akademik', 'semester']
+        unique_together = ['user', 'semester', 'tahun_akademik']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - BKD {self.semester} {self.tahun_akademik}"
+
+    @property
+    def bukti_tersedia(self):
+        return bool(self.file_bkd or self.link_bkd)
+
+    @property
+    def periode(self):
+        return f"{self.semester} {self.tahun_akademik}"
+
 
 class Penelitian(models.Model):
     user = models.ForeignKey(
@@ -17,23 +80,29 @@ class Penelitian(models.Model):
         choices=[('L', 'Lokal'), ('N', 'Nasional'), ('I', 'Internasional')],
         blank=True, null=True
     )
-    tahun_akademik = models.CharField(max_length=10)
-    pendanaan = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0
+    semester = models.CharField(
+        max_length=10, choices=SEMESTER_CHOICES,
+        blank=True, null=True
     )
-    # Link Drive — laporan penelitian biasanya besar
+    tahun_akademik = models.CharField(max_length=10)
+    pendanaan = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     link_bukti = models.URLField(blank=True, null=True)
-
     tgl_input = models.DateTimeField(auto_now_add=True)
     updated_by = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Penelitian'
         verbose_name_plural = 'Penelitian'
-        ordering = ['-tahun_akademik']
+        ordering = ['-tahun_akademik', 'semester']
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.judul[:50]}"
+
+    @property
+    def periode(self):
+        if self.semester:
+            return f"{self.semester} {self.tahun_akademik}"
+        return self.tahun_akademik
 
 
 class Publikasi(models.Model):
@@ -58,20 +127,28 @@ class Publikasi(models.Model):
     nomor = models.CharField(max_length=20, blank=True, null=True)
     halaman = models.CharField(max_length=20, blank=True, null=True)
     tahun_terbit = models.IntegerField(blank=True, null=True)
+    semester = models.CharField(
+        max_length=10, choices=SEMESTER_CHOICES,
+        blank=True, null=True
+    )
     tahun_akademik = models.CharField(max_length=10)
-    # Link ke jurnal online
     link_bukti = models.URLField(blank=True, null=True)
-
     tgl_input = models.DateTimeField(auto_now_add=True)
     updated_by = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Publikasi'
         verbose_name_plural = 'Publikasi'
-        ordering = ['-tahun_akademik']
+        ordering = ['-tahun_akademik', 'semester']
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.judul[:50]}"
+
+    @property
+    def periode(self):
+        if self.semester:
+            return f"{self.semester} {self.tahun_akademik}"
+        return self.tahun_akademik
 
 
 class PKM(models.Model):
@@ -90,23 +167,29 @@ class PKM(models.Model):
         choices=[('L', 'Lokal'), ('N', 'Nasional'), ('I', 'Internasional')],
         blank=True, null=True
     )
-    tahun_akademik = models.CharField(max_length=10)
-    pendanaan = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0
+    semester = models.CharField(
+        max_length=10, choices=SEMESTER_CHOICES,
+        blank=True, null=True
     )
-    # Link Drive — laporan PKM biasanya besar
+    tahun_akademik = models.CharField(max_length=10)
+    pendanaan = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     link_bukti = models.URLField(blank=True, null=True)
-
     tgl_input = models.DateTimeField(auto_now_add=True)
     updated_by = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Pengabdian Masyarakat'
         verbose_name_plural = 'Pengabdian Masyarakat'
-        ordering = ['-tahun_akademik']
+        ordering = ['-tahun_akademik', 'semester']
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.judul[:50]}"
+
+    @property
+    def periode(self):
+        if self.semester:
+            return f"{self.semester} {self.tahun_akademik}"
+        return self.tahun_akademik
 
 
 class HKI(models.Model):
@@ -129,17 +212,25 @@ class HKI(models.Model):
     )
     no_hki = models.CharField(max_length=100, blank=True, null=True)
     tahun_perolehan = models.IntegerField(blank=True, null=True)
+    semester = models.CharField(
+        max_length=10, choices=SEMESTER_CHOICES,
+        blank=True, null=True
+    )
     tahun_akademik = models.CharField(max_length=10)
-    # Link ke sertifikat HKI — bisa upload atau link
     link_bukti = models.URLField(blank=True, null=True)
-
     tgl_input = models.DateTimeField(auto_now_add=True)
     updated_by = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
         verbose_name = 'HKI'
         verbose_name_plural = 'HKI'
-        ordering = ['-tahun_akademik']
+        ordering = ['-tahun_akademik', 'semester']
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.judul[:50]}"
+
+    @property
+    def periode(self):
+        if self.semester:
+            return f"{self.semester} {self.tahun_akademik}"
+        return self.tahun_akademik

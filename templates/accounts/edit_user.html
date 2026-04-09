@@ -44,6 +44,16 @@
           </select>
         </div>
         <div class="col-md-4">
+            <label class="form-label fw-semibold">Status Kepegawaian</label>
+            <select name="status_kepegawaian" class="form-select">
+                <option value="Aktif" {% if target_user.status_kepegawaian == 'Aktif' %}selected{% endif %}>Aktif</option>
+                <option value="Tugas Belajar" {% if target_user.status_kepegawaian == 'Tugas Belajar' %}selected{% endif %}>Tugas Belajar</option>
+                <option value="Lanjut Studi" {% if target_user.status_kepegawaian == 'Lanjut Studi' %}selected{% endif %}>Lanjut Studi</option>
+                <option value="Keluar" {% if target_user.status_kepegawaian == 'Keluar' %}selected{% endif %}>Keluar</option>
+                <option value="Meninggal" {% if target_user.status_kepegawaian == 'Meninggal' %}selected{% endif %}>Meninggal</option>
+            </select>
+            </div>
+        <div class="col-md-4">
           <label class="form-label fw-semibold">Fakultas</label>
           <select name="kode_fakultas" class="form-select">
             <option value="">-- Pilih --</option>
