@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}Tambah User — SIKD{% endblock %}
+{% block page_title %}Tambah Pengguna Baru{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm" style="max-width:700px">
+  <div class="card-header bg-white">
+    <h4 class="card-title mb-0">Form Tambah Pengguna</h4>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+          <input type="text" name="username" class="form-control" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">NIDN</label>
+          <input type="text" name="nidn" class="form-control" placeholder="Nomor Induk Dosen Nasional">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Nama Depan <span class="text-danger">*</span></label>
+          <input type="text" name="first_name" class="form-control" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Nama Belakang</label>
+          <input type="text" name="last_name" class="form-control">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Email</label>
+          <input type="email" name="email" class="form-control">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">No. HP</label>
+          <input type="text" name="no_hp" class="form-control">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Role <span class="text-danger">*</span></label>
+          <select name="role" class="form-select" required>
+            <option value="dosen">Dosen</option>
+            <option value="operator">Operator</option>
+            <option value="kaprodi">Kaprodi</option>
+            <option value="sekprodi">Sekprodi</option>
+            <option value="dekan">Dekan</option>
+            <option value="wadek">Wakil Dekan</option>
+            <option value="biro">Biro/Lembaga</option>
+            <option value="rektorat">Rektorat</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Fakultas</label>
+          <select name="kode_fakultas" class="form-select">
+            <option value="">-- Pilih Fakultas --</option>
+            {% for f in fakultas_list %}
+            <option value="{{ f.kode_fakultas }}">{{ f.kode_fakultas }} - {{ f.nama_fakultas }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Prodi</label>
+          <select name="kode_prodi" class="form-select">
+            <option value="">-- Pilih Prodi --</option>
+            {% for p in prodi_list %}
+            <option value="{{ p.kode_prodi }}">{{ p.kode_prodi }} - {{ p.nama_prodi }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+          <input type="password" name="password" class="form-control" required>
+        </div>
+      </div>
+
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          <span class="ti ti-check me-1"></span>Simpan
+        </button>
+        <a href="{% url 'accounts:kelola_user' %}" class="btn btn-outline-secondary">Batal</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

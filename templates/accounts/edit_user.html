@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Edit User — SIKD{% endblock %}
+{% block page_title %}Edit Pengguna{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm" style="max-width:700px">
+  <div class="card-header bg-white">
+    <h4 class="card-title mb-0">Edit: {{ target_user.username }}</h4>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Username</label>
+          <input type="text" class="form-control" value="{{ target_user.username }}" disabled>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">NIDN</label>
+          <input type="text" name="nidn" class="form-control" value="{{ target_user.nidn|default:'' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Nama Depan</label>
+          <input type="text" name="first_name" class="form-control" value="{{ target_user.first_name }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Nama Belakang</label>
+          <input type="text" name="last_name" class="form-control" value="{{ target_user.last_name }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Email</label>
+          <input type="email" name="email" class="form-control" value="{{ target_user.email }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">No. HP</label>
+          <input type="text" name="no_hp" class="form-control" value="{{ target_user.no_hp|default:'' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Role</label>
+          <select name="role" class="form-select">
+            {% for val, label in target_user.role.field.choices %}
+            <option value="{{ val }}" {% if target_user.role == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Fakultas</label>
+          <select name="kode_fakultas" class="form-select">
+            <option value="">-- Pilih --</option>
+            {% for f in fakultas_list %}
+            <option value="{{ f.kode_fakultas }}" {% if target_user.kode_fakultas == f.kode_fakultas %}selected{% endif %}>
+              {{ f.kode_fakultas }} - {{ f.nama_fakultas }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Prodi</label>
+          <select name="kode_prodi" class="form-select">
+            <option value="">-- Pilih --</option>
+            {% for p in prodi_list %}
+            <option value="{{ p.kode_prodi }}" {% if target_user.kode_prodi == p.kode_prodi %}selected{% endif %}>
+              {{ p.kode_prodi }} - {{ p.nama_prodi }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Status Akun</label>
+          <select name="status_akun" class="form-select">
+            <option value="aktif" {% if target_user.status_akun == 'aktif' %}selected{% endif %}>Aktif</option>
+            <option value="nonaktif" {% if target_user.status_akun == 'nonaktif' %}selected{% endif %}>Nonaktif</option>
+          </select>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label fw-semibold">Password Baru <small class="text-muted">(kosongkan jika tidak diubah)</small></label>
+          <input type="password" name="password_baru" class="form-control" placeholder="Isi jika ingin ganti password">
+        </div>
+      </div>
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          <span class="ti ti-check me-1"></span>Simpan Perubahan
+        </button>
+        <a href="{% url 'accounts:kelola_user' %}" class="btn btn-outline-secondary">Batal</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

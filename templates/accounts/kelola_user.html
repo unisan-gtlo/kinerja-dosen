@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}Kelola User — SIKD{% endblock %}
+{% block page_title %}Kelola Pengguna{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Cari</label>
+        <input type="text" name="cari" class="form-control" placeholder="Nama / username / NIDN" value="{{ cari }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Role</label>
+        <select name="role" class="form-select">
+          <option value="">Semua Role</option>
+          <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Administrator</option>
+          <option value="rektorat" {% if role_filter == 'rektorat' %}selected{% endif %}>Rektorat</option>
+          <option value="biro" {% if role_filter == 'biro' %}selected{% endif %}>Biro/Lembaga</option>
+          <option value="dekan" {% if role_filter == 'dekan' %}selected{% endif %}>Dekan</option>
+          <option value="wadek" {% if role_filter == 'wadek' %}selected{% endif %}>Wakil Dekan</option>
+          <option value="kaprodi" {% if role_filter == 'kaprodi' %}selected{% endif %}>Kaprodi</option>
+          <option value="sekprodi" {% if role_filter == 'sekprodi' %}selected{% endif %}>Sekprodi</option>
+          <option value="operator" {% if role_filter == 'operator' %}selected{% endif %}>Operator</option>
+          <option value="dosen" {% if role_filter == 'dosen' %}selected{% endif %}>Dosen</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Fakultas</label>
+        <select name="fakultas" class="form-select">
+          <option value="">Semua Fakultas</option>
+          {% for f in fakultas_list %}
+          <option value="{{ f.kode_fakultas }}" {% if fakultas_filter == f.kode_fakultas %}selected{% endif %}>
+            {{ f.kode_fakultas }} - {{ f.nama_fakultas }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Prodi</label>
+        <select name="prodi" class="form-select">
+          <option value="">Semua Prodi</option>
+          {% for p in prodi_list %}
+          <option value="{{ p.kode_prodi }}" {% if prodi_filter == p.kode_prodi %}selected{% endif %}>
+            {{ p.kode_prodi }} - {{ p.nama_prodi }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          <span class="ti ti-search me-1"></span>Filter
+        </button>
+        <a href="{% url 'accounts:kelola_user' %}" class="btn btn-outline-secondary">Reset</a>
+        <a href="{% url 'accounts:tambah_user' %}" class="btn btn-success ms-auto">
+          <span class="ti ti-plus me-1"></span>Tambah
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h4 class="card-title mb-0">Daftar Pengguna</h4>
+    <span class="badge bg-blue-lt">{{ users.count }} pengguna</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Nama</th>
+          <th>Username</th>
+          <th>NIDN</th>
+          <th>Role</th>
+          <th>Fakultas</th>
+          <th>Prodi</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{{ u.get_full_name|default:u.username }}</td>
+          <td><code>{{ u.username }}</code></td>
+          <td>{{ u.nidn|default:"-" }}</td>
+          <td>
+            {% if u.role == 'admin' %}<span class="badge bg-red-lt text-red">Admin</span>
+            {% elif u.role == 'rektorat' %}<span class="badge bg-purple-lt text-purple">Rektorat</span>
+            {% elif u.role == 'dekan' %}<span class="badge bg-blue-lt text-blue">Dekan</span>
+            {% elif u.role == 'kaprodi' %}<span class="badge bg-teal-lt text-teal">Kaprodi</span>
+            {% elif u.role == 'dosen' %}<span class="badge bg-green-lt text-green">Dosen</span>
+            {% elif u.role == 'operator' %}<span class="badge bg-orange-lt text-orange">Operator</span>
+            {% else %}<span class="badge bg-gray-lt">{{ u.role }}</span>
+            {% endif %}
+          </td>
+          <td>{{ u.kode_fakultas|default:"-" }}</td>
+          <td>{{ u.kode_prodi|default:"-" }}</td>
+          <td>
+            {% if u.status_akun == 'aktif' %}
+            <span class="badge bg-success-lt text-success">Aktif</span>
+            {% else %}
+            <span class="badge bg-danger-lt text-danger">Nonaktif</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="d-flex gap-1">
+              <a href="{% url 'accounts:edit_user' u.id %}" class="btn btn-sm btn-outline-primary">
+                <span class="ti ti-edit"></span>
+              </a>
+              {% if u != request.user %}
+              <form method="post" action="{% url 'accounts:hapus_user' u.id %}"
+                    onsubmit="return confirm('Hapus user {{ u.username }}?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="9" class="text-center text-muted py-4">Belum ada pengguna</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

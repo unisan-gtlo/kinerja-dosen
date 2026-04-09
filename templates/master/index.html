@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+{% block title %}Data Master — SIKD{% endblock %}
+{% block page_title %}Data Master{% endblock %}
+
+{% block content %}
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs mb-4" id="masterTab">
+  <li class="nav-item">
+    <a class="nav-link active" data-bs-toggle="tab" href="#tab-fakultas">Fakultas</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-prodi">Program Studi</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-tahun">Tahun Akademik</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-pengaturan">Pengaturan Sistem</a>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- TAB FAKULTAS -->
+  <div class="tab-pane fade show active" id="tab-fakultas">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white"><h5 class="mb-0">Tambah Fakultas</h5></div>
+          <div class="card-body">
+            <form method="post" action="{% url 'master:simpan_fakultas' %}">
+              {% csrf_token %}
+              <input type="hidden" name="aksi" value="tambah">
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Kode Fakultas *</label>
+                <input type="text" name="kode_fakultas" class="form-control" placeholder="contoh: FK" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Nama Fakultas *</label>
+                <input type="text" name="nama_fakultas" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Nama Dekan</label>
+                <input type="text" name="nama_dekan" class="form-control">
+              </div>
+              <button type="submit" class="btn btn-primary w-100">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white d-flex justify-content-between">
+            <h5 class="mb-0">Daftar Fakultas</h5>
+            <span class="badge bg-blue-lt">{{ fakultas_list.count }} fakultas</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Kode</th><th>Nama Fakultas</th><th>Dekan</th><th>Status</th><th>Aksi</th></tr>
+              </thead>
+              <tbody>
+                {% for f in fakultas_list %}
+                <tr>
+                  <td><span class="badge bg-blue-lt text-blue">{{ f.kode_fakultas }}</span></td>
+                  <td>{{ f.nama_fakultas }}</td>
+                  <td>{{ f.nama_dekan|default:"-" }}</td>
+                  <td>
+                    {% if f.status == 'aktif' %}
+                    <span class="badge bg-success-lt text-success">Aktif</span>
+                    {% else %}
+                    <span class="badge bg-danger-lt text-danger">Nonaktif</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary"
+                      onclick="editFakultas({{ f.id }},'{{ f.kode_fakultas }}','{{ f.nama_fakultas }}','{{ f.nama_dekan|default:'' }}','{{ f.status }}')">
+                      <span class="ti ti-edit"></span>
+                    </button>
+                    <form method="post" action="{% url 'master:simpan_fakultas' %}" class="d-inline"
+                          onsubmit="return confirm('Hapus {{ f.nama_fakultas }}?')">
+                      {% csrf_token %}
+                      <input type="hidden" name="aksi" value="hapus">
+                      <input type="hidden" name="fak_id" value="{{ f.id }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <span class="ti ti-trash"></span>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-3">Belum ada data</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Edit Fakultas -->
+    <div class="modal fade" id="modalEditFakultas" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form method="post" action="{% url 'master:simpan_fakultas' %}">
+            {% csrf_token %}
+            <input type="hidden" name="aksi" value="edit">
+            <input type="hidden" name="fak_id" id="edit_fak_id">
+            <div class="modal-header">
+              <h5 class="modal-title">Edit Fakultas</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">Kode</label>
+                <input class="form-control" id="edit_kode_fak" disabled>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Nama Fakultas</label>
+                <input type="text" name="nama_fakultas" id="edit_nama_fak" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Nama Dekan</label>
+                <input type="text" name="nama_dekan" id="edit_dekan_fak" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Status</label>
+                <select name="status" id="edit_status_fak" class="form-select">
+                  <option value="aktif">Aktif</option>
+                  <option value="nonaktif">Nonaktif</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+              <button type="submit" class="btn btn-primary">Simpan</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB PRODI -->
+  <div class="tab-pane fade" id="tab-prodi">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white"><h5 class="mb-0">Tambah Prodi</h5></div>
+          <div class="card-body">
+            <form method="post" action="{% url 'master:simpan_prodi' %}">
+              {% csrf_token %}
+              <input type="hidden" name="aksi" value="tambah">
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Kode Prodi *</label>
+                <input type="text" name="kode_prodi" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Nama Prodi *</label>
+                <input type="text" name="nama_prodi" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Fakultas *</label>
+                <select name="fakultas_id" class="form-select" required>
+                  <option value="">-- Pilih --</option>
+                  {% for f in fakultas_list %}
+                  <option value="{{ f.id }}">{{ f.kode_fakultas }} - {{ f.nama_fakultas }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Jenjang</label>
+                <select name="jenjang" class="form-select">
+                  <option value="S1">S1</option>
+                  <option value="S2">S2</option>
+                  <option value="S3">S3</option>
+                  <option value="D3">D3</option>
+                  <option value="D4">D4</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Nama Kaprodi</label>
+                <input type="text" name="nama_kaprodi" class="form-control">
+              </div>
+              <button type="submit" class="btn btn-primary w-100">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white d-flex justify-content-between">
+            <h5 class="mb-0">Daftar Program Studi</h5>
+            <span class="badge bg-blue-lt">{{ prodi_list.count }} prodi</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Kode</th><th>Nama Prodi</th><th>Fakultas</th><th>Jenjang</th><th>Status</th><th>Aksi</th></tr>
+              </thead>
+              <tbody>
+                {% for p in prodi_list %}
+                <tr>
+                  <td><span class="badge bg-teal-lt text-teal">{{ p.kode_prodi }}</span></td>
+                  <td>{{ p.nama_prodi }}</td>
+                  <td>{{ p.fakultas.kode_fakultas }}</td>
+                  <td><span class="badge bg-purple-lt text-purple">{{ p.jenjang }}</span></td>
+                  <td>
+                    {% if p.status == 'aktif' %}
+                    <span class="badge bg-success-lt text-success">Aktif</span>
+                    {% else %}
+                    <span class="badge bg-danger-lt text-danger">Nonaktif</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="{% url 'master:simpan_prodi' %}" class="d-inline"
+                          onsubmit="return confirm('Hapus {{ p.nama_prodi }}?')">
+                      {% csrf_token %}
+                      <input type="hidden" name="aksi" value="hapus">
+                      <input type="hidden" name="prodi_id" value="{{ p.id }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <span class="ti ti-trash"></span>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-3">Belum ada data</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB TAHUN AKADEMIK -->
+  <div class="tab-pane fade" id="tab-tahun">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white"><h5 class="mb-0">Tambah Tahun Akademik</h5></div>
+          <div class="card-body">
+            <form method="post" action="{% url 'master:simpan_tahun' %}">
+              {% csrf_token %}
+              <input type="hidden" name="aksi" value="tambah">
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Tahun Akademik *</label>
+                <input type="text" name="tahun_akademik" class="form-control" placeholder="contoh: 2025-2026" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Keterangan</label>
+                <input type="text" name="keterangan" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Urutan</label>
+                <input type="number" name="urutan" class="form-control" value="0">
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Status</label>
+                <select name="status" class="form-select">
+                  <option value="aktif">Aktif</option>
+                  <option value="nonaktif">Nonaktif</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary w-100">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white"><h5 class="mb-0">Daftar Tahun Akademik</h5></div>
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr><th>Tahun Akademik</th><th>Keterangan</th><th>Urutan</th><th>Status</th><th>Aksi</th></tr>
+              </thead>
+              <tbody>
+                {% for t in tahun_list %}
+                <tr>
+                  <td><strong>{{ t.tahun_akademik }}</strong></td>
+                  <td>{{ t.keterangan|default:"-" }}</td>
+                  <td>{{ t.urutan }}</td>
+                  <td>
+                    {% if t.status == 'aktif' %}
+                    <span class="badge bg-success-lt text-success">Aktif</span>
+                    {% else %}
+                    <span class="badge bg-danger-lt text-danger">Nonaktif</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="{% url 'master:simpan_tahun' %}" class="d-inline"
+                          onsubmit="return confirm('Hapus {{ t.tahun_akademik }}?')">
+                      {% csrf_token %}
+                      <input type="hidden" name="aksi" value="hapus">
+                      <input type="hidden" name="tahun_id" value="{{ t.id }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <span class="ti ti-trash"></span>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-3">Belum ada data</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB PENGATURAN -->
+  <div class="tab-pane fade" id="tab-pengaturan">
+    <div class="card border-0 shadow-sm" style="max-width:600px">
+      <div class="card-header bg-white"><h5 class="mb-0">Pengaturan Sistem</h5></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'master:simpan_pengaturan' %}">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Status Input Data</label>
+              <select name="status_input" class="form-select">
+                <option value="buka" {% if pengaturan.status_input == 'buka' %}selected{% endif %}>Buka</option>
+                <option value="kunci" {% if pengaturan.status_input == 'kunci' %}selected{% endif %}>Kunci</option>
+              </select>
+              <small class="text-muted">Kunci = dosen tidak bisa input/edit data</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Deadline Input</label>
+              <input type="date" name="deadline" class="form-control"
+                     value="{{ pengaturan.deadline|date:'Y-m-d'|default:'' }}">
+            </div>
+            <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Mapping Periode Akreditasi</small></div>
+            <div class="col-md-2">
+              <label class="form-label fw-semibold">Label TS</label>
+              <input type="text" name="ts_label" class="form-control" value="{{ pengaturan.ts_label|default:'TS' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Tahun TS</label>
+              <input type="text" name="ts_tahun" class="form-control" placeholder="2024-2025"
+                     value="{{ pengaturan.ts_tahun|default:'' }}">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label fw-semibold">Label TS-1</label>
+              <input type="text" name="ts1_label" class="form-control" value="{{ pengaturan.ts1_label|default:'TS-1' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Tahun TS-1</label>
+              <input type="text" name="ts1_tahun" class="form-control" placeholder="2023-2024"
+                     value="{{ pengaturan.ts1_tahun|default:'' }}">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label fw-semibold">Label TS-2</label>
+              <input type="text" name="ts2_label" class="form-control" value="{{ pengaturan.ts2_label|default:'TS-2' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Tahun TS-2</label>
+              <input type="text" name="ts2_tahun" class="form-control" placeholder="2022-2023"
+                     value="{{ pengaturan.ts2_tahun|default:'' }}">
+            </div>
+          </div>
+          <div class="mt-4">
+            <button type="submit" class="btn btn-primary">
+              <span class="ti ti-device-floppy me-1"></span>Simpan Pengaturan
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editFakultas(id, kode, nama, dekan, status) {
+  document.getElementById('edit_fak_id').value = id;
+  document.getElementById('edit_kode_fak').value = kode;
+  document.getElementById('edit_nama_fak').value = nama;
+  document.getElementById('edit_dekan_fak').value = dekan;
+  document.getElementById('edit_status_fak').value = status;
+  new bootstrap.Modal(document.getElementById('modalEditFakultas')).show();
+}
+</script>
+{% endblock %}
