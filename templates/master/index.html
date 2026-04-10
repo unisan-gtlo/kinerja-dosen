@@ -3,8 +3,7 @@
 {% block page_title %}Data Master{% endblock %}
 
 {% block content %}
-<!-- Tab Navigation -->
-<ul class="nav nav-tabs mb-4" id="masterTab">
+<ul class="nav nav-tabs mb-0" id="masterTab">
   <li class="nav-item">
     <a class="nav-link active" data-bs-toggle="tab" href="#tab-fakultas">Fakultas</a>
   </li>
@@ -19,7 +18,7 @@
   </li>
 </ul>
 
-<div class="tab-content">
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
 
   <!-- TAB FAKULTAS -->
   <div class="tab-pane fade show active" id="tab-fakultas">
@@ -200,7 +199,7 @@
           <div class="table-responsive">
             <table class="table table-hover mb-0">
               <thead class="table-light">
-                <tr><th>Kode</th><th>Nama Prodi</th><th>Fakultas</th><th>Jenjang</th><th>Status</th><th>Aksi</th></tr>
+                <tr><th>Kode</th><th>Nama Prodi</th><th>Fakultas</th><th>Jenjang</th><th>Kaprodi</th><th>Status</th><th>Aksi</th></tr>
               </thead>
               <tbody>
                 {% for p in prodi_list %}
@@ -209,6 +208,7 @@
                   <td>{{ p.nama_prodi }}</td>
                   <td>{{ p.fakultas.kode_fakultas }}</td>
                   <td><span class="badge bg-purple-lt text-purple">{{ p.jenjang }}</span></td>
+                  <td>{{ p.nama_kaprodi|default:"-" }}</td>
                   <td>
                     {% if p.status == 'aktif' %}
                     <span class="badge bg-success-lt text-success">Aktif</span>
@@ -217,6 +217,10 @@
                     {% endif %}
                   </td>
                   <td>
+                    <button class="btn btn-sm btn-outline-primary"
+                      onclick="editProdi({{ p.id }},'{{ p.kode_prodi }}','{{ p.nama_prodi }}',{{ p.fakultas.id }},'{{ p.jenjang }}','{{ p.nama_kaprodi|default:'' }}','{{ p.status }}')">
+                      <span class="ti ti-edit"></span>
+                    </button>
                     <form method="post" action="{% url 'master:simpan_prodi' %}" class="d-inline"
                           onsubmit="return confirm('Hapus {{ p.nama_prodi }}?')">
                       {% csrf_token %}
@@ -229,11 +233,71 @@
                   </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-3">Belum ada data</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data</td></tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Edit Prodi -->
+    <div class="modal fade" id="modalEditProdi" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form method="post" action="{% url 'master:simpan_prodi' %}">
+            {% csrf_token %}
+            <input type="hidden" name="aksi" value="edit">
+            <input type="hidden" name="prodi_id" id="edit_prodi_id">
+            <div class="modal-header">
+              <h5 class="modal-title">Edit Program Studi</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">Kode Prodi</label>
+                <input class="form-control" id="edit_kode_prodi" disabled>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Nama Prodi</label>
+                <input type="text" name="nama_prodi" id="edit_nama_prodi" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Fakultas</label>
+                <select name="fakultas_id" id="edit_fak_prodi" class="form-select" required>
+                  {% for f in fakultas_list %}
+                  <option value="{{ f.id }}">{{ f.kode_fakultas }} - {{ f.nama_fakultas }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Jenjang</label>
+                <select name="jenjang" id="edit_jenjang_prodi" class="form-select">
+                  <option value="S1">S1</option>
+                  <option value="S2">S2</option>
+                  <option value="S3">S3</option>
+                  <option value="D3">D3</option>
+                  <option value="D4">D4</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Nama Kaprodi</label>
+                <input type="text" name="nama_kaprodi" id="edit_kaprodi_prodi" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Status</label>
+                <select name="status" id="edit_status_prodi" class="form-select">
+                  <option value="aktif">Aktif</option>
+                  <option value="nonaktif">Nonaktif</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+              <button type="submit" class="btn btn-primary">Simpan</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -297,6 +361,10 @@
                     {% endif %}
                   </td>
                   <td>
+                    <button class="btn btn-sm btn-outline-primary"
+                      onclick="editTahun({{ t.id }},'{{ t.tahun_akademik }}','{{ t.keterangan|default:'' }}',{{ t.urutan }},'{{ t.status }}')">
+                      <span class="ti ti-edit"></span>
+                    </button>
                     <form method="post" action="{% url 'master:simpan_tahun' %}" class="d-inline"
                           onsubmit="return confirm('Hapus {{ t.tahun_akademik }}?')">
                       {% csrf_token %}
@@ -314,6 +382,48 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Edit Tahun -->
+    <div class="modal fade" id="modalEditTahun" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form method="post" action="{% url 'master:simpan_tahun' %}">
+            {% csrf_token %}
+            <input type="hidden" name="aksi" value="edit">
+            <input type="hidden" name="tahun_id" id="edit_tahun_id">
+            <div class="modal-header">
+              <h5 class="modal-title">Edit Tahun Akademik</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">Tahun Akademik</label>
+                <input class="form-control" id="edit_tahun_val" disabled>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Keterangan</label>
+                <input type="text" name="keterangan" id="edit_ket_tahun" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Urutan</label>
+                <input type="number" name="urutan" id="edit_urutan_tahun" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Status</label>
+                <select name="status" id="edit_status_tahun" class="form-select">
+                  <option value="aktif">Aktif</option>
+                  <option value="nonaktif">Nonaktif</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+              <button type="submit" class="btn btn-primary">Simpan</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -340,15 +450,14 @@
               <input type="date" name="deadline" class="form-control"
                      value="{{ pengaturan.deadline|date:'Y-m-d'|default:'' }}">
             </div>
-            <div class="col-12"><hr class="my-1"><small class="text-muted fw-semibold">Mapping Periode Akreditasi</small></div>
+            <div class="col-12"><hr><small class="text-muted fw-semibold">Mapping Periode Akreditasi</small></div>
             <div class="col-md-2">
               <label class="form-label fw-semibold">Label TS</label>
               <input type="text" name="ts_label" class="form-control" value="{{ pengaturan.ts_label|default:'TS' }}">
             </div>
             <div class="col-md-4">
               <label class="form-label fw-semibold">Tahun TS</label>
-              <input type="text" name="ts_tahun" class="form-control" placeholder="2024-2025"
-                     value="{{ pengaturan.ts_tahun|default:'' }}">
+              <input type="text" name="ts_tahun" class="form-control" value="{{ pengaturan.ts_tahun|default:'' }}">
             </div>
             <div class="col-md-2">
               <label class="form-label fw-semibold">Label TS-1</label>
@@ -356,8 +465,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label fw-semibold">Tahun TS-1</label>
-              <input type="text" name="ts1_tahun" class="form-control" placeholder="2023-2024"
-                     value="{{ pengaturan.ts1_tahun|default:'' }}">
+              <input type="text" name="ts1_tahun" class="form-control" value="{{ pengaturan.ts1_tahun|default:'' }}">
             </div>
             <div class="col-md-2">
               <label class="form-label fw-semibold">Label TS-2</label>
@@ -365,8 +473,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label fw-semibold">Tahun TS-2</label>
-              <input type="text" name="ts2_tahun" class="form-control" placeholder="2022-2023"
-                     value="{{ pengaturan.ts2_tahun|default:'' }}">
+              <input type="text" name="ts2_tahun" class="form-control" value="{{ pengaturan.ts2_tahun|default:'' }}">
             </div>
           </div>
           <div class="mt-4">
@@ -391,6 +498,26 @@ function editFakultas(id, kode, nama, dekan, status) {
   document.getElementById('edit_dekan_fak').value = dekan;
   document.getElementById('edit_status_fak').value = status;
   new bootstrap.Modal(document.getElementById('modalEditFakultas')).show();
+}
+
+function editProdi(id, kode, nama, fakId, jenjang, kaprodi, status) {
+  document.getElementById('edit_prodi_id').value = id;
+  document.getElementById('edit_kode_prodi').value = kode;
+  document.getElementById('edit_nama_prodi').value = nama;
+  document.getElementById('edit_fak_prodi').value = fakId;
+  document.getElementById('edit_jenjang_prodi').value = jenjang;
+  document.getElementById('edit_kaprodi_prodi').value = kaprodi;
+  document.getElementById('edit_status_prodi').value = status;
+  new bootstrap.Modal(document.getElementById('modalEditProdi')).show();
+}
+
+function editTahun(id, tahun, ket, urutan, status) {
+  document.getElementById('edit_tahun_id').value = id;
+  document.getElementById('edit_tahun_val').value = tahun;
+  document.getElementById('edit_ket_tahun').value = ket;
+  document.getElementById('edit_urutan_tahun').value = urutan;
+  document.getElementById('edit_status_tahun').value = status;
+  new bootstrap.Modal(document.getElementById('modalEditTahun')).show();
 }
 </script>
 {% endblock %}

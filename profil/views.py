@@ -218,3 +218,77 @@ def hapus_sertifikat(request, sert_id):
     sert.delete()
     messages.success(request, 'Sertifikat berhasil dihapus.')
     return redirect('profil:index')
+
+@login_required
+def edit_jabfung(request, jabfung_id):
+    jabfung = get_object_or_404(RiwayatJabfung, id=jabfung_id)
+    if request.user != jabfung.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:index')
+    if request.method == 'POST':
+        jabfung.jabatan = request.POST.get('jabatan', jabfung.jabatan)
+        jabfung.no_sk = request.POST.get('no_sk', '').strip()
+        jabfung.tgl_sk = request.POST.get('tgl_sk') or None
+        jabfung.tmt_berlaku = request.POST.get('tmt_berlaku') or None
+        jabfung.instansi_penerbit = request.POST.get('instansi_penerbit', '').strip()
+        jabfung.link_sk = request.POST.get('link_sk', '').strip()
+        jabfung.status = request.POST.get('status', jabfung.status)
+        jabfung.updated_by = request.user.username
+        if 'file_sk' in request.FILES:
+            jabfung.file_sk = request.FILES['file_sk']
+        jabfung.save()
+        if jabfung.status == 'aktif':
+            try:
+                profil = jabfung.user.profil
+                profil.jabfung_aktif = jabfung.jabatan
+                profil.save()
+            except:
+                pass
+        messages.success(request, 'Data jabatan berhasil diupdate.')
+    return redirect('profil:index')
+
+
+@login_required
+def edit_pendidikan(request, pend_id):
+    pend = get_object_or_404(RiwayatPendidikan, id=pend_id)
+    if request.user != pend.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:index')
+    if request.method == 'POST':
+        pend.jenjang = request.POST.get('jenjang', pend.jenjang)
+        pend.bidang_ilmu = request.POST.get('bidang_ilmu', '').strip()
+        pend.nama_pt = request.POST.get('nama_pt', '').strip()
+        pend.kota_pt = request.POST.get('kota_pt', '').strip()
+        pend.negara = request.POST.get('negara', 'Indonesia').strip()
+        pend.tahun_masuk = request.POST.get('tahun_masuk') or None
+        pend.tahun_lulus = request.POST.get('tahun_lulus') or None
+        pend.no_ijazah = request.POST.get('no_ijazah', '').strip()
+        pend.updated_by = request.user.username
+        if 'file_ijazah' in request.FILES:
+            pend.file_ijazah = request.FILES['file_ijazah']
+        if 'file_transkrip' in request.FILES:
+            pend.file_transkrip = request.FILES['file_transkrip']
+        pend.save()
+        messages.success(request, 'Data pendidikan berhasil diupdate.')
+    return redirect('profil:index')
+
+
+@login_required
+def edit_sertifikat(request, sert_id):
+    sert = get_object_or_404(Sertifikat, id=sert_id)
+    if request.user != sert.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:index')
+    if request.method == 'POST':
+        sert.jenis_sertifikat = request.POST.get('jenis_sertifikat', sert.jenis_sertifikat)
+        sert.nama_sertifikat = request.POST.get('nama_sertifikat', '').strip()
+        sert.no_sertifikat = request.POST.get('no_sertifikat', '').strip()
+        sert.lembaga_penerbit = request.POST.get('lembaga_penerbit', '').strip()
+        sert.tahun_terbit = request.POST.get('tahun_terbit') or None
+        sert.masa_berlaku = request.POST.get('masa_berlaku', '').strip()
+        sert.updated_by = request.user.username
+        if 'file_sertifikat' in request.FILES:
+            sert.file_sertifikat = request.FILES['file_sertifikat']
+        sert.save()
+        messages.success(request, 'Sertifikat berhasil diupdate.')
+    return redirect('profil:index')

@@ -1,6 +1,668 @@
 {% extends 'base.html' %}
-{% block title %}Kinerja — SIKD{% endblock %}
-{% block page_title %}Data Kinerja{% endblock %}
+{% block title %}Data Kinerja — SIKD{% endblock %}
+{% block page_title %}
+  Data Kinerja
+  {% if target_user != request.user %}
+  <small class="text-muted fs-5">— {{ target_user.get_full_name|default:target_user.username }}</small>
+  {% endif %}
+{% endblock %}
+
 {% block content %}
-<p>Halaman kinerja — segera hadir</p>
+{% if not input_terbuka %}
+<div class="alert alert-warning">
+  <span class="ti ti-lock me-1"></span>
+  Input data sedang <strong>dikunci</strong> oleh admin.
+</div>
+{% endif %}
+
+<!-- Filter -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      {% if target_user != request.user %}
+      <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+      {% endif %}
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Filter Tahun Akademik</label>
+        <select name="tahun" class="form-select form-select-sm">
+          <option value="">Semua Tahun</option>
+          {% for t in tahun_list %}
+          <option value="{{ t.tahun_akademik }}" {% if filter_tahun == t.tahun_akademik %}selected{% endif %}>
+            {{ t.tahun_akademik }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Filter Semester</label>
+        <select name="semester" class="form-select form-select-sm">
+          <option value="">Semua Semester</option>
+          <option value="Ganjil" {% if filter_semester == 'Ganjil' %}selected{% endif %}>Ganjil</option>
+          <option value="Genap" {% if filter_semester == 'Genap' %}selected{% endif %}>Genap</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+        <a href="{% url 'kinerja:index' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+      </div>
+      <div class="col-md-4 text-end">
+        {% if filter_tahun or filter_semester %}
+        <span class="badge bg-blue-lt text-blue">
+          Filter aktif: {{ filter_semester }} {{ filter_tahun }}
+        </span>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs mb-0" id="kinerjaTab">
+  <li class="nav-item">
+    <a class="nav-link active" data-bs-toggle="tab" href="#tab-bkd">
+      <span class="ti ti-file-description me-1"></span>BKD
+      <span class="badge bg-blue-lt ms-1">{{ bkd_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-penelitian">
+      <span class="ti ti-microscope me-1"></span>Penelitian
+      <span class="badge bg-blue-lt ms-1">{{ penelitian_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-publikasi">
+      <span class="ti ti-book me-1"></span>Publikasi
+      <span class="badge bg-blue-lt ms-1">{{ publikasi_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-pkm">
+      <span class="ti ti-hearts me-1"></span>PKM
+      <span class="badge bg-blue-lt ms-1">{{ pkm_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-hki">
+      <span class="ti ti-shield-check me-1"></span>HKI
+      <span class="badge bg-blue-lt ms-1">{{ hki_list.count }}</span>
+    </a>
+  </li>
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
+
+  <!-- TAB BKD -->
+  <div class="tab-pane fade show active" id="tab-bkd">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Upload BKD dari SISTER</h6>
+        <form method="post" action="{% url 'kinerja:tambah_bkd' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3 align-items-end">
+            <div class="col-md-2">
+              <label class="form-label">Semester *</label>
+              <select name="semester" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Upload PDF BKD (max 5MB)</label>
+              <input type="file" name="file_bkd" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Atau Link Google Drive / SISTER</label>
+              <input type="url" name="link_bkd" class="form-control" placeholder="https://...">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Keterangan</label>
+              <input type="text" name="keterangan" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-primary w-100">
+                <span class="ti ti-upload me-1"></span>Upload
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Semester</th><th>Tahun Akademik</th><th>Keterangan</th><th>File BKD</th><th>Status</th><th>Aksi</th></tr>
+        </thead>
+        <tbody>
+          {% for b in bkd_list %}
+          <tr>
+            <td><span class="badge bg-orange-lt text-orange">{{ b.semester }}</span></td>
+            <td><strong>{{ b.tahun_akademik }}</strong></td>
+            <td>{{ b.keterangan|default:"-" }}</td>
+            <td>
+              {% if b.file_bkd %}
+              <a href="{{ b.file_bkd.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-file-description me-1"></span>Lihat PDF
+              </a>
+              {% elif b.link_bkd %}
+              <a href="{{ b.link_bkd }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link me-1"></span>Buka Link
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if b.file_bkd or b.link_bkd %}
+              <span class="badge bg-success-lt text-success">Terupload</span>
+              {% else %}
+              <span class="badge bg-danger-lt text-danger">Belum Upload</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'kinerja:hapus_bkd' b.id %}"
+                    onsubmit="return confirm('Hapus BKD ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-3">Belum ada data BKD</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB PENELITIAN -->
+  <div class="tab-pane fade" id="tab-penelitian">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Data Penelitian</h6>
+        <form method="post" action="{% url 'kinerja:tambah_penelitian' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Judul Penelitian *</label>
+              <textarea name="judul" class="form-control" rows="2" required></textarea>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Jml Mahasiswa</label>
+              <input type="number" name="jml_mahasiswa" class="form-control" value="0" min="0">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">L/N/I</label>
+              <select name="ln_i" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="L">Lokal</option>
+                <option value="N">Nasional</option>
+                <option value="I">Internasional</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Jenis Hibah</label>
+              <input type="text" name="jenis_hibah" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Sumber Dana</label>
+              <input type="text" name="sumber" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Durasi (Tahun)</label>
+              <input type="number" name="durasi" class="form-control" value="1" min="1">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Pendanaan (Rp Juta)</label>
+              <input type="number" name="pendanaan" class="form-control" value="0" step="0.01">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Link Bukti</label>
+              <input type="url" name="link_bukti" class="form-control" placeholder="https://...">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Judul</th><th>Periode</th><th>L/N/I</th><th>Pendanaan</th><th>Mahasiswa</th><th>Bukti</th><th>Aksi</th></tr>
+        </thead>
+        <tbody>
+          {% for p in penelitian_list %}
+          <tr>
+            <td style="max-width:300px">{{ p.judul|truncatechars:80 }}</td>
+            <td><span class="badge bg-blue-lt text-blue">{{ p.periode }}</span></td>
+            <td>{{ p.get_ln_i_display|default:"-" }}</td>
+            <td>Rp {{ p.pendanaan }} Juta</td>
+            <td>{{ p.jml_mahasiswa }}</td>
+            <td>
+              {% if p.link_bukti %}
+              <a href="{{ p.link_bukti }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'kinerja:hapus_penelitian' p.id %}"
+                    onsubmit="return confirm('Hapus data ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data penelitian</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB PUBLIKASI -->
+  <div class="tab-pane fade" id="tab-publikasi">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Data Publikasi</h6>
+        <form method="post" action="{% url 'kinerja:tambah_publikasi' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Judul Publikasi *</label>
+              <textarea name="judul" class="form-control" rows="2" required></textarea>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Jenis Publikasi *</label>
+              <select name="jenis_publikasi" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="IB">Internasional Bereputasi</option>
+                <option value="I">Internasional</option>
+                <option value="S1">Sinta 1</option>
+                <option value="S2">Sinta 2</option>
+                <option value="S3">Sinta 3</option>
+                <option value="S4">Sinta 4</option>
+                <option value="T">Tidak Terakreditasi</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Nama Jurnal/Prosiding</label>
+              <input type="text" name="nama_jurnal" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Terbit</label>
+              <input type="number" name="tahun_terbit" class="form-control" min="2000" max="2030">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Volume</label>
+              <input type="text" name="volume" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Nomor</label>
+              <input type="text" name="nomor" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Halaman</label>
+              <input type="text" name="halaman" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Link Bukti (URL Jurnal)</label>
+              <input type="url" name="link_bukti" class="form-control" placeholder="https://...">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Judul</th><th>Jenis</th><th>Jurnal</th><th>Periode</th><th>Bukti</th><th>Aksi</th></tr>
+        </thead>
+        <tbody>
+          {% for p in publikasi_list %}
+          <tr>
+            <td style="max-width:280px">{{ p.judul|truncatechars:70 }}</td>
+            <td><span class="badge bg-purple-lt text-purple">{{ p.jenis_publikasi }}</span></td>
+            <td>{{ p.nama_jurnal|default:"-"|truncatechars:40 }}</td>
+            <td><span class="badge bg-blue-lt text-blue">{{ p.periode }}</span></td>
+            <td>
+              {% if p.link_bukti %}
+              <a href="{{ p.link_bukti }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'kinerja:hapus_publikasi' p.id %}"
+                    onsubmit="return confirm('Hapus data ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-3">Belum ada data publikasi</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB PKM -->
+  <div class="tab-pane fade" id="tab-pkm">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Data PKM</h6>
+        <form method="post" action="{% url 'kinerja:tambah_pkm' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Judul PKM *</label>
+              <textarea name="judul" class="form-control" rows="2" required></textarea>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Jml Mahasiswa</label>
+              <input type="number" name="jml_mahasiswa" class="form-control" value="0" min="0">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">L/N/I</label>
+              <select name="ln_i" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="L">Lokal</option>
+                <option value="N">Nasional</option>
+                <option value="I">Internasional</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Jenis Hibah</label>
+              <input type="text" name="jenis_hibah" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Sumber Dana</label>
+              <input type="text" name="sumber" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Durasi (Tahun)</label>
+              <input type="number" name="durasi" class="form-control" value="1" min="1">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Pendanaan (Rp Juta)</label>
+              <input type="number" name="pendanaan" class="form-control" value="0" step="0.01">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Link Bukti</label>
+              <input type="url" name="link_bukti" class="form-control" placeholder="https://...">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Judul</th><th>Periode</th><th>L/N/I</th><th>Pendanaan</th><th>Mahasiswa</th><th>Bukti</th><th>Aksi</th></tr>
+        </thead>
+        <tbody>
+          {% for p in pkm_list %}
+          <tr>
+            <td style="max-width:300px">{{ p.judul|truncatechars:80 }}</td>
+            <td><span class="badge bg-blue-lt text-blue">{{ p.periode }}</span></td>
+            <td>{{ p.get_ln_i_display|default:"-" }}</td>
+            <td>Rp {{ p.pendanaan }} Juta</td>
+            <td>{{ p.jml_mahasiswa }}</td>
+            <td>
+              {% if p.link_bukti %}
+              <a href="{{ p.link_bukti }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'kinerja:hapus_pkm' p.id %}"
+                    onsubmit="return confirm('Hapus data ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data PKM</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB HKI -->
+  <div class="tab-pane fade" id="tab-hki">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Data HKI</h6>
+        <form method="post" action="{% url 'kinerja:tambah_hki' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Judul HKI *</label>
+              <textarea name="judul" class="form-control" rows="2" required></textarea>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Jenis HKI *</label>
+              <select name="jenis_hki" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="Paten">Paten</option>
+                <option value="Paten Sederhana">Paten Sederhana</option>
+                <option value="Hak Cipta">Hak Cipta</option>
+                <option value="Merek">Merek</option>
+                <option value="Desain Industri">Desain Industri</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">No. HKI</label>
+              <input type="text" name="no_hki" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Perolehan</label>
+              <input type="number" name="tahun_perolehan" class="form-control" min="2000" max="2030">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Link Bukti</label>
+              <input type="url" name="link_bukti" class="form-control" placeholder="https://...">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Judul</th><th>Jenis</th><th>No. HKI</th><th>Tahun</th><th>Periode</th><th>Bukti</th><th>Aksi</th></tr>
+        </thead>
+        <tbody>
+          {% for h in hki_list %}
+          <tr>
+            <td style="max-width:280px">{{ h.judul|truncatechars:70 }}</td>
+            <td><span class="badge bg-teal-lt text-teal">{{ h.jenis_hki }}</span></td>
+            <td>{{ h.no_hki|default:"-" }}</td>
+            <td>{{ h.tahun_perolehan|default:"-" }}</td>
+            <td><span class="badge bg-blue-lt text-blue">{{ h.periode }}</span></td>
+            <td>
+              {% if h.link_bukti %}
+              <a href="{{ h.link_bukti }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'kinerja:hapus_hki' h.id %}"
+                    onsubmit="return confirm('Hapus data ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data HKI</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const hash = window.location.hash;
+if (hash) {
+  const tab = document.querySelector(`[href="${hash}"]`);
+  if (tab) { new bootstrap.Tab(tab).show(); }
+}
+</script>
 {% endblock %}

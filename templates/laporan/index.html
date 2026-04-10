@@ -1,6 +1,175 @@
 {% extends 'base.html' %}
-{% block title %}Laporan — SIKD{% endblock %}
+{% block title %}Export Laporan — SIKD{% endblock %}
 {% block page_title %}Export Laporan{% endblock %}
+
 {% block content %}
-<p>Halaman laporan — segera hadir</p>
+<!-- Filter -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white"><h5 class="mb-0">Filter Laporan</h5></div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Tahun Akademik</label>
+        <select id="filter_tahun" class="form-select">
+          <option value="">Semua Tahun</option>
+          {% for t in tahun_list %}
+          <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-semibold">Semester</label>
+        <select id="filter_semester" class="form-select">
+          <option value="">Semua</option>
+          <option value="Ganjil">Ganjil</option>
+          <option value="Genap">Genap</option>
+        </select>
+      </div>
+      {% if request.user.role == 'admin' or request.user.role == 'rektorat' or request.user.role == 'biro' %}
+      <div class="col-md-2">
+        <label class="form-label fw-semibold">Fakultas</label>
+        <select id="filter_fakultas" class="form-select">
+          <option value="">Semua</option>
+          {% for f in fakultas_list %}
+             <option value="{{ f.kode_fakultas }}">{{ f.nama_fakultas }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-md-2">
+        <label class="form-label fw-semibold">Prodi</label>
+        <select id="filter_prodi" class="form-select">
+          <option value="">Semua</option>
+          {% for p in prodi_list %}
+             <option value="{{ p.kode_prodi }}">{{ p.kode_prodi }} - {{ p.nama_prodi }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-semibold">Status Kepegawaian</label>
+        <select id="filter_status" class="form-select">
+          <option value="">Semua</option>
+          <option value="Aktif">Aktif</option>
+          <option value="Tugas Belajar">Tugas Belajar</option>
+          <option value="Lanjut Studi">Lanjut Studi</option>
+          <option value="Keluar">Keluar</option>
+          <option value="Meninggal">Meninggal</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pilihan Export -->
+<div class="row g-4">
+
+  <!-- Rekap Kinerja -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h5 class="mb-0"><span class="ti ti-report me-2 text-primary"></span>Rekap Kinerja Dosen</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted">Laporan ringkasan kinerja seluruh dosen meliputi jumlah BKD, penelitian, publikasi, PKM, HKI, dan persentase kelengkapan profil.</p>
+        <div class="d-flex gap-2 mt-3">
+          <button onclick="exportFile('{% url 'laporan:excel_rekap' %}')" class="btn btn-success">
+            <span class="ti ti-file-spreadsheet me-1"></span>Excel
+          </button>
+          <button onclick="exportFile('{% url 'laporan:pdf_rekap' %}')" class="btn btn-danger">
+            <span class="ti ti-file-type-pdf me-1"></span>PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Penelitian -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h5 class="mb-0"><span class="ti ti-microscope me-2 text-success"></span>Data Penelitian</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted">Laporan detail seluruh kegiatan penelitian dosen beserta judul, sumber dana, pendanaan, dan jumlah mahasiswa yang terlibat.</p>
+        <div class="d-flex gap-2 mt-3">
+          <button onclick="exportFile('{% url 'laporan:excel_penelitian' %}')" class="btn btn-success">
+            <span class="ti ti-file-spreadsheet me-1"></span>Excel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Publikasi -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h5 class="mb-0"><span class="ti ti-book me-2 text-info"></span>Data Publikasi</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted">Laporan detail seluruh publikasi ilmiah dosen meliputi judul, nama jurnal, jenis publikasi, volume, nomor, dan tahun terbit.</p>
+        <div class="d-flex gap-2 mt-3">
+          <button onclick="exportFile('{% url 'laporan:excel_publikasi' %}')" class="btn btn-success">
+            <span class="ti ti-file-spreadsheet me-1"></span>Excel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info Periode Akreditasi -->
+  {% if pengaturan %}
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100 border-start border-primary border-3">
+      <div class="card-header bg-white">
+        <h5 class="mb-0"><span class="ti ti-calendar me-2 text-primary"></span>Periode Akreditasi</h5>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr>
+            <td class="fw-semibold">{{ pengaturan.ts_label }}</td>
+            <td>{{ pengaturan.ts_tahun }}</td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">{{ pengaturan.ts1_label }}</td>
+            <td>{{ pengaturan.ts1_tahun }}</td>
+          </tr>
+          <tr>
+            <td class="fw-semibold">{{ pengaturan.ts2_label }}</td>
+            <td>{{ pengaturan.ts2_tahun }}</td>
+          </tr>
+        </table>
+        <small class="text-muted mt-2 d-block">Gunakan filter tahun di atas untuk export per periode.</small>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getFilterParams() {
+  const tahun = document.getElementById('filter_tahun').value;
+  const semester = document.getElementById('filter_semester').value;
+  const prodi = document.getElementById('filter_prodi') ? document.getElementById('filter_prodi').value : '';
+  const fakultas = document.getElementById('filter_fakultas') ? document.getElementById('filter_fakultas').value : '';
+  const status = document.getElementById('filter_status').value;
+
+  const params = new URLSearchParams();
+  if (tahun) params.append('tahun', tahun);
+  if (semester) params.append('semester', semester);
+  if (prodi) params.append('prodi', prodi);
+  if (fakultas) params.append('fakultas', fakultas);
+  if (status) params.append('status_kepegawaian', status);
+  return params.toString();
+}
+
+function exportFile(baseUrl) {
+  const params = getFilterParams();
+  const url = params ? `${baseUrl}?${params}` : baseUrl;
+  window.location.href = url;
+}
+</script>
 {% endblock %}

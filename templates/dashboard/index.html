@@ -5,207 +5,554 @@
 {% block content %}
 <div class="row g-3">
 
-  {% if request.user.role == 'dosen' %}
-  <!-- Dashboard Dosen -->
+{% if request.user.role == 'dosen' %}
+<style>
+  .welcome-card {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2d6a9f 100%);
+    border-radius: 16px;
+    color: white;
+    padding: 30px;
+    position: relative;
+    overflow: hidden;
+    min-height: 200px;
+  }
+  .welcome-card .dosen-img {
+    position: absolute;
+    right: 20px;
+    bottom: 0;
+    height: 190px;
+    opacity: 0.95;
+  }
+  .stat-card {
+    border-radius: 12px;
+    padding: 20px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card .icon-bg {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 48px;
+    opacity: 0.2;
+  }
+  .stat-card .number { font-size: 32px; font-weight: 700; }
+  .stat-card .label { font-size: 14px; font-weight: 600; }
+  .stat-card .sublabel { font-size: 11px; opacity: 0.85; }
+  .profil-card { background: #1e3a5f; border-radius: 12px; color: white; }
+  .profil-card .avatar {
+    width: 70px; height: 70px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.3);
+    object-fit: cover;
+  }
+  .profil-card .avatar-placeholder {
+    width: 70px; height: 70px; border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; color: white;
+  }
+  .profil-card .stat-item { border-right: 1px solid rgba(255,255,255,0.2); }
+  .profil-card .stat-item:last-child { border-right: none; }
+</style>
+
+<!-- Welcome Banner -->
+<div class="row g-3 mb-3">
   <div class="col-12">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body">
-        <h3 class="mb-1">Selamat datang, {{ request.user.get_full_name|default:request.user.username }}!</h3>
-        <p class="text-muted mb-3">Silakan lengkapi data profil dan kinerja Anda.</p>
-        {% if kelengkapan is not None %}
-        <div class="mb-1 d-flex justify-content-between">
-          <small class="text-muted">Kelengkapan Profil</small>
-          <small class="fw-semibold">{{ kelengkapan }}%</small>
+    <div class="welcome-card">
+      <div>
+        <div class="mb-2" style="font-size:13px; opacity:0.8">
+          <span class="ti ti-calendar me-1"></span>
+          {{ request.user.get_full_name|default:request.user.username }} &mdash;
+          {% now "j F Y" %}
         </div>
-        <div class="progress mb-3" style="height:8px">
-          <div class="progress-bar bg-primary" style="width:{{ kelengkapan }}%"></div>
+        <h2 style="color:#ffffff !important; font-size:32px; font-weight:700; margin-bottom:4px; text-shadow: 1px 1px 3px rgba(0,0,0,0.3);">
+          Selamat Datang, {{ request.user.get_full_name|default:request.user.username }}!
+        </h2>
+        <p style="color:rgba(255,255,255,0.8); font-size:14px; margin-bottom:16px">
+          Sistem Informasi Kinerja Dosen — Universitas Ichsan Gorontalo
+        </p>
+        {% if kelengkapan is not None %}
+        <div style="font-size:12px; opacity:0.8; margin-bottom:4px">
+          Kelengkapan Profil: <strong>{{ kelengkapan }}%</strong>
+        </div>
+        <div style="background:rgba(255,255,255,0.2); border-radius:10px; height:8px; max-width:300px">
+          <div style="background:#4ade80; height:8px; border-radius:10px; width:{{ kelengkapan }}%"></div>
+        </div>
+        {% endif %}
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+<!-- Stat Cards -->
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <a href="{% url 'kinerja:index' %}#tab-penelitian" class="text-decoration-none">
+      <div class="stat-card" style="background:linear-gradient(135deg,#e91e8c,#c2185b)">
+        <div class="number">{{ total_penelitian|default:0 }}</div>
+        <div class="label">Penelitian</div>
+        <div class="sublabel">Didanai Simlitabmas/BIMA</div>
+        <div class="icon-bg"><span class="ti ti-microscope"></span></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'kinerja:index' %}#tab-pkm" class="text-decoration-none">
+      <div class="stat-card" style="background:linear-gradient(135deg,#00bcd4,#0097a7)">
+        <div class="number">{{ total_pkm|default:0 }}</div>
+        <div class="label">Pengabdian</div>
+        <div class="sublabel">Didanai Simlitabmas/BIMA</div>
+        <div class="icon-bg"><span class="ti ti-hearts"></span></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'kinerja:index' %}#tab-publikasi" class="text-decoration-none">
+      <div class="stat-card" style="background:linear-gradient(135deg,#ff9800,#f57c00)">
+        <div class="number">{{ total_publikasi|default:0 }}</div>
+        <div class="label">Publikasi</div>
+        <div class="sublabel">Jurnal & Prosiding</div>
+        <div class="icon-bg"><span class="ti ti-book"></span></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'kinerja:index' %}#tab-hki" class="text-decoration-none">
+      <div class="stat-card" style="background:linear-gradient(135deg,#4caf50,#388e3c)">
+        <div class="number">{{ total_hki|default:0 }}</div>
+        <div class="label">HKI</div>
+        <div class="sublabel">Hak Kekayaan Intelektual</div>
+        <div class="icon-bg"><span class="ti ti-shield-check"></span></div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<!-- Profil & BKD -->
+<!-- Profil & BKD -->
+<div class="row g-3" style="align-items: stretch;">
+  <div class="col-md-6" style="display:flex; flex-direction:column;">
+    <div class="profil-card p-3" style="flex:1;">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <h6 style="color:white !important; margin:0; font-weight:600">Profil Saya</h6>
+        <a href="{% url 'profil:index' %}" class="btn btn-sm btn-outline-light">
+          <span class="ti ti-edit"></span>
+        </a>
+      </div>
+      <div class="d-flex align-items-center gap-3 mb-3">
+        {% if profil and profil.foto %}
+        <img src="{{ profil.foto.url }}" class="avatar" alt="Foto">
+        {% else %}
+        <div class="avatar-placeholder">
+          <span class="ti ti-user"></span>
+        </div>
+        {% endif %}
+        <div>
+          <div style="color:#ffffff !important; font-weight:600; font-size:16px">
+            {{ request.user.get_full_name|default:request.user.username }}
+          </div>
+          <div style="color:rgba(255,255,255,0.7) !important; font-size:12px">
+            {{ nama_prodi|default:request.user.kode_prodi|default:"Prodi belum diset" }}
+          </div>
+          <div style="color:rgba(255,255,255,0.7) !important; font-size:12px">
+            Universitas Ichsan Gorontalo
+          </div>
+          <span style="background:#4ade80; color:#1a1a1a; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; margin-top:4px; display:inline-block">
+            {{ request.user.status_kepegawaian|default:"Aktif" }}
+          </span>
+        </div>
+      </div>
+      <div class="row g-0 text-center">
+        <div class="col stat-item py-2">
+          <div style="color:#ffffff !important; font-weight:700; font-size:18px">
+            {{ request.user.nidn|default:"-" }}
+          </div>
+          <div style="color:rgba(255,255,255,0.6) !important; font-size:10px">NIDN</div>
+        </div>
+        <div class="col stat-item py-2">
+          <div style="color:#60a5fa !important; font-weight:700; font-size:20px">
+            {% if profil and profil.pendidikan_terakhir %}
+              {{ profil.pendidikan_terakhir }}
+            {% else %}-{% endif %}
+          </div>
+          <div style="color:rgba(255,255,255,0.6) !important; font-size:10px">Pendidikan</div>
+        </div>
+        <div class="col py-2">
+          <div style="color:#60a5fa !important; font-weight:700; font-size:14px">
+            {% if profil and profil.jabfung_aktif %}
+              {{ profil.jabfung_aktif }}
+            {% else %}-{% endif %}
+          </div>
+          <div style="color:rgba(255,255,255,0.6) !important; font-size:10px">Jabfung</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6" style="display:flex; flex-direction:column;">
+    <div class="card border-0 shadow-sm" style="flex:1;">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold">BKD Terupload</h6>
+        <a href="{% url 'kinerja:index' %}#tab-bkd" class="btn btn-sm btn-outline-primary">Kelola</a>
+      </div>
+      <div class="card-body p-0">
+        {% if bkd_list %}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Semester</th>
+                <th>Tahun</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in bkd_list %}
+              <tr>
+                <td><span class="badge bg-orange-lt text-orange">{{ b.semester }}</span></td>
+                <td>{{ b.tahun_akademik }}</td>
+                <td>
+                  {% if b.file_bkd or b.link_bkd %}
+                  <span class="badge bg-success-lt text-success">Terupload</span>
+                  {% else %}
+                  <span class="badge bg-danger-lt text-danger">Belum</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+          <span class="ti ti-file-description" style="font-size:40px; opacity:0.3"></span>
+          <div class="mt-2 small">Belum ada BKD terupload</div>
+          <a href="{% url 'kinerja:index' %}#tab-bkd" class="btn btn-sm btn-primary mt-2">
+            <span class="ti ti-upload me-1"></span>Upload BKD
+          </a>
         </div>
         {% endif %}
       </div>
     </div>
   </div>
+</div>
 
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">Penelitian</div>
-        <div class="fw-bold" style="font-size:28px">{{ total_penelitian|default:0 }}</div>
-      </div>
-    </div>
-  </div>
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">Publikasi</div>
-        <div class="fw-bold" style="font-size:28px">{{ total_publikasi|default:0 }}</div>
-      </div>
-    </div>
-  </div>
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">PKM</div>
-        <div class="fw-bold" style="font-size:28px">{{ total_pkm|default:0 }}</div>
-      </div>
-    </div>
-  </div>
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">BKD Terupload</div>
-        <div class="fw-bold" style="font-size:28px">{{ total_bkd|default:0 }}</div>
-      </div>
-    </div>
-  </div>
+{% else %}
+<!-- Dashboard Admin/Rektorat/Dekan -->
+<style>
+  .stat-card-admin {
+    border-radius: 12px;
+    padding: 20px 24px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    text-decoration: none;
+    display: block;
+  }
+  .stat-card-admin .num { font-size: 36px; font-weight: 700; line-height: 1; }
+  .stat-card-admin .lbl { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+  .stat-card-admin .icon-bg {
+    position: absolute; right: 15px; top: 50%;
+    transform: translateY(-50%); font-size: 52px; opacity: 0.2;
+  }
+</style>
 
-  <div class="col-12">
-    <div class="row g-3">
-      <div class="col-md-4">
-        <a href="{% url 'profil:index' %}" class="card border-0 shadow-sm text-decoration-none">
-          <div class="card-body d-flex align-items-center gap-3">
-            <div class="bg-primary-subtle rounded p-3">
-              <span class="ti ti-user fs-3 text-primary"></span>
-            </div>
-            <div>
-              <div class="fw-semibold">Profil Dosen</div>
-              <div class="text-muted" style="font-size:12px">Lengkapi data profil</div>
-            </div>
-          </div>
-        </a>
+<!-- Welcome -->
+<div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #1e3a5f, #2d6a9f); border-radius:12px">
+  <div class="card-body py-3 px-4">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h3 style="color:white !important; margin:0; font-weight:700">
+          Selamat Datang, {{ request.user.get_full_name|default:request.user.username }}!
+        </h3>
+        <p style="color:rgba(255,255,255,0.75) !important; margin:0; font-size:13px">
+          Sistem Informasi Kinerja Dosen — Universitas Ichsan Gorontalo
+        </p>
       </div>
-      <div class="col-md-4">
-        <a href="{% url 'kinerja:index' %}" class="card border-0 shadow-sm text-decoration-none">
-          <div class="card-body d-flex align-items-center gap-3">
-            <div class="bg-success-subtle rounded p-3">
-              <span class="ti ti-chart-bar fs-3 text-success"></span>
-            </div>
-            <div>
-              <div class="fw-semibold">Data Kinerja</div>
-              <div class="text-muted" style="font-size:12px">Input penelitian & publikasi</div>
-            </div>
-          </div>
-        </a>
+      <div class="text-end d-none d-md-block">
+        <div style="color:rgba(255,255,255,0.6); font-size:12px">{% now "l, j F Y" %}</div>
+        <div style="color:white; font-weight:600">
+          {% if request.user.role == 'admin' %}Administrator
+          {% elif request.user.role == 'rektorat' %}Rektorat
+          {% elif request.user.role == 'dekan' %}Dekan
+          {% elif request.user.role == 'kaprodi' %}Kepala Prodi
+          {% else %}{{ request.user.role }}{% endif %}
+        </div>
       </div>
     </div>
   </div>
+</div>
 
-  {% else %}
-  <!-- Dashboard Admin/Kaprodi/Dekan/Rektorat -->
-  <div class="col-12">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body">
-        <h3 class="mb-0">Selamat datang, {{ request.user.get_full_name|default:request.user.username }}!</h3>
-        <p class="text-muted mb-0">Sistem Informasi Kinerja Dosen — Universitas Ichsan Gorontalo</p>
-      </div>
-    </div>
-  </div>
-
+<!-- Stat Cards -->
+<div class="row g-3 mb-4">
   {% if total_fakultas %}
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">Fakultas</div>
-        <div class="fw-bold text-primary" style="font-size:28px">{{ total_fakultas }}</div>
-      </div>
-    </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'master:index' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#1e3a5f,#2d6a9f)">
+      <div class="num">{{ total_fakultas }}</div>
+      <div class="lbl">Fakultas</div>
+      <div class="icon-bg"><span class="ti ti-building"></span></div>
+    </a>
   </div>
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">Program Studi</div>
-        <div class="fw-bold text-primary" style="font-size:28px">{{ total_prodi }}</div>
-      </div>
-    </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'master:index' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#0097a7,#00bcd4)">
+      <div class="num">{{ total_prodi }}</div>
+      <div class="lbl">Program Studi</div>
+      <div class="icon-bg"><span class="ti ti-school"></span></div>
+    </a>
   </div>
   {% endif %}
+  <div class="col-6 col-md-3">
+    <a href="{% url 'dashboard:rekap' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#388e3c,#4caf50)">
+      <div class="num">{{ total_dosen|default:0 }}</div>
+      <div class="lbl">Total Dosen</div>
+      <div class="icon-bg"><span class="ti ti-users"></span></div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'kinerja:index' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#e91e63,#c2185b)">
+      <div class="num">{{ total_penelitian|default:0 }}</div>
+      <div class="lbl">Penelitian</div>
+      <div class="icon-bg"><span class="ti ti-microscope"></span></div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'kinerja:index' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#7b1fa2,#9c27b0)">
+      <div class="num">{{ total_publikasi|default:0 }}</div>
+      <div class="lbl">Publikasi</div>
+      <div class="icon-bg"><span class="ti ti-book"></span></div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'kinerja:index' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#f57c00,#ff9800)">
+      <div class="num">{{ total_pkm|default:0 }}</div>
+      <div class="lbl">PKM</div>
+      <div class="icon-bg"><span class="ti ti-hearts"></span></div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{% url 'kinerja:index' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#00796b,#009688)">
+      <div class="num">{{ total_hki|default:0 }}</div>
+      <div class="lbl">HKI</div>
+      <div class="icon-bg"><span class="ti ti-shield-check"></span></div>
+    </a>
+  </div>
+</div>
 
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">Total Dosen</div>
-        <div class="fw-bold text-primary" style="font-size:28px">{{ total_dosen|default:0 }}</div>
+<!-- Grafik -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold">Jumlah Dosen per Fakultas</h6>
       </div>
-    </div>
-  </div>
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">Penelitian</div>
-        <div class="fw-bold text-success" style="font-size:28px">{{ total_penelitian|default:0 }}</div>
-      </div>
-    </div>
-  </div>
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">Publikasi</div>
-        <div class="fw-bold text-info" style="font-size:28px">{{ total_publikasi|default:0 }}</div>
+      <div class="card-body d-flex align-items-center justify-content-center" style="height:300px">
+        <canvas id="chartFakultas"></canvas>
       </div>
     </div>
   </div>
 
-  {% if total_pkm is not None %}
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">PKM</div>
-        <div class="fw-bold text-warning" style="font-size:28px">{{ total_pkm|default:0 }}</div>
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold">Dosen per Pendidikan Terakhir</h6>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center" style="height:300px">
+        <canvas id="chartPendidikan"></canvas>
       </div>
     </div>
   </div>
-  <div class="col-sm-6 col-lg-3">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body text-center">
-        <div class="text-muted mb-1" style="font-size:13px">HKI</div>
-        <div class="fw-bold text-danger" style="font-size:28px">{{ total_hki|default:0 }}</div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
 
-  {% if dosen_list %}
-  <div class="col-12">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <h4 class="card-title mb-0">Daftar Dosen</h4>
-        <a href="{% url 'dashboard:rekap' %}" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold">Dosen per Jabatan Fungsional</h6>
       </div>
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>Nama</th>
-              <th>NIDN</th>
-              <th>Prodi</th>
-              <th>Jabfung</th>
-              <th>Pend.</th>
-            </tr>
-          </thead>
-            <tbody>
-            {% for d in dosen_list %}
-            <tr>
-                <td>{{ d.get_full_name|default:d.username }}</td>
-                <td><code>{{ d.nidn|default:"-" }}</code></td>
-                <td><span class="badge bg-blue-lt">{{ d.kode_prodi|default:"-" }}</span></td>
-                <td>{{ d.kode_fakultas|default:"-" }}</td>
-                <td>
-                <a href="#" class="btn btn-xs btn-outline-primary">Detail</a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="5" class="text-center text-muted py-3">
-                Belum ada data dosen
-                </td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+      <div class="card-body d-flex align-items-center justify-content-center" style="height:300px">
+        <canvas id="chartJabfung"></canvas>
       </div>
     </div>
   </div>
-  {% endif %}
+
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold">Status Kepegawaian Dosen</h6>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center" style="height:300px">
+        <canvas id="chartStatus"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- Grafik Pendidikan Terakhir -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold">Dosen per Pendidikan Terakhir</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="chartPendidikan" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grafik Jabfung -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold">Dosen per Jabatan Fungsional</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="chartJabfung" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grafik Status Kepegawaian -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold">Status Kepegawaian Dosen</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="chartStatus" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Daftar Dosen -->
+{% if dosen_list %}
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">Daftar Dosen Terbaru</h6>
+    <a href="{% url 'dashboard:rekap' %}" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Nama</th>
+          <th>NIDN</th>
+          <th>Prodi</th>
+          <th>Jabfung</th>
+          <th>Pend.</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in dosen_list %}
+        <tr>
+          <td><strong>{{ d.get_full_name|default:d.username }}</strong></td>
+          <td><code>{{ d.nidn|default:"-" }}</code></td>
+          <td><span class="badge bg-teal-lt text-teal">{{ d.kode_prodi|default:"-" }}</span></td>
+          <td>{{ d.kode_fakultas|default:"-" }}</td>
+          <td>-</td>
+          <td>
+            <a href="{% url 'profil:index' %}?dosen_id={{ d.id }}" class="btn btn-xs btn-outline-primary">
+              <span class="ti ti-user"></span> Detail
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-3">Belum ada data dosen</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 
   {% endif %}
 </div>
+
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if grafik_fakultas_labels %}
+new Chart(document.getElementById('chartFakultas'), {
+  type: 'bar',
+  data: {
+    labels: {{ grafik_fakultas_labels|safe }},
+    datasets: [{
+      label: 'Jumlah Dosen',
+      data: {{ grafik_fakultas_data|safe }},
+      backgroundColor: [
+        '#1e3a5f','#2d6a9f','#0097a7','#00796b',
+        '#388e3c','#f57c00','#7b1fa2'
+      ],
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  }
+});
+
+new Chart(document.getElementById('chartPendidikan'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ grafik_pend_labels|safe }},
+    datasets: [{
+      data: {{ grafik_pend_data|safe }},
+      backgroundColor: ['#2196f3','#4caf50','#e91e63'],
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+
+new Chart(document.getElementById('chartJabfung'), {
+  type: 'bar',
+  data: {
+    labels: {{ grafik_jabfung_labels|safe }},
+    datasets: [{
+      label: 'Jumlah Dosen',
+      data: {{ grafik_jabfung_data|safe }},
+      backgroundColor: ['#607d8b','#2196f3','#4caf50','#ff9800','#9c27b0'],
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  }
+});
+
+new Chart(document.getElementById('chartStatus'), {
+  type: 'pie',
+  data: {
+    labels: {{ grafik_status_labels|safe }},
+    datasets: [{
+      data: {{ grafik_status_data|safe }},
+      backgroundColor: ['#4caf50','#2196f3','#9c27b0','#ff9800','#f44336'],
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+{% endif %}
+</script>
 {% endblock %}
+{% endblock %}
+
+

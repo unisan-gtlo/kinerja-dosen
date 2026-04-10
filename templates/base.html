@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="id">
 <head>
   <meta charset="UTF-8">
@@ -7,13 +8,12 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <style>
-  
     /* Sidebar */
     .navbar-vertical { background-color: #1e3a5f !important; }
+    .navbar-vertical .navbar-brand { color: #fff !important; }
     .navbar-vertical .nav-link { color: rgba(255,255,255,0.75) !important; }
     .navbar-vertical .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.1) !important; border-radius: 6px; }
     .navbar-vertical .nav-link.active { color: #fff !important; background: rgba(255,255,255,0.2) !important; border-radius: 6px; }
-    .navbar-vertical .navbar-brand { color: #fff !important; }
     .nav-section { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4) !important; padding: 12px 16px 4px; display: block; }
     .user-info { background: rgba(255,255,255,0.1) !important; border-radius: 8px; padding: 10px 14px; margin: 8px; border: 1px solid rgba(255,255,255,0.15); }
     .user-name { color: #ffffff !important; font-size: 13px; font-weight: 600; }
@@ -27,58 +27,118 @@
     .nav-tabs .nav-link .badge { background-color: #dbeafe !important; color: #1e3a5f !important; }
 
     /* Tombol */
-  /* Paksa semua tombol teks putih */
-    .btn.btn-primary,
-    .btn.btn-primary span,
-    .btn.btn-primary .ti,
-    a.btn.btn-primary {
-        color: #ffffff !important;
+    .btn-primary, .btn-primary * { color: #ffffff !important; }
+    .btn-primary:hover { color: #ffffff !important; }
+    .btn-success, .btn-success * { color: #ffffff !important; }
+    .btn-danger, .btn-danger * { color: #ffffff !important; }
+    .btn-info, .btn-info * { color: #ffffff !important; }
+    .btn-warning, .btn-warning * { color: #ffffff !important; }
+    .btn-secondary, .btn-secondary * { color: #ffffff !important; }
+    /* Fix tombol logout */
+    .btn-outline-light:hover {
+      background-color: rgba(255,255,255,0.15) !important;
+      border-color: rgba(255,255,255,0.5) !important;
+      color: #ffffff !important;
     }
-    .btn.btn-success,
-    .btn.btn-success span,
-    .btn.btn-success .ti {
-        color: #ffffff !important;
+    .btn-outline-light:hover .ti {
+      color: #ffffff !important;
     }
-    .btn.btn-danger,
-    .btn.btn-danger span,
-    .btn.btn-danger .ti {
-        color: #ffffff !important;
-    }
-    .btn.btn-info,
-    .btn.btn-info span,
-    .btn.btn-info .ti {
-        color: #ffffff !important;
-    }
-    .btn.btn-warning,
-    .btn.btn-warning span {
-        color: #ffffff !important;
-    }
-    /* Form dan konten */
+    /* Konten */
     .page-body { color: #333 !important; }
     .tab-content label { color: #333 !important; }
     .tab-content .form-label { color: #333 !important; }
     .card-body label { color: #333 !important; }
+    .card-body .form-label { color: #333 !important; }
     h1, h2, h3, h4, h5, h6 { color: #1e3a5f !important; }
     .page-title { color: #1e3a5f !important; }
-    /* Tombol semua putih */
-    .btn-primary { color: #ffffff !important; }
-    .btn-primary:hover { color: #ffffff !important; }
-    .btn-success { color: #ffffff !important; }
-    .btn-success:hover { color: #ffffff !important; }
-    .btn-danger { color: #ffffff !important; }
-    .btn-danger:hover { color: #ffffff !important; }
-    .btn-info { color: #ffffff !important; }
-    .btn-warning { color: #ffffff !important; }
-    .btn-secondary { color: #ffffff !important; }
-    .btn span { color: inherit !important; }
-</style>
-  
+    table td, table th { color: #333 !important; }
+    .text-muted { color: #666 !important; }
+    .modal-body label { color: #333 !important; }
+    .modal-body .form-label { color: #333 !important; }
+    /* Fix semua tombol di seluruh halaman */
+      button.btn-primary,
+      a.btn-primary,
+      input.btn-primary,
+      button.btn-success,
+      a.btn-success,
+      button.btn-danger,
+      a.btn-danger,
+      button.btn-secondary,
+      a.btn-secondary,
+      button.btn-info,
+      a.btn-info,
+      .modal .btn-primary,
+      .modal .btn-secondary,
+      .card .btn-primary,
+      .card .btn-success,
+      .tab-content .btn-primary,
+      .tab-content .btn-success {
+          color: #ffffff !important;
+      }
+
+      .btn-outline-light {
+          color: #ffffff !important;
+          border-color: rgba(255,255,255,0.5) !important;
+      }
+
+      .btn-outline-danger {
+          color: #dc3545 !important;
+      }
+      .btn-outline-danger:hover {
+          color: #ffffff !important;
+      }
+      .btn-outline-primary {
+          color: #1976d2 !important;
+      }
+      .btn-outline-primary:hover {
+          color: #ffffff !important;
+      }
+      .btn-outline-success {
+          color: #2e7d32 !important;
+      }
+      .btn-outline-success:hover {
+          color: #ffffff !important;
+      }
+      .btn-outline-info {
+          color: #0dcaf0 !important;
+      }
+      .btn-outline-secondary {
+          color: #6c757d !important;
+      }
+      .btn-outline-secondary:hover {
+          color: #ffffff !important;
+      }
+      /* Fix icon di dalam tombol */
+      .btn-primary .ti,
+      .btn-success .ti,
+      .btn-danger .ti,
+      .btn-secondary .ti,
+      .btn-info .ti,
+      .btn-warning .ti,
+      button.btn-primary i,
+      button.btn-success i,
+      button.btn-danger i { 
+          color: #ffffff !important; 
+      }
+
+      .btn-outline-primary .ti { color: #1976d2 !important; }
+      .btn-outline-primary:hover .ti { color: #ffffff !important; }
+      .btn-outline-danger .ti { color: #dc3545 !important; }
+      .btn-outline-danger:hover .ti { color: #ffffff !important; }
+      .btn-outline-success .ti { color: #2e7d32 !important; }
+      .btn-outline-success:hover .ti { color: #ffffff !important; }
+      .btn-outline-secondary .ti { color: #6c757d !important; }
+      .btn-outline-secondary:hover .ti { color: #ffffff !important; }
+      .btn-outline-info .ti { color: #0dcaf0 !important; }
+      .btn-outline-light .ti { color: #ffffff !important; }
+  </style>
   {% block extra_css %}{% endblock %}
 </head>
 <body class="antialiased">
 <div class="wrapper">
 
   {% if user.is_authenticated %}
+  <!-- Sidebar -->
   <aside class="navbar navbar-vertical navbar-expand-lg navbar-dark" style="background-color: #1e3a5f;">
     <div class="container-fluid">
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu">
@@ -92,40 +152,41 @@
         <ul class="navbar-nav pt-2">
 
           <!-- Info User -->
-            <li class="nav-item mb-2">
-                <div class="user-info">
-                    <div class="user-name">
-                        {{ user.get_full_name|default:user.username }}
-                    </div>
-                    <div class="user-role">
-                        {% if user.role == 'admin' %}Administrator
-                        {% elif user.role == 'rektorat' %}Rektorat
-                        {% elif user.role == 'biro' %}Biro/Lembaga
-                        {% elif user.role == 'dekan' %}Dekan
-                        {% elif user.role == 'wadek' %}Wakil Dekan
-                        {% elif user.role == 'kaprodi' %}Kepala Prodi
-                        {% elif user.role == 'sekprodi' %}Sekretaris Prodi
-                        {% elif user.role == 'operator' %}Operator
-                        {% else %}Dosen{% endif %}
-                    </div>
-                    {% if user.kode_prodi %}
-                    <div class="user-prodi">{{ user.kode_prodi }}</div>
-                    {% endif %}
-                </div>
-            </li>
-          <!-- Menu Utama -->
+          <li class="nav-item mb-2">
+            <div class="user-info">
+              <div class="user-name">
+                {{ user.get_full_name|default:user.username }}
+              </div>
+              <div class="user-role">
+                {% if user.role == 'admin' %}Administrator
+                {% elif user.role == 'rektorat' %}Rektorat
+                {% elif user.role == 'biro' %}Biro/Lembaga
+                {% elif user.role == 'dekan' %}Dekan
+                {% elif user.role == 'wadek' %}Wakil Dekan
+                {% elif user.role == 'kaprodi' %}Kepala Prodi
+                {% elif user.role == 'sekprodi' %}Sekretaris Prodi
+                {% elif user.role == 'operator' %}Operator
+                {% else %}Dosen{% endif %}
+              </div>
+              {% if user.kode_prodi %}
+              <div class="user-prodi">{{ user.kode_prodi }}</div>
+              {% endif %}
+            </div>
+          </li>
+
+          <!-- Dashboard -->
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}"
+            <a class="nav-link {% if request.resolver_match.url_name == 'index' and request.resolver_match.app_name == 'dashboard' %}active{% endif %}"
                href="{% url 'dashboard:index' %}">
               <span class="nav-link-icon"><span class="ti ti-dashboard"></span></span>
               <span class="nav-link-title">Dashboard</span>
             </a>
           </li>
 
-          <!-- Menu Dosen & Operator -->
-          {% if user.role == 'dosen' or user.role == 'operator' %}
+          <!-- Data Dosen — dosen, operator, admin -->
+          {% if user.role == 'dosen' or user.role == 'operator' or user.role == 'admin' %}
           <li class="nav-item">
-            <div class="nav-section">Data Saya</div>
+            <div class="nav-section">Data Dosen</div>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'profil' %}active{% endif %}"
@@ -143,32 +204,34 @@
           </li>
           {% endif %}
 
-          <!-- Menu Manajemen — semua role kecuali dosen -->
+          <!-- Manajemen — semua kecuali dosen -->
           {% if user.role != 'dosen' %}
           <li class="nav-item">
             <div class="nav-section">Manajemen</div>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="{% url 'dashboard:rekap' %}">
+            <a class="nav-link {% if request.resolver_match.url_name == 'rekap' %}active{% endif %}"
+               href="{% url 'dashboard:rekap' %}">
               <span class="nav-link-icon"><span class="ti ti-report"></span></span>
               <span class="nav-link-title">Rekap Data</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="{% url 'laporan:index' %}">
+            <a class="nav-link {% if request.resolver_match.app_name == 'laporan' %}active{% endif %}"
+               href="{% url 'laporan:index' %}">
               <span class="nav-link-icon"><span class="ti ti-file-export"></span></span>
               <span class="nav-link-title">Export Laporan</span>
             </a>
           </li>
           {% endif %}
 
-          <!-- Menu Admin -->
+          <!-- Administrasi — admin only -->
           {% if user.role == 'admin' %}
           <li class="nav-item">
             <div class="nav-section">Administrasi</div>
           </li>
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.app_name == 'accounts' %}active{% endif %}"
+            <a class="nav-link {% if request.resolver_match.url_name == 'kelola_user' %}active{% endif %}"
                href="{% url 'accounts:kelola_user' %}">
               <span class="nav-link-icon"><span class="ti ti-users"></span></span>
               <span class="nav-link-title">Kelola User</span>
@@ -181,16 +244,25 @@
               <span class="nav-link-title">Data Master</span>
             </a>
           </li>
+          
           {% endif %}
-
+           <!-- Ganti Password -->
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'ganti_password' %}active{% endif %}"
+              href="{% url 'accounts:ganti_password' %}">
+              <span class="nav-link-icon"><span class="ti ti-lock"></span></span>
+              <span class="nav-link-title">Ganti Password</span>
+            </a>
+          </li>
         </ul>
-
+       
         <!-- Logout -->
         <div class="mt-auto p-3">
           <a href="{% url 'accounts:logout' %}" class="btn btn-outline-light btn-sm w-100">
             <span class="ti ti-logout me-1"></span>Logout
           </a>
         </div>
+        
       </div>
     </div>
   </aside>

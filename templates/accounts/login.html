@@ -4,68 +4,207 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Login — SIKD Unichsan</title>
+  <title>Login — SIKD Universitas Ichsan Gorontalo</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <style>
-    body { background: linear-gradient(135deg, #1e3a5f 0%, #2d6a9f 100%); min-height: 100vh; }
-    .login-card { border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-    .login-logo { width: 80px; height: 80px; border-radius: 50%; border: 3px solid #2d6a9f; }
+    * { color: #333 !important; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1e3a5f 0%, #2d6a9f 50%, #1a5276 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+    }
+    .login-wrapper {
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+    }
+    .login-card {
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    .login-header {
+      background: linear-gradient(135deg, #1e3a5f, #2d6a9f);
+      padding: 35px 30px 30px;
+      text-align: center;
+    }
+    .logo-circle {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 4px solid rgba(255,255,255,0.4);
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+      overflow: hidden;
+      padding: 6px;
+    }
+    .logo-circle img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
+    }
+    .login-header h1 {
+      color: #ffffff !important;
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 4px;
+    }
+    .login-header p {
+      color: rgba(255,255,255,0.8) !important;
+      font-size: 12px;
+      margin: 0;
+    }
+    .login-body {
+      padding: 30px;
+    }
+    .form-label {
+      font-weight: 600;
+      font-size: 13px;
+      color: #444 !important;
+      margin-bottom: 6px;
+    }
+    .form-control {
+      border-radius: 10px;
+      border: 1.5px solid #e0e0e0;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: #333 !important;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus {
+      border-color: #2d6a9f;
+      box-shadow: 0 0 0 3px rgba(45,106,159,0.15);
+    }
+    .input-group .form-control { border-radius: 10px !important; }
+    .btn-login {
+      background: linear-gradient(135deg, #1e3a5f, #2d6a9f);
+      color: #ffffff !important;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      width: 100%;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      margin-top: 8px;
+    }
+    .btn-login:hover { opacity: 0.9; }
+    .btn-login .ti { color: #ffffff !important; }
+    .alert-danger {
+      background: #fff0f0;
+      border: 1px solid #ffcccc;
+      border-radius: 10px;
+      color: #c0392b !important;
+      font-size: 13px;
+      padding: 10px 14px;
+    }
+    .footer-text {
+      text-align: center;
+      color: rgba(255,255,255,0.6) !important;
+      font-size: 12px;
+      margin-top: 20px;
+    }
+    .input-icon {
+      position: relative;
+    }
+    .input-icon .ti {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #999 !important;
+      font-size: 18px;
+      z-index: 10;
+    }
+    .input-icon .form-control {
+      padding-left: 40px;
+    }
   </style>
 </head>
-<body class="d-flex align-items-center justify-content-center">
-<div class="container">
-  <div class="row justify-content-center">
-    <div class="col-md-5 col-lg-4">
-      <div class="card login-card">
-        <div class="card-body p-4">
-          <div class="text-center mb-4">
-            {% if logo_exists %}
-            <img src="{% static 'img/logo.png' %}" class="login-logo mb-3" alt="Logo">
-            {% else %}
-            <div class="mb-3" style="font-size:48px">🏛️</div>
-            {% endif %}
-            <h2 class="fw-bold text-dark mb-1">SIKD</h2>
-            <p class="text-muted mb-0" style="font-size:13px">Sistem Informasi Kinerja Dosen</p>
-            <p class="text-muted" style="font-size:12px">Universitas Ichsan Gorontalo</p>
-          </div>
+<body>
+<div class="login-wrapper">
+  <div class="login-card">
 
-          {% if form.errors %}
-          <div class="alert alert-danger alert-sm">
-            <span class="ti ti-alert-circle me-1"></span>
-            Username atau password salah.
-          </div>
-          {% endif %}
+    <!-- Header dengan Logo -->
+    <div class="login-header">
+      <div class="logo-circle">
+        <img src="{% static 'img/logo.png' %}" alt="Logo Unichsan"
+             onerror="this.parentElement.innerHTML='<span style=\'font-size:48px\'>🏛️</span>'">
+      </div>
+      <h1>SIKD</h1>
+      <p>Sistem Informasi Kinerja Dosen</p>
+      <p style="color:rgba(255,255,255,0.65) !important; font-size:11px; margin-top:2px">
+        Universitas Ichsan Gorontalo
+      </p>
+    </div>
 
-          <form method="post">
-            {% csrf_token %}
-            <div class="mb-3">
-              <label class="form-label fw-semibold">Username</label>
-              <input type="text" name="username" class="form-control form-control-lg"
-                     placeholder="Masukkan username" autofocus required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label fw-semibold">Password</label>
-              <input type="password" name="password" class="form-control form-control-lg"
-                     placeholder="Masukkan password" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-check">
-                <input type="checkbox" class="form-check-input">
-                <span class="form-check-label text-muted">Ingat saya</span>
-              </label>
-            </div>
-            <button type="submit" class="btn btn-primary btn-lg w-100">
-              <span class="ti ti-login me-1"></span>Masuk
-            </button>
-          </form>
+    <!-- Form Login -->
+    <div class="login-body">
+      {% if messages %}
+        {% for message in messages %}
+        <div class="alert-danger mb-3">
+          <span class="ti ti-alert-circle me-1"></span>{{ message }}
         </div>
+        {% endfor %}
+      {% endif %}
+
+      {% if form.errors %}
+      <div class="alert-danger mb-3">
+        <span class="ti ti-alert-circle me-1"></span>Username atau password salah.
       </div>
-      <div class="text-center mt-3 text-white" style="font-size:12px; opacity:0.7">
-        © 2025 Universitas Ichsan Gorontalo
-      </div>
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label class="form-label">Username</label>
+          <div class="input-icon">
+            <span class="ti ti-user"></span>
+            <input type="text" name="username" class="form-control"
+                   placeholder="Masukkan username" autofocus required>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          <div class="input-icon">
+            <span class="ti ti-lock"></span>
+            <input type="password" name="password" class="form-control"
+                   placeholder="Masukkan password" required>
+          </div>
+        </div>
+
+        <div class="mb-3 d-flex justify-content-between align-items-center">
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="checkbox" style="width:16px; height:16px; accent-color:#1e3a5f">
+            <span style="font-size:13px; color:#666 !important">Ingat saya</span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn-login">
+          <span class="ti ti-login me-2"></span>Masuk
+        </button>
+      </form>
     </div>
   </div>
+
+  <div class="footer-text">
+    © 2025 Universitas Ichsan Gorontalo &middot; SIKD v1.0
+  </div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/js/tabler.min.js"></script>
 </body>
 </html>

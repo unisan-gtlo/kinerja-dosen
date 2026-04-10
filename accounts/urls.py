@@ -10,4 +10,7 @@ urlpatterns = [
     path('tambah-user/', views.tambah_user, name='tambah_user'),
     path('edit-user/<int:user_id>/', views.edit_user, name='edit_user'),
     path('hapus-user/<int:user_id>/', views.hapus_user, name='hapus_user'),
+    path('import-user/', views.import_user, name='import_user'),
+    path('download-template/', views.download_template, name='download_template'),
+    path('ganti-password/', views.ganti_password, name='ganti_password'),
 ]

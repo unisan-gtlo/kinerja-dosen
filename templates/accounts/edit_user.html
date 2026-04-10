@@ -35,46 +35,49 @@
           <label class="form-label fw-semibold">No. HP</label>
           <input type="text" name="no_hp" class="form-control" value="{{ target_user.no_hp|default:'' }}">
         </div>
+
         <div class="col-md-4">
           <label class="form-label fw-semibold">Role</label>
           <select name="role" class="form-select">
-            {% for val, label in target_user.role.field.choices %}
-            <option value="{{ val }}" {% if target_user.role == val %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
+            <option value="dosen" {% if target_user.role == 'dosen' %}selected{% endif %}>Dosen</option>
+            <option value="operator" {% if target_user.role == 'operator' %}selected{% endif %}>Operator</option>
+            <option value="kaprodi" {% if target_user.role == 'kaprodi' %}selected{% endif %}>Kaprodi</option>
+            <option value="sekprodi" {% if target_user.role == 'sekprodi' %}selected{% endif %}>Sekprodi</option>
+            <option value="dekan" {% if target_user.role == 'dekan' %}selected{% endif %}>Dekan</option>
+            <option value="wadek" {% if target_user.role == 'wadek' %}selected{% endif %}>Wakil Dekan</option>
+            <option value="biro" {% if target_user.role == 'biro' %}selected{% endif %}>Biro/Lembaga</option>
+            <option value="rektorat" {% if target_user.role == 'rektorat' %}selected{% endif %}>Rektorat</option>
+            <option value="admin" {% if target_user.role == 'admin' %}selected{% endif %}>Administrator</option>
           </select>
         </div>
-        <div class="col-md-4">
-            <label class="form-label fw-semibold">Status Kepegawaian</label>
-            <select name="status_kepegawaian" class="form-select">
-                <option value="Aktif" {% if target_user.status_kepegawaian == 'Aktif' %}selected{% endif %}>Aktif</option>
-                <option value="Tugas Belajar" {% if target_user.status_kepegawaian == 'Tugas Belajar' %}selected{% endif %}>Tugas Belajar</option>
-                <option value="Lanjut Studi" {% if target_user.status_kepegawaian == 'Lanjut Studi' %}selected{% endif %}>Lanjut Studi</option>
-                <option value="Keluar" {% if target_user.status_kepegawaian == 'Keluar' %}selected{% endif %}>Keluar</option>
-                <option value="Meninggal" {% if target_user.status_kepegawaian == 'Meninggal' %}selected{% endif %}>Meninggal</option>
-            </select>
-            </div>
+
         <div class="col-md-4">
           <label class="form-label fw-semibold">Fakultas</label>
-          <select name="kode_fakultas" class="form-select">
-            <option value="">-- Pilih --</option>
+          <select name="kode_fakultas" id="edit_fakultas" class="form-select" onchange="filterProdiEdit(this.value)">
+            <option value="">-- Pilih Fakultas --</option>
             {% for f in fakultas_list %}
-            <option value="{{ f.kode_fakultas }}" {% if target_user.kode_fakultas == f.kode_fakultas %}selected{% endif %}>
-              {{ f.kode_fakultas }} - {{ f.nama_fakultas }}
+            <option value="{{ f.kode_fakultas }}"
+              {% if target_user.kode_fakultas == f.kode_fakultas %}selected{% endif %}>
+              {{ f.nama_fakultas }}
             </option>
             {% endfor %}
           </select>
         </div>
+
         <div class="col-md-4">
-          <label class="form-label fw-semibold">Prodi</label>
-          <select name="kode_prodi" class="form-select">
-            <option value="">-- Pilih --</option>
+          <label class="form-label fw-semibold">Program Studi</label>
+          <select name="kode_prodi" id="edit_prodi" class="form-select">
+            <option value="">-- Pilih Prodi --</option>
             {% for p in prodi_list %}
-            <option value="{{ p.kode_prodi }}" {% if target_user.kode_prodi == p.kode_prodi %}selected{% endif %}>
+            <option value="{{ p.kode_prodi }}"
+              data-fakultas="{{ p.fakultas.kode_fakultas }}"
+              {% if target_user.kode_prodi == p.kode_prodi %}selected{% endif %}>
               {{ p.kode_prodi }} - {{ p.nama_prodi }}
             </option>
             {% endfor %}
           </select>
         </div>
+
         <div class="col-md-4">
           <label class="form-label fw-semibold">Status Akun</label>
           <select name="status_akun" class="form-select">
@@ -82,11 +85,27 @@
             <option value="nonaktif" {% if target_user.status_akun == 'nonaktif' %}selected{% endif %}>Nonaktif</option>
           </select>
         </div>
-        <div class="col-md-8">
-          <label class="form-label fw-semibold">Password Baru <small class="text-muted">(kosongkan jika tidak diubah)</small></label>
-          <input type="password" name="password_baru" class="form-control" placeholder="Isi jika ingin ganti password">
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Status Kepegawaian</label>
+          <select name="status_kepegawaian" class="form-select">
+            <option value="Aktif" {% if target_user.status_kepegawaian == 'Aktif' %}selected{% endif %}>Aktif</option>
+            <option value="Tugas Belajar" {% if target_user.status_kepegawaian == 'Tugas Belajar' %}selected{% endif %}>Tugas Belajar</option>
+            <option value="Lanjut Studi" {% if target_user.status_kepegawaian == 'Lanjut Studi' %}selected{% endif %}>Lanjut Studi</option>
+            <option value="Keluar" {% if target_user.status_kepegawaian == 'Keluar' %}selected{% endif %}>Keluar</option>
+            <option value="Meninggal" {% if target_user.status_kepegawaian == 'Meninggal' %}selected{% endif %}>Meninggal</option>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Password Baru
+            <small class="text-muted fw-normal">(kosongkan jika tidak diubah)</small>
+          </label>
+          <input type="password" name="password_baru" class="form-control"
+                 placeholder="Isi jika ingin ganti password">
         </div>
       </div>
+
       <div class="mt-4 d-flex gap-2">
         <button type="submit" class="btn btn-primary">
           <span class="ti ti-check me-1"></span>Simpan Perubahan
@@ -96,4 +115,49 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterProdiEdit(kodeFakultas) {
+  const prodiSelect = document.getElementById('edit_prodi');
+  const currentVal = prodiSelect.value;
+  const options = prodiSelect.querySelectorAll('option');
+  
+  options.forEach(opt => {
+    if (!opt.value) {
+      opt.style.display = '';
+      return;
+    }
+    if (!kodeFakultas) {
+      opt.style.display = '';
+    } else {
+      opt.style.display = (opt.dataset.fakultas === kodeFakultas) ? '' : 'none';
+    }
+  });
+
+  // Pertahankan nilai yang sudah terpilih jika masih visible
+  if (currentVal) {
+    const selectedOpt = prodiSelect.querySelector(`option[value="${currentVal}"]`);
+    if (selectedOpt && selectedOpt.style.display !== 'none') {
+      prodiSelect.value = currentVal;
+    }
+  }
+}
+
+// Jalankan saat halaman load
+window.addEventListener('load', function() {
+  const fakVal = document.getElementById('edit_fakultas').value;
+  const prodiVal = '{{ target_user.kode_prodi|default:"" }}';
+  
+  if (fakVal) {
+    filterProdiEdit(fakVal);
+  }
+  
+  // Set nilai prodi yang sudah tersimpan
+  if (prodiVal) {
+    document.getElementById('edit_prodi').value = prodiVal;
+  }
+});
+</script>
 {% endblock %}

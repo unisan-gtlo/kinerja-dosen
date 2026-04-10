@@ -35,6 +35,7 @@
           <label class="form-label fw-semibold">No. HP</label>
           <input type="text" name="no_hp" class="form-control">
         </div>
+
         <div class="col-md-4">
           <label class="form-label fw-semibold">Role <span class="text-danger">*</span></label>
           <select name="role" class="form-select" required>
@@ -49,35 +50,43 @@
             <option value="admin">Administrator</option>
           </select>
         </div>
-        <div class="col-md-4">
-            <label class="form-label fw-semibold">Status Kepegawaian</label>
-            <select name="status_kepegawaian" class="form-select">
-                <option value="Aktif">Aktif</option>
-                <option value="Tugas Belajar">Tugas Belajar</option>
-                <option value="Lanjut Studi">Lanjut Studi</option>
-                <option value="Keluar">Keluar</option>
-                <option value="Meninggal">Meninggal</option>
-            </select>
-        </div>
+
         <div class="col-md-4">
           <label class="form-label fw-semibold">Fakultas</label>
-          <select name="kode_fakultas" class="form-select">
+          <select name="kode_fakultas" id="tambah_fakultas" class="form-select"
+                  onchange="filterProdiTambah(this.value)">
             <option value="">-- Pilih Fakultas --</option>
             {% for f in fakultas_list %}
-            <option value="{{ f.kode_fakultas }}">{{ f.kode_fakultas }} - {{ f.nama_fakultas }}</option>
+            <option value="{{ f.kode_fakultas }}">{{ f.nama_fakultas }}</option>
             {% endfor %}
           </select>
         </div>
+
         <div class="col-md-4">
-          <label class="form-label fw-semibold">Prodi</label>
-          <select name="kode_prodi" class="form-select">
+          <label class="form-label fw-semibold">Program Studi</label>
+          <select name="kode_prodi" id="tambah_prodi" class="form-select">
             <option value="">-- Pilih Prodi --</option>
             {% for p in prodi_list %}
-            <option value="{{ p.kode_prodi }}">{{ p.kode_prodi }} - {{ p.nama_prodi }}</option>
+            <option value="{{ p.kode_prodi }}"
+              data-fakultas="{{ p.fakultas.kode_fakultas }}">
+              {{ p.kode_prodi }} - {{ p.nama_prodi }}
+            </option>
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-6">
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Status Kepegawaian</label>
+          <select name="status_kepegawaian" class="form-select">
+            <option value="Aktif">Aktif</option>
+            <option value="Tugas Belajar">Tugas Belajar</option>
+            <option value="Lanjut Studi">Lanjut Studi</option>
+            <option value="Keluar">Keluar</option>
+            <option value="Meninggal">Meninggal</option>
+          </select>
+        </div>
+
+        <div class="col-md-4">
           <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
           <input type="password" name="password" class="form-control" required>
         </div>
@@ -92,4 +101,18 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterProdiTambah(kodeFakultas) {
+  const prodiSelect = document.getElementById('tambah_prodi');
+  const options = prodiSelect.querySelectorAll('option');
+  options.forEach(opt => {
+    if (!opt.value) return;
+    opt.style.display = (opt.dataset.fakultas === kodeFakultas || !kodeFakultas) ? '' : 'none';
+  });
+  prodiSelect.value = '';
+}
+</script>
 {% endblock %}

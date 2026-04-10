@@ -47,15 +47,21 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-3 d-flex gap-2">
-        <button type="submit" class="btn btn-primary">
-          <span class="ti ti-search me-1"></span>Filter
-        </button>
-        <a href="{% url 'accounts:kelola_user' %}" class="btn btn-outline-secondary">Reset</a>
-        <a href="{% url 'accounts:tambah_user' %}" class="btn btn-success ms-auto">
-          <span class="ti ti-plus me-1"></span>Tambah
-        </a>
-      </div>
+        <div class="col-md-3 d-flex gap-2 flex-wrap">
+          <button type="submit" class="btn btn-primary">
+            <span class="ti ti-search me-1"></span>Filter
+          </button>
+          <a href="{% url 'accounts:kelola_user' %}" class="btn btn-outline-secondary">Reset</a>
+          <a href="{% url 'accounts:tambah_user' %}" class="btn btn-success">
+            <span class="ti ti-plus me-1"></span>Tambah
+          </a>
+          <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#modalImport">
+            <span class="ti ti-file-import me-1"></span>Import Excel
+          </button>
+          <a href="{% url 'accounts:download_template' %}" class="btn btn-outline-primary">
+            <span class="ti ti-download me-1"></span>Template
+          </a>
+        </div>
     </form>
   </div>
 </div>
@@ -77,22 +83,9 @@
           <th>Fakultas</th>
           <th>Prodi</th>
           <th>Status Akun</th>
-            <td>
-              {% if u.status_kepegawaian == 'Aktif' %}
-              <span class="badge bg-success-lt text-success">Aktif</span>
-              {% elif u.status_kepegawaian == 'Tugas Belajar' %}
-              <span class="badge bg-blue-lt text-blue">Tugas Belajar</span>
-              {% elif u.status_kepegawaian == 'Lanjut Studi' %}
-              <span class="badge bg-purple-lt text-purple">Lanjut Studi</span>
-              {% elif u.status_kepegawaian == 'Keluar' %}
-              <span class="badge bg-orange-lt text-orange">Keluar</span>
-              {% elif u.status_kepegawaian == 'Meninggal' %}
-              <span class="badge bg-danger-lt text-danger">Meninggal</span>
-              {% else %}
-              <span class="badge bg-success-lt text-success">Aktif</span>
-              {% endif %}
-            </td>
+            
           <th>Status Kepegawaian</th>
+          
           <th>Aksi</th>
         </tr>
       </thead>
@@ -123,6 +116,19 @@
             {% endif %}
           </td>
           <td>
+            {% if u.status_kepegawaian == 'Aktif' or not u.status_kepegawaian %}
+            <span class="badge bg-success-lt text-success">Aktif</span>
+            {% elif u.status_kepegawaian == 'Tugas Belajar' %}
+            <span class="badge bg-blue-lt text-blue">Tugas Belajar</span>
+            {% elif u.status_kepegawaian == 'Lanjut Studi' %}
+            <span class="badge bg-purple-lt text-purple">Lanjut Studi</span>
+            {% elif u.status_kepegawaian == 'Keluar' %}
+            <span class="badge bg-orange-lt text-orange">Keluar</span>
+            {% elif u.status_kepegawaian == 'Meninggal' %}
+            <span class="badge bg-danger-lt text-danger">Meninggal</span>
+            {% endif %}
+          </td>
+          <td>
             <div class="d-flex gap-1">
               <a href="{% url 'accounts:edit_user' u.id %}" class="btn btn-sm btn-outline-primary">
                 <span class="ti ti-edit"></span>
@@ -141,11 +147,54 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="9" class="text-center text-muted py-4">Belum ada pengguna</td>
+          <td colspan="10" class="text-center text-muted py-4">Belum ada pengguna</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Modal Import Excel -->
+<div class="modal fade" id="modalImport" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'accounts:import_user' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <span class="ti ti-file-import me-2"></span>Import Data Pengguna dari Excel
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert" style="background:#e8f4fd; border:1px solid #bee3f8; border-radius:8px; font-size:13px">
+            <strong><span class="ti ti-info-circle me-1"></span>Petunjuk:</strong>
+            <ol class="mb-0 mt-2 ps-3">
+              <li>Download template Excel terlebih dahulu</li>
+              <li>Isi data sesuai format (hapus baris contoh hijau)</li>
+              <li>Upload file yang sudah diisi</li>
+              <li>Password default: <code>unichsan123</code></li>
+            </ol>
+          </div>
+          <div class="mb-3 mt-3">
+            <label class="form-label fw-semibold">Pilih File Excel (.xlsx)</label>
+            <input type="file" name="file_excel" class="form-control" accept=".xlsx,.xls" required>
+          </div>
+          <div class="text-center">
+            <a href="{% url 'accounts:download_template' %}" class="btn btn-outline-primary btn-sm">
+              <span class="ti ti-download me-1"></span>Download Template Excel
+            </a>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">
+            <span class="ti ti-upload me-1"></span>Import Sekarang
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

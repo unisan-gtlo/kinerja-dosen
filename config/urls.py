@@ -11,4 +11,6 @@ urlpatterns = [
     path('profil/', include('profil.urls')),
     path('kinerja/', include('kinerja.urls')),
     path('laporan/', include('laporan.urls')),
+    path('', include('dashboard.urls')),
+    path('dashboard/', include('dashboard.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

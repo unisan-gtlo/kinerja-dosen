@@ -20,6 +20,16 @@
   .badge { color: inherit; }
   table td, table th { color: #333 !important; }
   .bg-light label { color: #333 !important; }
+  /* Outline button fix */
+  .btn-outline-danger { color: #dc3545 !important; }
+  .btn-outline-primary { color: #1976D2 !important; }
+  .btn-outline-success { color: #2e7d32 !important; }
+  .btn-outline-info { color: #0dcaf0 !important; }
+  .btn-outline-secondary { color: #6c757d !important; }
+  .btn-outline-light { color: #ffffff !important; }
+  .btn-outline-danger:hover, .btn-outline-danger:hover * { color: #ffffff !important; }
+  .btn-outline-primary:hover, .btn-outline-primary:hover * { color: #ffffff !important; }
+  .btn-outline-success:hover, .btn-outline-success:hover * { color: #ffffff !important; }
 </style>
 {% if not input_terbuka %}
 <div class="alert alert-warning">
@@ -362,13 +372,28 @@
             </td>
             <td>
               {% if bisa_edit %}
-              <form method="post" action="{% url 'profil:hapus_jabfung' j.id %}"
-                    onsubmit="return confirm('Hapus data ini?')">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-danger">
-                  <span class="ti ti-trash"></span>
-                </button>
-              </form>
+              <div class="d-flex gap-1">
+                  <button class="btn btn-sm btn-outline-primary"
+                    onclick="editJabfung(
+                      {{ j.id }},
+                      '{{ j.jabatan }}',
+                      '{{ j.no_sk|default:'' }}',
+                      '{{ j.tgl_sk|date:'Y-m-d'|default:'' }}',
+                      '{{ j.tmt_berlaku|date:'Y-m-d'|default:'' }}',
+                      '{{ j.instansi_penerbit|default:'' }}',
+                      '{{ j.link_sk|default:'' }}',
+                      '{{ j.status }}'
+                    )">
+                    <span class="ti ti-edit"></span>
+                  </button>
+                  <form method="post" action="{% url 'profil:hapus_jabfung' j.id %}"
+                        onsubmit="return confirm('Hapus data ini?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                      <span class="ti ti-trash"></span>
+                    </button>
+                  </form>
+                </div>
               {% endif %}
             </td>
           </tr>
@@ -481,13 +506,29 @@
             </td>
             <td>
               {% if bisa_edit %}
-              <form method="post" action="{% url 'profil:hapus_pendidikan' p.id %}"
-                    onsubmit="return confirm('Hapus data ini?')">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-danger">
-                  <span class="ti ti-trash"></span>
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary"
+                  onclick="editPendidikan(
+                    {{ p.id }},
+                    '{{ p.jenjang }}',
+                    '{{ p.bidang_ilmu }}',
+                    '{{ p.nama_pt }}',
+                    '{{ p.kota_pt|default:'' }}',
+                    '{{ p.negara }}',
+                    '{{ p.tahun_masuk|default:'' }}',
+                    '{{ p.tahun_lulus|default:'' }}',
+                    '{{ p.no_ijazah|default:'' }}'
+                  )">
+                  <span class="ti ti-edit"></span>
                 </button>
-              </form>
+                <form method="post" action="{% url 'profil:hapus_pendidikan' p.id %}"
+                      onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <span class="ti ti-trash"></span>
+                  </button>
+                </form>
+              </div>
               {% endif %}
             </td>
           </tr>
@@ -582,13 +623,27 @@
             </td>
             <td>
               {% if bisa_edit %}
-              <form method="post" action="{% url 'profil:hapus_sertifikat' s.id %}"
-                    onsubmit="return confirm('Hapus sertifikat ini?')">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-danger">
-                  <span class="ti ti-trash"></span>
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary"
+                  onclick="editSertifikat(
+                    {{ s.id }},
+                    '{{ s.jenis_sertifikat }}',
+                    '{{ s.nama_sertifikat }}',
+                    '{{ s.no_sertifikat|default:'' }}',
+                    '{{ s.lembaga_penerbit|default:'' }}',
+                    '{{ s.tahun_terbit|default:'' }}',
+                    '{{ s.masa_berlaku|default:'' }}'
+                  )">
+                  <span class="ti ti-edit"></span>
                 </button>
-              </form>
+                <form method="post" action="{% url 'profil:hapus_sertifikat' s.id %}"
+                      onsubmit="return confirm('Hapus sertifikat ini?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <span class="ti ti-trash"></span>
+                  </button>
+                </form>
+              </div>
               {% endif %}
             </td>
           </tr>
@@ -612,5 +667,230 @@ if (hash) {
   const tab = document.querySelector(`[href="${hash}"]`);
   if (tab) { new bootstrap.Tab(tab).show(); }
 }
+
+function editJabfung(id, jabatan, no_sk, tgl_sk, tmt, instansi, link_sk, status) {
+  document.getElementById('formEditJabfung').action = `/profil/edit-jabfung/${id}/`;
+  document.getElementById('ej_jabatan').value = jabatan;
+  document.getElementById('ej_no_sk').value = no_sk;
+  document.getElementById('ej_tgl_sk').value = tgl_sk;
+  document.getElementById('ej_tmt').value = tmt;
+  document.getElementById('ej_instansi').value = instansi;
+  document.getElementById('ej_link_sk').value = link_sk;
+  document.getElementById('ej_status').value = status;
+  new bootstrap.Modal(document.getElementById('modalEditJabfung')).show();
+}
+
+function editPendidikan(id, jenjang, bidang, pt, kota, negara, masuk, lulus, no_ij) {
+  document.getElementById('formEditPendidikan').action = `/profil/edit-pendidikan/${id}/`;
+  document.getElementById('ep_jenjang').value = jenjang;
+  document.getElementById('ep_bidang').value = bidang;
+  document.getElementById('ep_pt').value = pt;
+  document.getElementById('ep_kota').value = kota;
+  document.getElementById('ep_negara').value = negara;
+  document.getElementById('ep_masuk').value = masuk;
+  document.getElementById('ep_lulus').value = lulus;
+  document.getElementById('ep_ijazah_no').value = no_ij;
+  new bootstrap.Modal(document.getElementById('modalEditPendidikan')).show();
+}
+
+function editSertifikat(id, jenis, nama, no, lembaga, tahun, berlaku) {
+  document.getElementById('formEditSertifikat').action = `/profil/edit-sertifikat/${id}/`;
+  document.getElementById('es_jenis').value = jenis;
+  document.getElementById('es_nama').value = nama;
+  document.getElementById('es_no').value = no;
+  document.getElementById('es_lembaga').value = lembaga;
+  document.getElementById('es_tahun').value = tahun;
+  document.getElementById('es_berlaku').value = berlaku;
+  new bootstrap.Modal(document.getElementById('modalEditSertifikat')).show();
+}
 </script>
+<!-- Modal Edit Jabfung -->
+<div class="modal fade" id="modalEditJabfung" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="" id="formEditJabfung" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Jabatan Fungsional</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jabatan *</label>
+              <select name="jabatan" id="ej_jabatan" class="form-select" required>
+                <option value="Tenaga Pengajar">Tenaga Pengajar</option>
+                <option value="Asisten Ahli">Asisten Ahli</option>
+                <option value="Lektor">Lektor</option>
+                <option value="Lektor Kepala">Lektor Kepala</option>
+                <option value="Guru Besar">Guru Besar</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nomor SK</label>
+              <input type="text" name="no_sk" id="ej_no_sk" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Status</label>
+              <select name="status" id="ej_status" class="form-select">
+                <option value="aktif">Aktif</option>
+                <option value="nonaktif">Nonaktif</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tanggal SK</label>
+              <input type="date" name="tgl_sk" id="ej_tgl_sk" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">TMT Berlaku</label>
+              <input type="date" name="tmt_berlaku" id="ej_tmt" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Instansi Penerbit</label>
+              <input type="text" name="instansi_penerbit" id="ej_instansi" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Upload SK Baru (kosongkan jika tidak ganti)</label>
+              <input type="file" name="file_sk" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Atau Link SK Drive</label>
+              <input type="url" name="link_sk" id="ej_link_sk" class="form-control">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Pendidikan -->
+<div class="modal fade" id="modalEditPendidikan" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="" id="formEditPendidikan" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Riwayat Pendidikan</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-2">
+              <label class="form-label">Jenjang *</label>
+              <select name="jenjang" id="ep_jenjang" class="form-select" required>
+                <option value="S1">S1</option>
+                <option value="S2">S2</option>
+                <option value="S3">S3</option>
+                <option value="D3">D3</option>
+                <option value="D4">D4</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Bidang Ilmu *</label>
+              <input type="text" name="bidang_ilmu" id="ep_bidang" class="form-control" required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Nama PT *</label>
+              <input type="text" name="nama_pt" id="ep_pt" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Kota PT</label>
+              <input type="text" name="kota_pt" id="ep_kota" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Negara</label>
+              <input type="text" name="negara" id="ep_negara" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Masuk</label>
+              <input type="number" name="tahun_masuk" id="ep_masuk" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Lulus</label>
+              <input type="number" name="tahun_lulus" id="ep_lulus" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">No. Ijazah</label>
+              <input type="text" name="no_ijazah" id="ep_ijazah_no" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Upload Ijazah Baru</label>
+              <input type="file" name="file_ijazah" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Upload Transkrip Baru</label>
+              <input type="file" name="file_transkrip" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Sertifikat -->
+<div class="modal fade" id="modalEditSertifikat" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="" id="formEditSertifikat" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Sertifikat</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jenis *</label>
+              <select name="jenis_sertifikat" id="es_jenis" class="form-select" required>
+                <option value="Serdos">Sertifikat Dosen</option>
+                <option value="Kompetensi">Kompetensi</option>
+                <option value="Profesi">Profesi</option>
+                <option value="Internasional">Internasional</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Nama Sertifikat *</label>
+              <input type="text" name="nama_sertifikat" id="es_nama" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">No. Sertifikat</label>
+              <input type="text" name="no_sertifikat" id="es_no" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Lembaga Penerbit</label>
+              <input type="text" name="lembaga_penerbit" id="es_lembaga" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Terbit</label>
+              <input type="number" name="tahun_terbit" id="es_tahun" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Masa Berlaku</label>
+              <input type="text" name="masa_berlaku" id="es_berlaku" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Upload Sertifikat Baru</label>
+              <input type="file" name="file_sertifikat" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

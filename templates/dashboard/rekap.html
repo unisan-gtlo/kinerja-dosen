@@ -1,6 +1,209 @@
 {% extends 'base.html' %}
-{% block title %}Rekap — SIKD{% endblock %}
-{% block page_title %}Rekap Data{% endblock %}
+{% block title %}Rekap Data — SIKD{% endblock %}
+{% block page_title %}Rekap Data Dosen{% endblock %}
+
 {% block content %}
-<p>Halaman rekap — segera hadir</p>
+<!-- Filter -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Tahun Akademik</label>
+        <select name="tahun" class="form-select form-select-sm">
+          <option value="">Semua Tahun</option>
+          {% for t in tahun_list %}
+          <option value="{{ t.tahun_akademik }}" {% if filter_tahun == t.tahun_akademik %}selected{% endif %}>
+            {{ t.tahun_akademik }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Semester</label>
+        <select name="semester" class="form-select form-select-sm">
+          <option value="">Semua Semester</option>
+          <option value="Ganjil" {% if filter_semester == 'Ganjil' %}selected{% endif %}>Ganjil</option>
+          <option value="Genap" {% if filter_semester == 'Genap' %}selected{% endif %}>Genap</option>
+        </select>
+      </div>
+      {% if request.user.role == 'admin' or request.user.role == 'rektorat' or request.user.role == 'biro' %}
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Fakultas</label>
+        <select name="fakultas" class="form-select form-select-sm">
+          <option value="">Semua Fakultas</option>
+          {% for f in fakultas_list %}
+          <option value="{{ f.kode_fakultas }}" {% if filter_fakultas == f.kode_fakultas %}selected{% endif %}>
+            {{ f.nama_fakultas }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Prodi</label>
+        <select name="prodi" class="form-select form-select-sm">
+          <option value="">Semua Prodi</option>
+          {% for p in prodi_list %}
+          <option value="{{ p.kode_prodi }}" {% if filter_prodi == p.kode_prodi %}selected{% endif %}>
+            {{ p.kode_prodi }} - {{ p.nama_prodi }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Status Kepegawaian</label>
+        <select name="status_kepegawaian" class="form-select form-select-sm">
+          <option value="">Semua Status</option>
+          <option value="Aktif" {% if filter_status == 'Aktif' %}selected{% endif %}>Aktif</option>
+          <option value="Tugas Belajar" {% if filter_status == 'Tugas Belajar' %}selected{% endif %}>Tugas Belajar</option>
+          <option value="Lanjut Studi" {% if filter_status == 'Lanjut Studi' %}selected{% endif %}>Lanjut Studi</option>
+          <option value="Keluar" {% if filter_status == 'Keluar' %}selected{% endif %}>Keluar</option>
+          <option value="Meninggal" {% if filter_status == 'Meninggal' %}selected{% endif %}>Meninggal</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <span class="ti ti-search me-1"></span>Filter
+        </button>
+        <a href="{% url 'dashboard:rekap' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Info -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2 d-flex justify-content-between align-items-center">
+    <div>
+      <span class="fw-semibold">Total: {{ total_dosen }} dosen</span>
+      {% if filter_tahun or filter_semester %}
+      <span class="badge bg-blue-lt text-blue ms-2">
+        {{ filter_semester }} {{ filter_tahun }}
+      </span>
+      {% endif %}
+    </div>
+    <a href="{% url 'laporan:index' %}" class="btn btn-sm btn-success">
+      <span class="ti ti-file-export me-1"></span>Export Excel
+    </a>
+  </div>
+</div>
+
+<!-- Tabel Rekap -->
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Nama Dosen</th>
+          <th>NIDN</th>
+          <th>Prodi</th>
+          <th>Jabfung</th>
+          <th>Pend.</th>
+          <th>Status</th>
+          <th class="text-center">BKD</th>
+          <th class="text-center">Penelitian</th>
+          <th class="text-center">Publikasi</th>
+          <th class="text-center">PKM</th>
+          <th class="text-center">HKI</th>
+          <th class="text-center">Profil %</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rekap_data %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>
+            <strong>{{ r.dosen.get_full_name|default:r.dosen.username }}</strong>
+          </td>
+          <td><code>{{ r.dosen.nidn|default:"-" }}</code></td>
+          <td>
+            <span class="badge bg-teal-lt text-teal">{{ r.dosen.kode_prodi|default:"-" }}</span>
+          </td>
+          <td style="font-size:12px">{{ r.jabfung }}</td>
+          <td>
+            <span class="badge bg-purple-lt text-purple">{{ r.pendidikan }}</span>
+          </td>
+          <td>
+            {% if r.dosen.status_kepegawaian == 'Aktif' or not r.dosen.status_kepegawaian %}
+            <span class="badge bg-success-lt text-success">Aktif</span>
+            {% elif r.dosen.status_kepegawaian == 'Tugas Belajar' %}
+            <span class="badge bg-blue-lt text-blue">TB</span>
+            {% elif r.dosen.status_kepegawaian == 'Lanjut Studi' %}
+            <span class="badge bg-purple-lt text-purple">LS</span>
+            {% elif r.dosen.status_kepegawaian == 'Keluar' %}
+            <span class="badge bg-orange-lt text-orange">Keluar</span>
+            {% elif r.dosen.status_kepegawaian == 'Meninggal' %}
+            <span class="badge bg-danger-lt text-danger">Meninggal</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if r.total_bkd > 0 %}
+            <span class="badge bg-success-lt text-success">{{ r.total_bkd }}</span>
+            {% else %}
+            <span class="badge bg-danger-lt text-danger">0</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if r.total_penelitian > 0 %}
+            <span class="badge bg-success-lt text-success">{{ r.total_penelitian }}</span>
+            {% else %}
+            <span class="text-muted">0</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if r.total_publikasi > 0 %}
+            <span class="badge bg-success-lt text-success">{{ r.total_publikasi }}</span>
+            {% else %}
+            <span class="text-muted">0</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if r.total_pkm > 0 %}
+            <span class="badge bg-success-lt text-success">{{ r.total_pkm }}</span>
+            {% else %}
+            <span class="text-muted">0</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if r.total_hki > 0 %}
+            <span class="badge bg-success-lt text-success">{{ r.total_hki }}</span>
+            {% else %}
+            <span class="text-muted">0</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <div class="d-flex align-items-center gap-1">
+              <div class="progress flex-grow-1" style="height:6px">
+                <div class="progress-bar {% if r.kelengkapan >= 80 %}bg-success{% elif r.kelengkapan >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
+                     style="width:{{ r.kelengkapan }}%"></div>
+              </div>
+              <small>{{ r.kelengkapan }}%</small>
+            </div>
+          </td>
+          <td>
+            <div class="d-flex gap-1">
+              <a href="{% url 'profil:index' %}?dosen_id={{ r.dosen.id }}"
+                 class="btn btn-xs btn-outline-primary" title="Lihat Profil">
+                <span class="ti ti-user"></span>
+              </a>
+              <a href="{% url 'kinerja:index' %}?dosen_id={{ r.dosen.id }}"
+                 class="btn btn-xs btn-outline-success" title="Lihat Kinerja">
+                <span class="ti ti-chart-bar"></span>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="14" class="text-center text-muted py-4">
+            Belum ada data dosen
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

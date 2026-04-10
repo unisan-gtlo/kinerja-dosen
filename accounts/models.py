@@ -7,9 +7,9 @@ ROLE_CHOICES = [
     ('biro', 'Biro/Lembaga'),
     ('dekan', 'Dekan'),
     ('wadek', 'Wakil Dekan'),
-    ('kaprodi', 'Kepala Program Studi'),
+    ('kaprodi', 'Ketua Program Studi'),
     ('sekprodi', 'Sekretaris Prodi'),
-    ('operator', 'Operator'),
+    ('tendik', 'Tendik'),
     ('dosen', 'Dosen'),
 ]
 
@@ -81,7 +81,7 @@ class User(AbstractUser):
         'wadek': 'Wakil Dekan',
         'kaprodi': 'Kepala Program Studi',
         'sekprodi': 'Sekretaris Prodi',
-        'operator': 'Operator',
+        'tendik': 'Tendik',
         'dosen': 'Dosen',
     }
         return role_labels.get(self.role, self.role)    
