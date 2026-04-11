@@ -8,24 +8,100 @@ from .models import User
 import openpyxl
 from django.http import HttpResponse
 from django.contrib.auth.hashers import make_password
+from django.core.paginator import Paginator
+from django.http import JsonResponse
+import random
+import logging
+from django.utils import timezone
+
+logger = logging.getLogger(__name__)
+    
+  
+
+def generate_captcha(request):
+    """Generate soal matematika sederhana dan simpan jawaban di session"""
+    a = random.randint(1, 10)
+    b = random.randint(1, 10)
+    ops = ['+', '-', 'x']
+    op = random.choice(ops)
+    if op == '+':
+        answer = a + b
+        soal = f"{a} + {b}"
+    elif op == '-':
+        if a < b:
+            a, b = b, a
+        answer = a - b
+        soal = f"{a} - {b}"
+    else:
+        answer = a * b
+        soal = f"{a} x {b}"
+    request.session['captcha_answer'] = answer
+    request.session['captcha_soal'] = soal
+    return soal
 
 
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('dashboard:index')
+
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+        captcha_input = request.POST.get('captcha', '').strip()
+
+        # Validasi input kosong
+        if not username or not password:
+            messages.error(request, 'Username dan password wajib diisi.')
+            soal = generate_captcha(request)
+            return render(request, 'accounts/login.html', {'captcha_soal': soal})
+
+        # Validasi CAPTCHA
+        captcha_answer = request.session.get('captcha_answer')
+        try:
+            if int(captcha_input) != captcha_answer:
+                messages.error(request, 'Jawaban verifikasi salah. Coba lagi.')
+                soal = generate_captcha(request)
+                return render(request, 'accounts/login.html', {'captcha_soal': soal})
+        except (ValueError, TypeError):
+            messages.error(request, 'Jawaban verifikasi harus berupa angka.')
+            soal = generate_captcha(request)
+            return render(request, 'accounts/login.html', {'captcha_soal': soal})
+
+        # Autentikasi
         user = authenticate(request, username=username, password=password)
         if user is not None:
             if user.status_akun == 'aktif':
                 login(request, user)
-                return redirect('dashboard:index')
+                logger.info(
+                    f'LOGIN SUCCESS: {username} dari IP '
+                    f'{request.META.get("REMOTE_ADDR")} '
+                    f'pada {timezone.now()}'
+                )
+                next_url = request.GET.get('next', '/')
+                return redirect(next_url)
             else:
-                messages.error(request, 'Akun Anda tidak aktif. Hubungi administrator.')
+                messages.error(
+                    request,
+                    'Akun Anda tidak aktif. Hubungi administrator.'
+                )
+                logger.warning(
+                    f'LOGIN BLOCKED (nonaktif): {username} '
+                    f'dari IP {request.META.get("REMOTE_ADDR")}'
+                )
         else:
             messages.error(request, 'Username atau password salah.')
-    return render(request, 'accounts/login.html')
+            logger.warning(
+                f'LOGIN FAILED: {username} '
+                f'dari IP {request.META.get("REMOTE_ADDR")}'
+            )
+
+        # Generate captcha baru setelah gagal
+        soal = generate_captcha(request)
+        return render(request, 'accounts/login.html', {'captcha_soal': soal})
+
+    # GET request — generate captcha baru
+    soal = generate_captcha(request)
+    return render(request, 'accounts/login.html', {'captcha_soal': soal})
 
 def logout_view(request):
     logout(request)
@@ -74,7 +150,26 @@ def kelola_user(request):
         'prodi_filter': prodi_filter,
         'cari': cari,
     }
+    # Pagination
+    per_halaman = int(request.GET.get('per_halaman', 15))
+    paginator = Paginator(users, per_halaman)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'users': page_obj,
+        'page_obj': page_obj,
+        'fakultas_list': fakultas_list,
+        'prodi_list': prodi_list,
+        'role_filter': role_filter,
+        'fakultas_filter': fakultas_filter,
+        'prodi_filter': prodi_filter,
+        'cari': cari,
+        'total': paginator.count,
+        'per_halaman': str(per_halaman),
+    }
     return render(request, 'accounts/kelola_user.html', context)
+   
 
 @login_required
 def tambah_user(request):
@@ -387,16 +482,53 @@ def ganti_password(request):
 
         if not user.check_password(password_lama):
             messages.error(request, 'Password lama tidak sesuai.')
-        elif len(password_baru) < 6:
-            messages.error(request, 'Password baru minimal 6 karakter.')
+        elif len(password_baru) < 8:
+            messages.error(request, 'Password baru minimal 8 karakter.')
+        elif password_baru == password_lama:
+            messages.error(request, 'Password baru tidak boleh sama dengan password lama.')
         elif password_baru != password_konfirmasi:
             messages.error(request, 'Konfirmasi password tidak cocok.')
+        elif password_baru.isdigit():
+            messages.error(request, 'Password tidak boleh hanya angka.')
+        elif password_baru.isalpha():
+            messages.error(request, 'Password harus mengandung minimal 1 angka.')
         else:
             user.set_password(password_baru)
             user.save()
             from django.contrib.auth import update_session_auth_hash
             update_session_auth_hash(request, user)
+            logger.info(
+                f'PASSWORD CHANGED: {user.username} '
+                f'pada {timezone.now()}'
+            )
             messages.success(request, 'Password berhasil diubah.')
             return redirect('accounts:ganti_password')
 
     return render(request, 'accounts/ganti_password.html')
+
+@login_required
+def unlock_user(request, user_id):
+    if request.user.role != 'admin':
+        return redirect('dashboard:index')
+    
+    target_user = get_object_or_404(User, id=user_id)
+    
+    try:
+        from axes.models import AccessAttempt
+        AccessAttempt.objects.filter(
+            username=target_user.username
+        ).delete()
+        messages.success(
+            request,
+            f'Akun "{target_user.username}" berhasil dibuka kuncinya.'
+        )
+    except Exception as e:
+        messages.error(request, f'Gagal membuka kunci: {str(e)}')
+    
+    return redirect('accounts:kelola_user')
+
+
+
+def refresh_captcha(request):
+    soal = generate_captcha(request)
+    return JsonResponse({'soal': soal})

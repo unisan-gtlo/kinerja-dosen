@@ -1,7 +1,34 @@
-venv/
-__pycache__/
-*.pyc
+# Environment
 .env
-*.sqlite3
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg-info/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
 media/
 staticfiles/
+
+# OS
+.DS_Store
+Thumbs.db
+
+echo # Environment > C:\kinerja-dosen\.gitignore
+echo .env >> C:\kinerja-dosen\.gitignore
+echo __pycache__/ >> C:\kinerja-dosen\.gitignore
+echo *.pyc >> C:\kinerja-dosen\.gitignore
+echo media/ >> C:\kinerja-dosen\.gitignore
+echo staticfiles/ >> C:\kinerja-dosen\.gitignore
+echo logs/ >> C:\kinerja-dosen\.gitignore
+echo db.sqlite3 >> C:\kinerja-dosen\.gitignore
+echo venv/ >> C:\kinerja-dosen\.gitignore

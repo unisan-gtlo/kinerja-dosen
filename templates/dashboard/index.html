@@ -130,8 +130,30 @@
     </a>
   </div>
 </div>
+<!-- Tombol Export PDF di dashboard dosen -->
+<div class="col-12">
+  <div class="card border-0 shadow-sm">
+    <div class="card-body py-2 d-flex justify-content-between align-items-center">
+      <div>
+        <span class="fw-semibold">Laporan Kinerja Saya</span>
+        <span class="text-muted ms-2" style="font-size:12px">
+          Download laporan kinerja dalam format PDF
+        </span>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'laporan:pdf_dosen' request.user.id %}"
+           class="btn btn-sm btn-danger" target="_blank">
+          <span class="ti ti-file-type-pdf me-1"></span>Export PDF Semua
+        </a>
+        <button class="btn btn-sm btn-outline-danger"
+                data-bs-toggle="modal" data-bs-target="#modalExportPDF">
+          <span class="ti ti-filter me-1"></span>Export PDF per Periode
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
-<!-- Profil & BKD -->
 <!-- Profil & BKD -->
 <div class="row g-3" style="align-items: stretch;">
   <div class="col-md-6" style="display:flex; flex-direction:column;">
@@ -239,6 +261,50 @@
     </div>
   </div>
 </div>
+<!-- Modal Export PDF per Periode -->
+<div class="modal fade" id="modalExportPDF" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <span class="ti ti-file-type-pdf me-1 text-danger"></span>
+          Export Laporan Kinerja PDF
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Tahun Akademik</label>
+          <select id="modal_tahun" class="form-select">
+            <option value="">Semua Tahun</option>
+            {% for b in bkd_list %}
+            <option value="{{ b.tahun_akademik }}">{{ b.tahun_akademik }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Semester</label>
+          <select id="modal_semester" class="form-select">
+            <option value="">Semua Semester</option>
+            <option value="Ganjil">Ganjil</option>
+            <option value="Genap">Genap</option>
+          </select>
+        </div>
+        <div class="alert mb-0 py-2"
+             style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; font-size:12px">
+          <span class="ti ti-info-circle me-1"></span>
+          PDF akan berisi data BKD, Penelitian, Publikasi, PKM, dan HKI sesuai periode yang dipilih.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-danger" onclick="downloadPDF()">
+          <span class="ti ti-download me-1"></span>Download PDF
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 {% else %}
 <!-- Dashboard Admin/Rektorat/Dekan -->
@@ -285,7 +351,62 @@
     </div>
   </div>
 </div>
-
+<!-- Filter Periode Dashboard -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end" id="formFilterDashboard">
+      <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Dari Tahun Akademik</label>
+        <select name="tahun_awal" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">-- Pilih --</option>
+          {% for t in tahun_list_all %}
+          <option value="{{ t.tahun_akademik }}"
+            {% if filter_tahun_awal == t.tahun_akademik %}selected{% endif %}>
+            {{ t.tahun_akademik }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Sampai Tahun Akademik</label>
+        <select name="tahun_akhir" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">-- Pilih --</option>
+          {% for t in tahun_list_all %}
+          <option value="{{ t.tahun_akademik }}"
+            {% if filter_tahun_akhir == t.tahun_akademik %}selected{% endif %}>
+            {{ t.tahun_akademik }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Semester</label>
+        <select name="filter_semester" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Semua Semester</option>
+          <option value="Ganjil" {% if filter_semester_db == 'Ganjil' %}selected{% endif %}>Ganjil</option>
+          <option value="Genap" {% if filter_semester_db == 'Genap' %}selected{% endif %}>Genap</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <span class="ti ti-filter me-1"></span>Filter
+          </button>
+          <a href="{% url 'dashboard:index' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+        </div>
+      </div>
+      {% if filter_tahun_awal or filter_tahun_akhir %}
+      <div class="col-md-2 text-end">
+        <span class="badge bg-blue-lt text-blue" style="font-size:11px">
+          <span class="ti ti-calendar me-1"></span>
+          {{ filter_tahun_awal|default:"..." }} s/d {{ filter_tahun_akhir|default:"..." }}
+          {% if filter_semester_db %} | {{ filter_semester_db }}{% endif %}
+        </span>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
 <!-- Stat Cards -->
 <div class="row g-3 mb-4">
   {% if total_fakultas %}
@@ -312,34 +433,47 @@
     </a>
   </div>
   <div class="col-6 col-md-3">
-    <a href="{% url 'kinerja:index' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#e91e63,#c2185b)">
+    <a href="{% url 'dashboard:rekap' %}?tab=penelitian&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester_db }}"
+      class="stat-card-admin" style="background:linear-gradient(135deg,#e91e8c,#c2185b)">
       <div class="num">{{ total_penelitian|default:0 }}</div>
       <div class="lbl">Penelitian</div>
+      
       <div class="icon-bg"><span class="ti ti-microscope"></span></div>
     </a>
   </div>
+
   <div class="col-6 col-md-3">
-    <a href="{% url 'kinerja:index' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#7b1fa2,#9c27b0)">
+    <a href="{% url 'dashboard:rekap' %}?tab=publikasi&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester_db }}"
+      class="stat-card-admin" style="background:linear-gradient(135deg,#7b1fa2,#9c27b0)">
       <div class="num">{{ total_publikasi|default:0 }}</div>
       <div class="lbl">Publikasi</div>
+      <div class="sublabel">Klik untuk detail</div>
       <div class="icon-bg"><span class="ti ti-book"></span></div>
     </a>
   </div>
+
   <div class="col-6 col-md-3">
-    <a href="{% url 'kinerja:index' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#f57c00,#ff9800)">
+    <a href="{% url 'dashboard:rekap' %}?tab=pkm&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester_db }}"
+      class="stat-card-admin" style="background:linear-gradient(135deg,#f57c00,#ff9800)">
       <div class="num">{{ total_pkm|default:0 }}</div>
       <div class="lbl">PKM</div>
+      <div class="sublabel">Klik untuk detail</div>
       <div class="icon-bg"><span class="ti ti-hearts"></span></div>
     </a>
   </div>
+
   <div class="col-6 col-md-3">
-    <a href="{% url 'kinerja:index' %}" class="stat-card-admin" style="background:linear-gradient(135deg,#00796b,#009688)">
+    <a href="{% url 'dashboard:rekap' %}?tab=hki&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester_db }}"
+      class="stat-card-admin" style="background:linear-gradient(135deg,#00796b,#009688)">
       <div class="num">{{ total_hki|default:0 }}</div>
       <div class="lbl">HKI</div>
+      <div class="sublabel">Klik untuk detail</div>
       <div class="icon-bg"><span class="ti ti-shield-check"></span></div>
     </a>
   </div>
 </div>
+
+
 
 <!-- Grafik -->
 <div class="row g-3 mb-4">
@@ -387,43 +521,7 @@
     </div>
   </div>
 </div>
-
-  <!-- Grafik Pendidikan Terakhir -->
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-white">
-        <h6 class="mb-0 fw-semibold">Dosen per Pendidikan Terakhir</h6>
-      </div>
-      <div class="card-body">
-        <canvas id="chartPendidikan" height="220"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- Grafik Jabfung -->
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-white">
-        <h6 class="mb-0 fw-semibold">Dosen per Jabatan Fungsional</h6>
-      </div>
-      <div class="card-body">
-        <canvas id="chartJabfung" height="220"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- Grafik Status Kepegawaian -->
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-white">
-        <h6 class="mb-0 fw-semibold">Status Kepegawaian Dosen</h6>
-      </div>
-      <div class="card-body">
-        <canvas id="chartStatus" height="220"></canvas>
-      </div>
-    </div>
-  </div>
-</div>
+  
 
 <!-- Daftar Dosen -->
 {% if dosen_list %}
@@ -474,6 +572,19 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+function downloadPDF() {
+  const tahun = document.getElementById('modal_tahun').value;
+  const semester = document.getElementById('modal_semester').value;
+  let url = "{% url 'laporan:pdf_dosen' request.user.id %}";
+  const params = [];
+  if (tahun) params.push(`tahun=${tahun}`);
+  if (semester) params.push(`semester=${semester}`);
+  if (params.length) url += '?' + params.join('&');
+  window.open(url, '_blank');
+}
+
 {% if grafik_fakultas_labels %}
 new Chart(document.getElementById('chartFakultas'), {
   type: 'bar',

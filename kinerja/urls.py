@@ -15,4 +15,10 @@ urlpatterns = [
     path('hapus-pkm/<int:id>/', views.hapus_pkm, name='hapus_pkm'),
     path('tambah-hki/', views.tambah_hki, name='tambah_hki'),
     path('hapus-hki/<int:id>/', views.hapus_hki, name='hapus_hki'),
+    path('dokumen/<str:jenis_kinerja>/<int:kinerja_id>/', views.kelola_dokumen, name='kelola_dokumen'),
+    path('edit-bkd/<int:id>/', views.edit_bkd, name='edit_bkd'),
+    path('edit-penelitian/<int:id>/', views.edit_penelitian, name='edit_penelitian'),
+    path('edit-publikasi/<int:id>/', views.edit_publikasi, name='edit_publikasi'),
+    path('edit-pkm/<int:id>/', views.edit_pkm, name='edit_pkm'),
+    path('edit-hki/<int:id>/', views.edit_hki, name='edit_hki'),
 ]

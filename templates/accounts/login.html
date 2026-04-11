@@ -85,7 +85,6 @@
       border-color: #2d6a9f;
       box-shadow: 0 0 0 3px rgba(45,106,159,0.15);
     }
-    .input-group .form-control { border-radius: 10px !important; }
     .btn-login {
       background: linear-gradient(135deg, #1e3a5f, #2d6a9f);
       color: #ffffff !important;
@@ -115,10 +114,10 @@
       font-size: 12px;
       margin-top: 20px;
     }
-    .input-icon {
+    .input-wrapper {
       position: relative;
     }
-    .input-icon .ti {
+    .input-wrapper .input-icon-left {
       position: absolute;
       left: 12px;
       top: 50%;
@@ -126,12 +125,35 @@
       color: #999 !important;
       font-size: 18px;
       z-index: 10;
+      pointer-events: none;
     }
-    .input-icon .form-control {
+    .input-wrapper .form-control {
       padding-left: 40px;
     }
+    .input-wrapper .form-control.has-toggle {
+      padding-right: 45px;
+    }
+    .btn-toggle-pwd {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      display: none;
+      z-index: 10;
+    }
+    .btn-toggle-pwd .ti {
+      font-size: 18px;
+      color: #999 !important;
+    }
+    .btn-toggle-pwd.visible { display: block; }
+    .btn-toggle-pwd.active .ti { color: #1e3a5f !important; }
   </style>
 </head>
+
 <body>
 <div class="login-wrapper">
   <div class="login-card">
@@ -139,7 +161,7 @@
     <!-- Header dengan Logo -->
     <div class="login-header">
       <div class="logo-circle">
-        <img src="{% static 'img/logo.png' %}" alt="Logo Unichsan"
+        <img src="{% static '/img/kampus.png' %}" alt="Logo Unichsan"
              onerror="this.parentElement.innerHTML='<span style=\'font-size:48px\'>🏛️</span>'">
       </div>
       <h1>SIKD</h1>
@@ -168,27 +190,66 @@
       <form method="post">
         {% csrf_token %}
 
+        <!-- Username -->
         <div class="mb-3">
           <label class="form-label">Username</label>
-          <div class="input-icon">
-            <span class="ti ti-user"></span>
+          <div class="input-wrapper">
+            <span class="ti ti-user input-icon-left"></span>
             <input type="text" name="username" class="form-control"
                    placeholder="Masukkan username" autofocus required>
           </div>
         </div>
 
+        <!-- Password -->
         <div class="mb-3">
           <label class="form-label">Password</label>
-          <div class="input-icon">
-            <span class="ti ti-lock"></span>
-            <input type="password" name="password" class="form-control"
+          <div class="input-wrapper">
+            <span class="ti ti-lock input-icon-left"></span>
+            <input type="password" name="password" id="inputPassword"
+                   class="form-control has-toggle"
                    placeholder="Masukkan password" required>
+            <button type="button" id="btnTogglePwd"
+                    class="btn-toggle-pwd"
+                    onclick="togglePassword()">
+              <span class="ti ti-eye" id="iconMata"></span>
+            </button>
           </div>
         </div>
 
+        <!-- CAPTCHA -->
+        <div class="mb-3">
+          <label class="form-label">Verifikasi <span class="text-danger">*</span></label>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <!-- Soal -->
+            <div style="background:#f0f4f8; border-radius:10px; padding:10px 16px;
+                        white-space:nowrap; flex-shrink:0">
+              <span id="soalCaptcha" style="font-size:16px; font-weight:700;
+                    color:#1e3a5f; letter-spacing:2px">
+                {{ captcha_soal }} = ?
+              </span>
+            </div>
+            <!-- Input Jawaban -->
+            <div class="input-wrapper" style="flex:1; position:relative">
+              <span class="ti ti-calculator input-icon-left"></span>
+              <input type="number" name="captcha" class="form-control"
+                    placeholder="Jawaban" required autocomplete="off"
+                    min="0" max="200" style="padding-left:40px">
+            </div>
+            <!-- Tombol Refresh -->
+            <button type="button" onclick="refreshCaptcha()"
+                    title="Ganti soal"
+                    style="background:none; border:1px solid #dee2e6;
+                          border-radius:10px; cursor:pointer; padding:8px 10px;
+                          color:#2d6a9f; flex-shrink:0; height:42px">
+              <span class="ti ti-refresh" style="font-size:16px"></span>
+            </button>
+          </div>
+        </div>
+        <!-- Ingat Saya -->
         <div class="mb-3 d-flex justify-content-between align-items-center">
           <label class="d-flex align-items-center gap-2" style="cursor:pointer">
-            <input type="checkbox" style="width:16px; height:16px; accent-color:#1e3a5f">
+            <input type="checkbox"
+                   style="width:16px; height:16px; accent-color:#1e3a5f">
             <span style="font-size:13px; color:#666 !important">Ingat saya</span>
           </label>
         </div>
@@ -206,5 +267,47 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/js/tabler.min.js"></script>
+<script>
+  const inputPwd = document.getElementById('inputPassword');
+  const btnToggle = document.getElementById('btnTogglePwd');
+  const iconMata = document.getElementById('iconMata');
+
+  // Tampilkan tombol mata saat ada isian
+  inputPwd.addEventListener('input', function () {
+    if (this.value.length > 0) {
+      btnToggle.classList.add('visible');
+    } else {
+      btnToggle.classList.remove('visible', 'active');
+      // Reset ke mode password
+      this.type = 'password';
+      iconMata.className = 'ti ti-eye';
+    }
+  });
+
+  // Toggle show/hide password
+  function togglePassword() {
+    if (inputPwd.type === 'password') {
+      inputPwd.type = 'text';
+      iconMata.className = 'ti ti-eye-off';
+      btnToggle.classList.add('active');
+    } else {
+      inputPwd.type = 'password';
+      iconMata.className = 'ti ti-eye';
+      btnToggle.classList.remove('active');
+    }
+  }
+</script>
+
+<script>
+function refreshCaptcha() {
+  fetch('/accounts/refresh-captcha/')
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById('soalCaptcha').textContent = data.soal + ' = ?';
+      document.querySelector('input[name="captcha"]').value = '';
+      document.querySelector('input[name="captcha"]').focus();
+    });
+}
+</script>
 </body>
 </html>

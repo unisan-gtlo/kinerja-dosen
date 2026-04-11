@@ -279,3 +279,232 @@ def hapus_hki(request, id):
     obj.delete()
     messages.success(request, 'Data HKI berhasil dihapus.')
     return redirect('kinerja:index')
+
+from .models import BKD, Penelitian, Publikasi, PKM, HKI, DokumenKinerja
+from django.core.exceptions import ValidationError
+import os
+
+def validate_dokumen(file):
+    ext = os.path.splitext(file.name)[1].lower()
+    if ext not in ['.pdf', '.jpg', '.jpeg', '.png']:
+        raise ValidationError('Hanya PDF, JPG, PNG yang diizinkan.')
+    if file.size > 5 * 1024 * 1024:
+        raise ValidationError('Ukuran file maksimal 5MB.')
+
+
+@login_required
+def kelola_dokumen(request, jenis_kinerja, kinerja_id):
+    user = request.user
+
+    # Validasi akses dan ambil objek kinerja
+    KINERJA_MAP = {
+        'penelitian': Penelitian,
+        'publikasi': Publikasi,
+        'pkm': PKM,
+        'hki': HKI,
+        'bkd': BKD,
+    }
+
+    if jenis_kinerja not in KINERJA_MAP:
+        messages.error(request, 'Jenis kinerja tidak valid.')
+        return redirect('kinerja:index')
+
+    Model = KINERJA_MAP[jenis_kinerja]
+    kinerja_obj = get_object_or_404(Model, id=kinerja_id)
+
+    # Cek kepemilikan
+    if kinerja_obj.user != user and user.role not in ['admin', 'operator']:
+        messages.error(request, 'Anda tidak memiliki akses.')
+        return redirect('kinerja:index')
+
+    dokumen_list = DokumenKinerja.objects.filter(
+        user=kinerja_obj.user,
+        jenis_kinerja=jenis_kinerja,
+        kinerja_id=kinerja_id
+    ).order_by('jenis_dokumen')
+
+    if request.method == 'POST':
+        aksi = request.POST.get('aksi')
+
+        if aksi == 'tambah':
+            jenis_dok = request.POST.get('jenis_dokumen', '')
+            nama_dok = request.POST.get('nama_dokumen', '').strip()
+            keterangan = request.POST.get('keterangan', '').strip()
+            link_dok = request.POST.get('link_dokumen', '').strip()
+
+            if not nama_dok:
+                messages.error(request, 'Nama dokumen wajib diisi.')
+            else:
+                dok = DokumenKinerja(
+                    user=kinerja_obj.user,
+                    jenis_kinerja=jenis_kinerja,
+                    kinerja_id=kinerja_id,
+                    jenis_dokumen=jenis_dok,
+                    nama_dokumen=nama_dok,
+                    keterangan=keterangan,
+                    link_dokumen=link_dok or None,
+                    updated_by=user.username
+                )
+                if 'file_dokumen' in request.FILES:
+                    file = request.FILES['file_dokumen']
+                    try:
+                        validate_dokumen(file)
+                        dok.file_dokumen = file
+                    except ValidationError as e:
+                        messages.error(request, str(e.message))
+                        return redirect('kinerja:kelola_dokumen', jenis_kinerja=jenis_kinerja, kinerja_id=kinerja_id)
+                dok.save()
+                messages.success(request, f'Dokumen "{nama_dok}" berhasil ditambahkan.')
+
+        elif aksi == 'hapus':
+            dok_id = request.POST.get('dok_id')
+            dok = get_object_or_404(DokumenKinerja, id=dok_id)
+            if dok.user == kinerja_obj.user or user.role in ['admin', 'operator']:
+                nama = dok.nama_dokumen
+                dok.delete()
+                messages.success(request, f'Dokumen "{nama}" berhasil dihapus.')
+        elif aksi == 'edit':
+            dok_id = request.POST.get('dok_id')
+            dok = get_object_or_404(DokumenKinerja, id=dok_id)
+            if dok.user == kinerja_obj.user or user.role in ['admin', 'operator']:
+                dok.jenis_dokumen = request.POST.get('jenis_dokumen', dok.jenis_dokumen)
+                dok.nama_dokumen = request.POST.get('nama_dokumen', '').strip() or dok.nama_dokumen
+                dok.keterangan = request.POST.get('keterangan', '').strip()
+                dok.link_dokumen = request.POST.get('link_dokumen', '').strip() or None
+                dok.updated_by = user.username
+                if 'file_dokumen' in request.FILES:
+                    file = request.FILES['file_dokumen']
+                    try:
+                        validate_dokumen(file)
+                        dok.file_dokumen = file
+                    except ValidationError as e:
+                        messages.error(request, str(e.message))
+                        return redirect('kinerja:kelola_dokumen',
+                            jenis_kinerja=jenis_kinerja, kinerja_id=kinerja_id)
+                dok.save()
+                messages.success(request, f'Dokumen "{dok.nama_dokumen}" berhasil diupdate.')        
+
+        return redirect('kinerja:kelola_dokumen', jenis_kinerja=jenis_kinerja, kinerja_id=kinerja_id)
+
+    # Judul kinerja
+    if hasattr(kinerja_obj, 'judul'):
+        judul_kinerja = kinerja_obj.judul[:80]
+    else:
+        judul_kinerja = f'BKD {kinerja_obj.semester} {kinerja_obj.tahun_akademik}'
+
+    context = {
+        'kinerja_obj': kinerja_obj,
+        'jenis_kinerja': jenis_kinerja,
+        'kinerja_id': kinerja_id,
+        'judul_kinerja': judul_kinerja,
+        'dokumen_list': dokumen_list,
+        'jenis_dokumen_choices': DokumenKinerja.JENIS_DOKUMEN,
+    }
+    return render(request, 'kinerja/kelola_dokumen.html', context)
+
+@login_required
+def edit_bkd(request, id):
+    obj = get_object_or_404(BKD, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('kinerja:index')
+    if request.method == 'POST':
+        obj.semester = request.POST.get('semester', obj.semester)
+        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
+        obj.link_bkd = request.POST.get('link_bkd', '').strip() or None
+        obj.keterangan = request.POST.get('keterangan', '').strip()
+        obj.updated_by = request.user.username
+        if 'file_bkd' in request.FILES:
+            obj.file_bkd = request.FILES['file_bkd']
+        obj.save()
+        messages.success(request, 'BKD berhasil diupdate.')
+    return redirect('kinerja:index')
+
+
+@login_required
+def edit_penelitian(request, id):
+    obj = get_object_or_404(Penelitian, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('kinerja:index')
+    if request.method == 'POST':
+        obj.judul = request.POST.get('judul', '').strip()
+        obj.semester = request.POST.get('semester', '')
+        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
+        obj.jml_mahasiswa = request.POST.get('jml_mahasiswa', 0)
+        obj.ln_i = request.POST.get('ln_i', '')
+        obj.jenis_hibah = request.POST.get('jenis_hibah', '').strip()
+        obj.sumber = request.POST.get('sumber', '').strip()
+        obj.durasi = request.POST.get('durasi', 1)
+        obj.pendanaan = request.POST.get('pendanaan', 0) or 0
+        obj.link_bukti = request.POST.get('link_bukti', '').strip() or None
+        obj.updated_by = request.user.username
+        obj.save()
+        messages.success(request, 'Penelitian berhasil diupdate.')
+    return redirect('kinerja:index')
+
+
+@login_required
+def edit_publikasi(request, id):
+    obj = get_object_or_404(Publikasi, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('kinerja:index')
+    if request.method == 'POST':
+        obj.judul = request.POST.get('judul', '').strip()
+        obj.jenis_publikasi = request.POST.get('jenis_publikasi', obj.jenis_publikasi)
+        obj.nama_jurnal = request.POST.get('nama_jurnal', '').strip()
+        obj.volume = request.POST.get('volume', '').strip()
+        obj.nomor = request.POST.get('nomor', '').strip()
+        obj.halaman = request.POST.get('halaman', '').strip()
+        obj.tahun_terbit = request.POST.get('tahun_terbit') or None
+        obj.semester = request.POST.get('semester', '')
+        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
+        obj.link_bukti = request.POST.get('link_bukti', '').strip() or None
+        obj.updated_by = request.user.username
+        obj.save()
+        messages.success(request, 'Publikasi berhasil diupdate.')
+    return redirect('kinerja:index')
+
+
+@login_required
+def edit_pkm(request, id):
+    obj = get_object_or_404(PKM, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('kinerja:index')
+    if request.method == 'POST':
+        obj.judul = request.POST.get('judul', '').strip()
+        obj.semester = request.POST.get('semester', '')
+        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
+        obj.jml_mahasiswa = request.POST.get('jml_mahasiswa', 0)
+        obj.ln_i = request.POST.get('ln_i', '')
+        obj.jenis_hibah = request.POST.get('jenis_hibah', '').strip()
+        obj.sumber = request.POST.get('sumber', '').strip()
+        obj.durasi = request.POST.get('durasi', 1)
+        obj.pendanaan = request.POST.get('pendanaan', 0) or 0
+        obj.link_bukti = request.POST.get('link_bukti', '').strip() or None
+        obj.updated_by = request.user.username
+        obj.save()
+        messages.success(request, 'PKM berhasil diupdate.')
+    return redirect('kinerja:index')
+
+
+@login_required
+def edit_hki(request, id):
+    obj = get_object_or_404(HKI, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('kinerja:index')
+    if request.method == 'POST':
+        obj.judul = request.POST.get('judul', '').strip()
+        obj.jenis_hki = request.POST.get('jenis_hki', obj.jenis_hki)
+        obj.no_hki = request.POST.get('no_hki', '').strip()
+        obj.tahun_perolehan = request.POST.get('tahun_perolehan') or None
+        obj.semester = request.POST.get('semester', '')
+        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
+        obj.link_bukti = request.POST.get('link_bukti', '').strip() or None
+        obj.updated_by = request.user.username
+        obj.save()
+        messages.success(request, 'HKI berhasil diupdate.')
+    return redirect('kinerja:index')

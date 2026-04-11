@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+{% block title %}Kelola Dokumen — SIKD{% endblock %}
+{% block page_title %}Dokumen Bukti Kinerja{% endblock %}
+
+{% block content %}
+<!-- Info Kinerja -->
+<div class="card border-0 shadow-sm mb-4"
+     style="border-left: 4px solid #1e3a5f !important;">
+  <div class="card-body py-3">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="badge bg-blue-lt text-blue text-uppercase">{{ jenis_kinerja }}</span>
+          {% if kinerja_obj.semester %}
+          <span class="badge bg-orange-lt text-orange">{{ kinerja_obj.semester }}</span>
+          {% endif %}
+          {% if kinerja_obj.tahun_akademik %}
+          <span class="badge bg-teal-lt text-teal">{{ kinerja_obj.tahun_akademik }}</span>
+          {% endif %}
+        </div>
+        <h6 class="mb-1 fw-semibold">{{ judul_kinerja }}</h6>
+        <small class="text-muted">
+          <span class="ti ti-user me-1"></span>
+          {{ kinerja_obj.user.get_full_name }}
+        </small>
+      </div>
+      <a href="{% url 'kinerja:index' %}" class="btn btn-sm btn-outline-secondary">
+        <span class="ti ti-arrow-left me-1"></span>Kembali
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- Form Tambah Dokumen -->
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold">
+          <span class="ti ti-plus me-1 text-primary"></span>Tambah Dokumen
+        </h6>
+      </div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="aksi" value="tambah">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Jenis Dokumen *</label>
+            <select name="jenis_dokumen" class="form-select" required>
+              <option value="">-- Pilih --</option>
+              {% for val, label in jenis_dokumen_choices %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nama Dokumen *</label>
+            <input type="text" name="nama_dokumen" class="form-control"
+                   placeholder="contoh: Surat Tugas No. 001/2024" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Keterangan</label>
+            <textarea name="keterangan" class="form-control" rows="2"
+                      placeholder="Keterangan tambahan..."></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Upload File</label>
+            <input type="file" name="file_dokumen" class="form-control"
+                   accept=".pdf,.jpg,.jpeg,.png">
+            <small class="text-muted">PDF/JPG/PNG, max 5MB</small>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Atau Link Drive</label>
+            <input type="url" name="link_dokumen" class="form-control"
+                   placeholder="https://drive.google.com/...">
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">
+            <span class="ti ti-upload me-1"></span>Tambah Dokumen
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Panduan -->
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-body py-3">
+        <h6 class="fw-semibold mb-2">
+          <span class="ti ti-info-circle me-1 text-info"></span>Panduan Dokumen
+        </h6>
+        <ul class="mb-0 ps-3" style="font-size:12px; color:#555">
+          <li><strong>Surat Tugas</strong> — SK penugasan pimpinan</li>
+          <li><strong>Kontrak</strong> — Perjanjian/kontrak kegiatan</li>
+          <li><strong>Lap. Kemajuan</strong> — Progress report</li>
+          <li><strong>Lap. Akhir</strong> — Laporan final kegiatan</li>
+          <li><strong>Sertifikat</strong> — Bukti keikutsertaan</li>
+          <li><strong>Dokumentasi</strong> — Foto/video kegiatan</li>
+          <li><strong>SK</strong> — Surat keputusan terkait</li>
+          <li><strong>Lainnya</strong> — Dokumen pendukung lain</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daftar Dokumen -->
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold">
+          <span class="ti ti-files me-1 text-primary"></span>Daftar Dokumen
+        </h6>
+        <span class="badge bg-blue-lt text-blue">{{ dokumen_list.count }} dokumen</span>
+      </div>
+      <div class="card-body p-0">
+        {% if dokumen_list %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>#</th>
+                <th>Jenis</th>
+                <th>Nama Dokumen</th>
+                <th>Keterangan</th>
+                <th>File/Link</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for dok in dokumen_list %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                  <span class="badge bg-blue-lt text-blue" style="font-size:10px">
+                    {{ dok.get_jenis_dokumen_display }}
+                  </span>
+                </td>
+                <td>
+                  <strong style="font-size:13px">{{ dok.nama_dokumen }}</strong>
+                </td>
+                <td style="font-size:12px; color:#666; max-width:150px">
+                  {{ dok.keterangan|default:"-"|truncatechars:50 }}
+                </td>
+                <td>
+                  {% if dok.file_dokumen %}
+                  <a href="{{ dok.file_dokumen.url }}" target="_blank"
+                     class="btn btn-sm btn-outline-success">
+                    <span class="ti ti-file me-1"></span>File
+                  </a>
+                  {% elif dok.link_dokumen %}
+                  <a href="{{ dok.link_dokumen }}" target="_blank"
+                     class="btn btn-sm btn-outline-info">
+                    <span class="ti ti-link me-1"></span>Link
+                  </a>
+                  {% else %}
+                  <span class="text-muted small">-</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-primary"
+                      title="Edit"
+                      onclick="editDokumen(
+                        {{ dok.id }},
+                        '{{ dok.jenis_dokumen }}',
+                        '{{ dok.nama_dokumen|escapejs }}',
+                        '{{ dok.keterangan|default:''|escapejs }}',
+                        '{{ dok.link_dokumen|default:'' }}'
+                      )">
+                      <span class="ti ti-edit"></span>
+                    </button>
+                    <form method="post"
+                          onsubmit="return confirm('Hapus dokumen ini?')">
+                      {% csrf_token %}
+                      <input type="hidden" name="aksi" value="hapus">
+                      <input type="hidden" name="dok_id" value="{{ dok.id }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger"
+                              title="Hapus">
+                        <span class="ti ti-trash"></span>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <span class="ti ti-file-off" style="font-size:48px; opacity:0.3"></span>
+          <div class="mt-2 fw-semibold">Belum ada dokumen</div>
+          <small>Tambahkan dokumen bukti menggunakan form di samping</small>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Dokumen -->
+<div class="modal fade" id="modalEditDokumen" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="aksi" value="edit">
+        <input type="hidden" name="dok_id" id="edit_dok_id">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <span class="ti ti-edit me-1"></span>Edit Dokumen
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Jenis Dokumen *</label>
+            <select name="jenis_dokumen" id="edit_jenis_dok"
+                    class="form-select" required>
+              {% for val, label in jenis_dokumen_choices %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nama Dokumen *</label>
+            <input type="text" name="nama_dokumen" id="edit_nama_dok"
+                   class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Keterangan</label>
+            <textarea name="keterangan" id="edit_ket_dok"
+                      class="form-control" rows="2"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Upload File Baru</label>
+            <input type="file" name="file_dokumen" class="form-control"
+                   accept=".pdf,.jpg,.jpeg,.png">
+            <small class="text-muted">
+              Kosongkan jika tidak ingin mengganti file
+            </small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Link Drive</label>
+            <input type="url" name="link_dokumen" id="edit_link_dok"
+                   class="form-control"
+                   placeholder="https://drive.google.com/...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary"
+                  data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">
+            <span class="ti ti-check me-1"></span>Simpan Perubahan
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editDokumen(id, jenis, nama, ket, link) {
+  document.getElementById('edit_dok_id').value = id;
+  document.getElementById('edit_jenis_dok').value = jenis;
+  document.getElementById('edit_nama_dok').value = nama;
+  document.getElementById('edit_ket_dok').value = ket;
+  document.getElementById('edit_link_dok').value = link;
+  new bootstrap.Modal(document.getElementById('modalEditDokumen')).show();
+}
+</script>
+{% endblock %}

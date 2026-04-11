@@ -13,4 +13,6 @@ urlpatterns = [
     path('import-user/', views.import_user, name='import_user'),
     path('download-template/', views.download_template, name='download_template'),
     path('ganti-password/', views.ganti_password, name='ganti_password'),
+    path('unlock-user/<int:user_id>/', views.unlock_user, name='unlock_user'),
+    path('refresh-captcha/', views.refresh_captcha, name='refresh_captcha'),
 ]

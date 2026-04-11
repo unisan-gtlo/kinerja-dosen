@@ -5,61 +5,148 @@
 {% block content %}
 <!-- Filter -->
 <div class="card border-0 shadow-sm mb-4">
-  <div class="card-header bg-white"><h5 class="mb-0">Filter Laporan</h5></div>
+  <div class="card-header bg-white">
+    <h5 class="mb-0"><span class="ti ti-filter me-2"></span>Filter Laporan</h5>
+  </div>
   <div class="card-body">
     <div class="row g-3">
-      <div class="col-md-3">
-        <label class="form-label fw-semibold">Tahun Akademik</label>
-        <select id="filter_tahun" class="form-select">
-          <option value="">Semua Tahun</option>
-          {% for t in tahun_list %}
-          <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
-          {% endfor %}
-        </select>
+
+      <!-- Mode Filter -->
+      <div class="col-12">
+        <div class="d-flex gap-3">
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="radio" name="mode_filter" value="tunggal" checked
+                   onchange="toggleModeFilter(this.value)"
+                   style="accent-color:#1e3a5f">
+            <span class="fw-semibold" style="font-size:13px">Satu Tahun / Semester</span>
+          </label>
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="radio" name="mode_filter" value="rentang"
+                   onchange="toggleModeFilter(this.value)"
+                   style="accent-color:#1e3a5f">
+            <span class="fw-semibold" style="font-size:13px">Rentang Periode</span>
+          </label>
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="radio" name="mode_filter" value="semua"
+                   onchange="toggleModeFilter(this.value)"
+                   style="accent-color:#1e3a5f">
+            <span class="fw-semibold" style="font-size:13px">Semua Periode</span>
+          </label>
+        </div>
       </div>
-      <div class="col-md-2">
-        <label class="form-label fw-semibold">Semester</label>
-        <select id="filter_semester" class="form-select">
-          <option value="">Semua</option>
-          <option value="Ganjil">Ganjil</option>
-          <option value="Genap">Genap</option>
-        </select>
+
+      <!-- Filter Tunggal -->
+      <div id="filter_tunggal" class="col-12">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Tahun Akademik</label>
+            <select id="filter_tahun" class="form-select">
+              <option value="">Semua Tahun</option>
+              {% for t in tahun_list %}
+              <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Semester</label>
+            <select id="filter_semester" class="form-select">
+              <option value="">Semua Semester</option>
+              <option value="Ganjil">Ganjil</option>
+              <option value="Genap">Genap</option>
+            </select>
+          </div>
+        </div>
       </div>
-      {% if request.user.role == 'admin' or request.user.role == 'rektorat' or request.user.role == 'biro' %}
-      <div class="col-md-2">
-        <label class="form-label fw-semibold">Fakultas</label>
-        <select id="filter_fakultas" class="form-select">
-          <option value="">Semua</option>
-          {% for f in fakultas_list %}
-             <option value="{{ f.kode_fakultas }}">{{ f.nama_fakultas }}</option>
-          {% endfor %}
-        </select>
+
+      <!-- Filter Rentang -->
+      <div id="filter_rentang" class="col-12" style="display:none">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Dari Tahun Akademik</label>
+            <select id="filter_tahun_awal" class="form-select">
+              <option value="">-- Pilih --</option>
+              {% for t in tahun_list|dictsort:"urutan" %}
+              <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Sampai Tahun Akademik</label>
+            <select id="filter_tahun_akhir" class="form-select">
+              <option value="">-- Pilih --</option>
+              {% for t in tahun_list %}
+              <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Semester</label>
+            <select id="filter_semester_rentang" class="form-select">
+              <option value="">Semua Semester</option>
+              <option value="Ganjil">Ganjil</option>
+              <option value="Genap">Genap</option>
+            </select>
+          </div>
+        </div>
       </div>
-      {% endif %}
-      <div class="col-md-2">
-        <label class="form-label fw-semibold">Prodi</label>
-        <select id="filter_prodi" class="form-select">
-          <option value="">Semua</option>
-          {% for p in prodi_list %}
-             <option value="{{ p.kode_prodi }}">{{ p.kode_prodi }} - {{ p.nama_prodi }}</option>
-          {% endfor %}
-        </select>
+
+      <!-- Filter Tambahan -->
+      <div class="col-12">
+        <div class="row g-3">
+          {% if request.user.role == 'admin' or request.user.role == 'rektorat' or request.user.role == 'biro' %}
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Fakultas</label>
+            <!-- Fakultas -->
+            <select id="filter_fakultas" class="form-select"
+                    onchange="filterProdiLaporan(this.value)">
+              <option value="">Semua Fakultas</option>
+              {% for f in fakultas_list %}
+              <option value="{{ f.kode_fakultas }}">{{ f.nama_fakultas }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Prodi</label>
+
+
+            <!-- Prodi -->
+            <select id="filter_prodi" class="form-select">
+              <option value="">Semua Prodi</option>
+              {% for p in prodi_list %}
+              <option value="{{ p.kode_prodi }}"
+                      data-fakultas="{{ p.fakultas.kode_fakultas }}">
+                {{ p.kode_prodi }} - {{ p.nama_prodi }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Status Kepegawaian</label>
+            <select id="filter_status" class="form-select">
+              <option value="">Semua Status</option>
+              <option value="Aktif">Aktif</option>
+              <option value="Tugas Belajar">Tugas Belajar</option>
+              <option value="Lanjut Studi">Lanjut Studi</option>
+              <option value="Keluar">Keluar</option>
+              <option value="Meninggal">Meninggal</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div class="col-md-2">
-        <label class="form-label fw-semibold">Status Kepegawaian</label>
-        <select id="filter_status" class="form-select">
-          <option value="">Semua</option>
-          <option value="Aktif">Aktif</option>
-          <option value="Tugas Belajar">Tugas Belajar</option>
-          <option value="Lanjut Studi">Lanjut Studi</option>
-          <option value="Keluar">Keluar</option>
-          <option value="Meninggal">Meninggal</option>
-        </select>
+
+      <!-- Info Filter Aktif -->
+      <div class="col-12">
+        <div id="info_filter" class="alert mb-0"
+             style="background:#e8f4fd; border:1px solid #bee3f8; border-radius:8px; font-size:13px; display:none">
+          <span class="ti ti-info-circle me-1"></span>
+          <span id="info_filter_text"></span>
+        </div>
       </div>
+
     </div>
   </div>
 </div>
-
 <!-- Pilihan Export -->
 <div class="row g-4">
 
@@ -70,8 +157,8 @@
         <h5 class="mb-0"><span class="ti ti-report me-2 text-primary"></span>Rekap Kinerja Dosen</h5>
       </div>
       <div class="card-body">
-        <p class="text-muted">Laporan ringkasan kinerja seluruh dosen meliputi jumlah BKD, penelitian, publikasi, PKM, HKI, dan persentase kelengkapan profil.</p>
-        <div class="d-flex gap-2 mt-3">
+        <p class="text-muted">Laporan ringkasan kinerja seluruh dosen meliputi BKD, penelitian, publikasi, PKM, HKI, dan kelengkapan profil.</p>
+        <div class="d-flex gap-2 mt-3 flex-wrap">
           <button onclick="exportFile('{% url 'laporan:excel_rekap' %}')" class="btn btn-success">
             <span class="ti ti-file-spreadsheet me-1"></span>Excel
           </button>
@@ -90,7 +177,7 @@
         <h5 class="mb-0"><span class="ti ti-microscope me-2 text-success"></span>Data Penelitian</h5>
       </div>
       <div class="card-body">
-        <p class="text-muted">Laporan detail seluruh kegiatan penelitian dosen beserta judul, sumber dana, pendanaan, dan jumlah mahasiswa yang terlibat.</p>
+        <p class="text-muted">Laporan detail seluruh kegiatan penelitian dosen beserta judul, sumber dana, pendanaan, dan jumlah mahasiswa.</p>
         <div class="d-flex gap-2 mt-3">
           <button onclick="exportFile('{% url 'laporan:excel_penelitian' %}')" class="btn btn-success">
             <span class="ti ti-file-spreadsheet me-1"></span>Excel
@@ -107,9 +194,43 @@
         <h5 class="mb-0"><span class="ti ti-book me-2 text-info"></span>Data Publikasi</h5>
       </div>
       <div class="card-body">
-        <p class="text-muted">Laporan detail seluruh publikasi ilmiah dosen meliputi judul, nama jurnal, jenis publikasi, volume, nomor, dan tahun terbit.</p>
+        <p class="text-muted">Laporan detail seluruh publikasi ilmiah dosen meliputi judul, nama jurnal, jenis publikasi, volume, dan tahun terbit.</p>
         <div class="d-flex gap-2 mt-3">
           <button onclick="exportFile('{% url 'laporan:excel_publikasi' %}')" class="btn btn-success">
+            <span class="ti ti-file-spreadsheet me-1"></span>Excel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data PKM -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h5 class="mb-0"><span class="ti ti-hearts me-2 text-warning"></span>Data PKM</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted">Laporan detail seluruh kegiatan Pengabdian Kepada Masyarakat dosen beserta judul, sumber dana, dan jumlah mahasiswa.</p>
+        <div class="d-flex gap-2 mt-3">
+          <button onclick="exportFile('{% url 'laporan:excel_pkm' %}')" class="btn btn-success">
+            <span class="ti ti-file-spreadsheet me-1"></span>Excel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data HKI -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white">
+        <h5 class="mb-0"><span class="ti ti-shield-check me-2 text-success"></span>Data HKI</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted">Laporan detail seluruh Hak Kekayaan Intelektual dosen meliputi judul, jenis HKI, nomor HKI, dan tahun perolehan.</p>
+        <div class="d-flex gap-2 mt-3">
+          <button onclick="exportFile('{% url 'laporan:excel_hki' %}')" class="btn btn-success">
             <span class="ti ti-file-spreadsheet me-1"></span>Excel
           </button>
         </div>
@@ -125,44 +246,84 @@
         <h5 class="mb-0"><span class="ti ti-calendar me-2 text-primary"></span>Periode Akreditasi</h5>
       </div>
       <div class="card-body">
-        <table class="table table-sm mb-0">
+        <table class="table table-sm mb-2">
           <tr>
             <td class="fw-semibold">{{ pengaturan.ts_label }}</td>
             <td>{{ pengaturan.ts_tahun }}</td>
+            <td>
+              <button onclick="setFilterTS('{{ pengaturan.ts_tahun }}')"
+                      class="btn btn-xs btn-outline-primary">Pilih</button>
+            </td>
           </tr>
           <tr>
             <td class="fw-semibold">{{ pengaturan.ts1_label }}</td>
             <td>{{ pengaturan.ts1_tahun }}</td>
+            <td>
+              <button onclick="setFilterTS('{{ pengaturan.ts1_tahun }}')"
+                      class="btn btn-xs btn-outline-primary">Pilih</button>
+            </td>
           </tr>
           <tr>
             <td class="fw-semibold">{{ pengaturan.ts2_label }}</td>
             <td>{{ pengaturan.ts2_tahun }}</td>
+            <td>
+              <button onclick="setFilterTS('{{ pengaturan.ts2_tahun }}')"
+                      class="btn btn-xs btn-outline-primary">Pilih</button>
+            </td>
           </tr>
         </table>
-        <small class="text-muted mt-2 d-block">Gunakan filter tahun di atas untuk export per periode.</small>
+        <button onclick="setFilterRentangTS('{{ pengaturan.ts2_tahun }}','{{ pengaturan.ts_tahun }}')"
+                class="btn btn-sm btn-primary w-100">
+          <span class="ti ti-calendar-range me-1"></span>
+          Pilih Semua ({{ pengaturan.ts2_label }} s/d {{ pengaturan.ts_label }})
+        </button>
       </div>
     </div>
   </div>
   {% endif %}
+
+
 
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+function toggleModeFilter(mode) {
+  document.getElementById('filter_tunggal').style.display = mode === 'tunggal' ? '' : 'none';
+  document.getElementById('filter_rentang').style.display = mode === 'rentang' ? '' : 'none';
+  updateInfoFilter();
+}
+
 function getFilterParams() {
-  const tahun = document.getElementById('filter_tahun').value;
-  const semester = document.getElementById('filter_semester').value;
+  const mode = document.querySelector('input[name="mode_filter"]:checked').value;
+  const params = new URLSearchParams();
+
+  if (mode === 'tunggal') {
+    const tahun = document.getElementById('filter_tahun').value;
+    const semester = document.getElementById('filter_semester').value;
+    if (tahun) params.append('tahun', tahun);
+    if (semester) params.append('semester', semester);
+
+  } else if (mode === 'rentang') {
+    const awal = document.getElementById('filter_tahun_awal').value;
+    const akhir = document.getElementById('filter_tahun_akhir').value;
+    const semester = document.getElementById('filter_semester_rentang').value;
+    if (awal) params.append('tahun_awal', awal);
+    if (akhir) params.append('tahun_akhir', akhir);
+    if (semester) params.append('semester', semester);
+
+  }
+  // mode 'semua' = tidak ada filter tahun
+
   const prodi = document.getElementById('filter_prodi') ? document.getElementById('filter_prodi').value : '';
   const fakultas = document.getElementById('filter_fakultas') ? document.getElementById('filter_fakultas').value : '';
   const status = document.getElementById('filter_status').value;
 
-  const params = new URLSearchParams();
-  if (tahun) params.append('tahun', tahun);
-  if (semester) params.append('semester', semester);
   if (prodi) params.append('prodi', prodi);
   if (fakultas) params.append('fakultas', fakultas);
   if (status) params.append('status_kepegawaian', status);
+
   return params.toString();
 }
 
@@ -171,5 +332,74 @@ function exportFile(baseUrl) {
   const url = params ? `${baseUrl}?${params}` : baseUrl;
   window.location.href = url;
 }
+
+function updateInfoFilter() {
+  const mode = document.querySelector('input[name="mode_filter"]:checked').value;
+  const info = document.getElementById('info_filter');
+  const infoText = document.getElementById('info_filter_text');
+
+  if (mode === 'semua') {
+    info.style.display = '';
+    infoText.textContent = 'Mode: Semua periode — laporan mencakup seluruh data tanpa filter tahun.';
+  } else if (mode === 'rentang') {
+    const awal = document.getElementById('filter_tahun_awal').value;
+    const akhir = document.getElementById('filter_tahun_akhir').value;
+    if (awal && akhir) {
+      info.style.display = '';
+      infoText.textContent = `Mode: Rentang periode dari ${awal} sampai ${akhir}.`;
+    } else {
+      info.style.display = 'none';
+    }
+  } else {
+    info.style.display = 'none';
+  }
+}
+
+function setFilterTS(tahun) {
+  // Set ke mode tunggal
+  document.querySelector('input[name="mode_filter"][value="tunggal"]').checked = true;
+  toggleModeFilter('tunggal');
+  document.getElementById('filter_tahun').value = tahun;
+  document.getElementById('filter_semester').value = '';
+  updateInfoFilter();
+}
+
+function setFilterRentangTS(awal, akhir) {
+  // Set ke mode rentang
+  document.querySelector('input[name="mode_filter"][value="rentang"]').checked = true;
+  toggleModeFilter('rentang');
+  document.getElementById('filter_tahun_awal').value = awal;
+  document.getElementById('filter_tahun_akhir').value = akhir;
+  updateInfoFilter();
+}
+
+function filterProdiLaporan(kodeFakultas) {
+  const prodiSelect = document.getElementById('filter_prodi');
+  const options = prodiSelect.querySelectorAll('option');
+
+  options.forEach(opt => {
+    if (!opt.value) {
+      opt.style.display = '';
+      return;
+    }
+    if (!kodeFakultas || opt.dataset.fakultas === kodeFakultas) {
+      opt.style.display = '';
+    } else {
+      opt.style.display = 'none';
+      if (opt.selected) {
+        opt.selected = false;
+        prodiSelect.value = '';
+      }
+    }
+  });
+}
+
+// Event listeners untuk update info
+document.addEventListener('DOMContentLoaded', function() {
+  ['filter_tahun_awal', 'filter_tahun_akhir', 'filter_semester_rentang'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', updateInfoFilter);
+  });
+});
 </script>
 {% endblock %}

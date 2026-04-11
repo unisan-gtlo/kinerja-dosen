@@ -1,95 +1,340 @@
 {% extends 'base.html' %}
 {% block title %}Rekap Data — SIKD{% endblock %}
-{% block page_title %}Rekap Data Dosen{% endblock %}
+{% block page_title %}Rekap Data{% endblock %}
 
 {% block content %}
 <!-- Filter -->
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-body">
-    <form method="get" class="row g-2 align-items-end">
-      <div class="col-md-2">
-        <label class="form-label small text-muted">Tahun Akademik</label>
-        <select name="tahun" class="form-select form-select-sm">
-          <option value="">Semua Tahun</option>
-          {% for t in tahun_list %}
-          <option value="{{ t.tahun_akademik }}" {% if filter_tahun == t.tahun_akademik %}selected{% endif %}>
-            {{ t.tahun_akademik }}
-          </option>
-          {% endfor %}
-        </select>
+    <form method="get" id="formRekap" class="row g-2 align-items-end">
+      <input type="hidden" name="tab" value="{{ active_tab }}">
+      <input type="hidden" name="mode_filter" id="hidden_mode_filter"
+             value="{{ mode_filter|default:'tunggal' }}">
+
+      <!-- Mode Filter -->
+      <div class="col-12 mb-1">
+        <div class="d-flex gap-3">
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="radio" name="_mode" value="tunggal"
+                   {% if mode_filter != 'rentang' and mode_filter != 'semua' %}checked{% endif %}
+                   onchange="toggleModeRekap('tunggal')"
+                   style="accent-color:#1e3a5f">
+            <span style="font-size:13px">Satu Tahun</span>
+          </label>
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="radio" name="_mode" value="rentang"
+                   {% if mode_filter == 'rentang' %}checked{% endif %}
+                   onchange="toggleModeRekap('rentang')"
+                   style="accent-color:#1e3a5f">
+            <span style="font-size:13px">Rentang Periode</span>
+          </label>
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="radio" name="_mode" value="semua"
+                   {% if mode_filter == 'semua' %}checked{% endif %}
+                   onchange="toggleModeRekap('semua')"
+                   style="accent-color:#1e3a5f">
+            <span style="font-size:13px">Semua Periode</span>
+          </label>
+        </div>
       </div>
-      <div class="col-md-2">
-        <label class="form-label small text-muted">Semester</label>
-        <select name="semester" class="form-select form-select-sm">
-          <option value="">Semua Semester</option>
-          <option value="Ganjil" {% if filter_semester == 'Ganjil' %}selected{% endif %}>Ganjil</option>
-          <option value="Genap" {% if filter_semester == 'Genap' %}selected{% endif %}>Genap</option>
-        </select>
+
+      <!-- Filter Tunggal -->
+      <div id="rekap_filter_tunggal" class="col-12"
+           {% if mode_filter == 'rentang' or mode_filter == 'semua' %}style="display:none"{% endif %}>
+        <div class="row g-2">
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Tahun Akademik</label>
+            <select name="tahun" id="sel_tahun" class="form-select form-select-sm">
+              <option value="">Semua Tahun</option>
+              {% for t in tahun_list %}
+              <option value="{{ t.tahun_akademik }}"
+                {% if filter_tahun == t.tahun_akademik %}selected{% endif %}>
+                {{ t.tahun_akademik }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted">Semester</label>
+            <select name="semester" id="sel_semester_tunggal"
+                    class="form-select form-select-sm">
+              <option value="">Semua</option>
+              <option value="Ganjil"
+                {% if filter_semester == 'Ganjil' and mode_filter != 'rentang' %}selected{% endif %}>
+                Ganjil
+              </option>
+              <option value="Genap"
+                {% if filter_semester == 'Genap' and mode_filter != 'rentang' %}selected{% endif %}>
+                Genap
+              </option>
+            </select>
+          </div>
+        </div>
       </div>
-      {% if request.user.role == 'admin' or request.user.role == 'rektorat' or request.user.role == 'biro' %}
-      <div class="col-md-2">
-        <label class="form-label small text-muted">Fakultas</label>
-        <select name="fakultas" class="form-select form-select-sm">
-          <option value="">Semua Fakultas</option>
-          {% for f in fakultas_list %}
-          <option value="{{ f.kode_fakultas }}" {% if filter_fakultas == f.kode_fakultas %}selected{% endif %}>
-            {{ f.nama_fakultas }}
-          </option>
-          {% endfor %}
-        </select>
+
+      <!-- Filter Rentang -->
+      <div id="rekap_filter_rentang" class="col-12"
+           {% if mode_filter != 'rentang' %}style="display:none"{% endif %}>
+        <div class="row g-2">
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Dari Tahun Akademik</label>
+            <select name="tahun_awal" id="sel_tahun_awal"
+                    class="form-select form-select-sm">
+              <option value="">-- Pilih --</option>
+              {% for t in tahun_list %}
+              <option value="{{ t.tahun_akademik }}"
+                {% if filter_tahun_awal == t.tahun_akademik %}selected{% endif %}>
+                {{ t.tahun_akademik }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Sampai Tahun Akademik</label>
+            <select name="tahun_akhir" id="sel_tahun_akhir"
+                    class="form-select form-select-sm">
+              <option value="">-- Pilih --</option>
+              {% for t in tahun_list %}
+              <option value="{{ t.tahun_akademik }}"
+                {% if filter_tahun_akhir == t.tahun_akademik %}selected{% endif %}>
+                {{ t.tahun_akademik }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted">Semester</label>
+            <select name="semester_rentang" id="sel_semester_rentang"
+                    class="form-select form-select-sm">
+              <option value="">Semua</option>
+              <option value="Ganjil"
+                {% if filter_semester == 'Ganjil' and mode_filter == 'rentang' %}selected{% endif %}>
+                Ganjil
+              </option>
+              <option value="Genap"
+                {% if filter_semester == 'Genap' and mode_filter == 'rentang' %}selected{% endif %}>
+                Genap
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Tambahan -->
+      <div class="col-12">
+        <div class="row g-2">
+          {% if request.user.role == 'admin' or request.user.role == 'rektorat' or request.user.role == 'biro' %}
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Fakultas</label>
+           <!-- Fakultas -->
+          <select name="fakultas" id="rekap_fakultas" class="form-select form-select-sm"
+                  onchange="filterProdiRekap(this.value)">
+            <option value="">Semua Fakultas</option>
+            {% for f in fakultas_list %}
+            <option value="{{ f.kode_fakultas }}"
+              {% if filter_fakultas == f.kode_fakultas %}selected{% endif %}>
+              {{ f.nama_fakultas }}
+            </option>
+            {% endfor %}
+          </select>
+          </div>
+          {% endif %}
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Prodi</label>
+           
+
+            <!-- Prodi -->
+            <select name="prodi" id="rekap_prodi" class="form-select form-select-sm">
+              <option value="">Semua Prodi</option>
+              {% for p in prodi_list %}
+              <option value="{{ p.kode_prodi }}"
+                      data-fakultas="{{ p.fakultas.kode_fakultas }}"
+                      {% if filter_prodi == p.kode_prodi %}selected{% endif %}>
+                {{ p.kode_prodi }} - {{ p.nama_prodi }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted">Status Kepegawaian</label>
+            <select name="status_kepegawaian" class="form-select form-select-sm">
+              <option value="">Semua Status</option>
+              <option value="Aktif"
+                {% if filter_status == 'Aktif' %}selected{% endif %}>Aktif</option>
+              <option value="Tugas Belajar"
+                {% if filter_status == 'Tugas Belajar' %}selected{% endif %}>Tugas Belajar</option>
+              <option value="Lanjut Studi"
+                {% if filter_status == 'Lanjut Studi' %}selected{% endif %}>Lanjut Studi</option>
+              <option value="Keluar"
+                {% if filter_status == 'Keluar' %}selected{% endif %}>Keluar</option>
+              <option value="Meninggal"
+                {% if filter_status == 'Meninggal' %}selected{% endif %}>Meninggal</option>
+            </select>
+          </div>
+          <div class="col-md-1">
+            <label class="form-label small text-muted">Per Hal.</label>
+            <select name="per_halaman" class="form-select form-select-sm">
+              <option value="15" {% if per_halaman == '15' %}selected{% endif %}>15</option>
+              <option value="25" {% if per_halaman == '25' %}selected{% endif %}>25</option>
+              <option value="50" {% if per_halaman == '50' %}selected{% endif %}>50</option>
+              <option value="100" {% if per_halaman == '100' %}selected{% endif %}>100</option>
+            </select>
+          </div>
+          <div class="col-md-2 d-flex gap-2 align-items-end">
+            <button type="submit" class="btn btn-primary btn-sm"
+                    onclick="prepareSubmit()">
+              <span class="ti ti-search me-1"></span>Filter
+            </button>
+            <a href="{% url 'dashboard:rekap' %}?tab={{ active_tab }}"
+               class="btn btn-outline-secondary btn-sm">Reset</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Info Filter Aktif -->
+      {% if filter_tahun or filter_tahun_awal or filter_tahun_akhir or filter_semester %}
+      <div class="col-12">
+        <div class="alert mb-0 py-2"
+             style="background:#e8f4fd; border:1px solid #bee3f8;
+                    border-radius:8px; font-size:12px">
+          <span class="ti ti-filter me-1 text-primary"></span>
+          <strong>Filter aktif:</strong>
+          {% if mode_filter == 'semua' %}
+            Semua Periode
+          {% elif filter_tahun %}
+            Tahun {{ filter_tahun }}
+          {% elif filter_tahun_awal and filter_tahun_akhir %}
+            Rentang {{ filter_tahun_awal }} s/d {{ filter_tahun_akhir }}
+          {% elif filter_tahun_awal %}
+            Dari {{ filter_tahun_awal }}
+          {% elif filter_tahun_akhir %}
+            Sampai {{ filter_tahun_akhir }}
+          {% endif %}
+          {% if filter_semester %}
+            | Semester {{ filter_semester }}
+          {% endif %}
+          {% if filter_prodi %} | Prodi {{ filter_prodi }}{% endif %}
+          {% if filter_fakultas %} | Fakultas {{ filter_fakultas }}{% endif %}
+          {% if filter_status %} | Status: {{ filter_status }}{% endif %}
+        </div>
       </div>
       {% endif %}
-      <div class="col-md-2">
-        <label class="form-label small text-muted">Prodi</label>
-        <select name="prodi" class="form-select form-select-sm">
-          <option value="">Semua Prodi</option>
-          {% for p in prodi_list %}
-          <option value="{{ p.kode_prodi }}" {% if filter_prodi == p.kode_prodi %}selected{% endif %}>
-            {{ p.kode_prodi }} - {{ p.nama_prodi }}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label small text-muted">Status Kepegawaian</label>
-        <select name="status_kepegawaian" class="form-select form-select-sm">
-          <option value="">Semua Status</option>
-          <option value="Aktif" {% if filter_status == 'Aktif' %}selected{% endif %}>Aktif</option>
-          <option value="Tugas Belajar" {% if filter_status == 'Tugas Belajar' %}selected{% endif %}>Tugas Belajar</option>
-          <option value="Lanjut Studi" {% if filter_status == 'Lanjut Studi' %}selected{% endif %}>Lanjut Studi</option>
-          <option value="Keluar" {% if filter_status == 'Keluar' %}selected{% endif %}>Keluar</option>
-          <option value="Meninggal" {% if filter_status == 'Meninggal' %}selected{% endif %}>Meninggal</option>
-        </select>
-      </div>
-      <div class="col-md-2">
-        <button type="submit" class="btn btn-primary btn-sm">
-          <span class="ti ti-search me-1"></span>Filter
-        </button>
-        <a href="{% url 'dashboard:rekap' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
-      </div>
+
     </form>
   </div>
 </div>
 
-<!-- Info -->
-<div class="card border-0 shadow-sm mb-3">
-  <div class="card-body py-2 d-flex justify-content-between align-items-center">
-    <div>
-      <span class="fw-semibold">Total: {{ total_dosen }} dosen</span>
-      {% if filter_tahun or filter_semester %}
-      <span class="badge bg-blue-lt text-blue ms-2">
-        {{ filter_semester }} {{ filter_tahun }}
-      </span>
-      {% endif %}
-    </div>
-    <a href="{% url 'laporan:index' %}" class="btn btn-sm btn-success">
-      <span class="ti ti-file-export me-1"></span>Export Excel
+<!-- Stat Cards -->
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-2">
+    <a href="?tab=dosen&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&status_kepegawaian={{ filter_status }}&per_halaman={{ per_halaman }}"
+       class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'dosen' %}border-primary border-2{% endif %}">
+      <div class="card-body text-center py-2">
+        <div class="fw-bold text-primary" style="font-size:22px">{{ total_dosen }}</div>
+        <div class="text-muted" style="font-size:11px">Dosen</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="?tab=penelitian&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&status_kepegawaian={{ filter_status }}&per_halaman={{ per_halaman }}"
+       class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'penelitian' %}border-danger border-2{% endif %}">
+      <div class="card-body text-center py-2">
+        <div class="fw-bold text-danger" style="font-size:22px">{{ total_penelitian }}</div>
+        <div class="text-muted" style="font-size:11px">Penelitian</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="?tab=publikasi&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&status_kepegawaian={{ filter_status }}&per_halaman={{ per_halaman }}"
+       class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'publikasi' %}border-info border-2{% endif %}">
+      <div class="card-body text-center py-2">
+        <div class="fw-bold text-info" style="font-size:22px">{{ total_publikasi }}</div>
+        <div class="text-muted" style="font-size:11px">Publikasi</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="?tab=pkm&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&status_kepegawaian={{ filter_status }}&per_halaman={{ per_halaman }}"
+       class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'pkm' %}border-warning border-2{% endif %}">
+      <div class="card-body text-center py-2">
+        <div class="fw-bold text-warning" style="font-size:22px">{{ total_pkm }}</div>
+        <div class="text-muted" style="font-size:11px">PKM</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="?tab=hki&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&status_kepegawaian={{ filter_status }}&per_halaman={{ per_halaman }}"
+       class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'hki' %}border-success border-2{% endif %}">
+      <div class="card-body text-center py-2">
+        <div class="fw-bold text-success" style="font-size:22px">{{ total_hki }}</div>
+        <div class="text-muted" style="font-size:11px">HKI</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-2">
+    <a href="?tab=bkd&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&status_kepegawaian={{ filter_status }}&per_halaman={{ per_halaman }}"
+       class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'bkd' %}border-secondary border-2{% endif %}">
+      <div class="card-body text-center py-2">
+        <div class="fw-bold text-secondary" style="font-size:22px">{{ total_bkd }}</div>
+        <div class="text-muted" style="font-size:11px">BKD</div>
+      </div>
     </a>
   </div>
 </div>
 
-<!-- Tabel Rekap -->
+<!-- Tab Content -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <span class="fw-semibold">Total: {{ total_dosen }} dosen</span>
+        {% if filter_tahun or filter_tahun_awal %}
+        <span class="badge bg-blue-lt text-blue ms-2">
+          {% if filter_tahun %}{{ filter_tahun }}
+          {% elif filter_tahun_awal and filter_tahun_akhir %}
+          {{ filter_tahun_awal }} s/d {{ filter_tahun_akhir }}
+          {% endif %}
+          {% if filter_semester %} | {{ filter_semester }}{% endif %}
+        </span>
+        {% endif %}
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <!-- Export detail per jenis -->
+        <a href="{% url 'laporan:excel_rekap' %}?tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}"
+          class="btn btn-sm btn-success">
+          <span class="ti ti-file-spreadsheet me-1"></span>Excel Rekap Detail
+        </a>
+        <!-- Export statistik kinerja per fakultas/prodi -->
+        <a href="{% url 'laporan:excel_statistik_kinerja' %}?tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}"
+          class="btn btn-sm btn-primary">
+          <span class="ti ti-chart-bar me-1"></span>Statistik Kinerja
+        </a>
+        <!-- Export rekap profil dosen -->
+        <a href="{% url 'laporan:excel_statistik_profil' %}"
+          class="btn btn-sm btn-info">
+          <span class="ti ti-users me-1"></span>Statistik Profil
+        </a>
+        <!-- Export PDF rekap -->
+        <a href="{% url 'laporan:pdf_rekap' %}?tahun={{ filter_tahun }}&semester={{ filter_semester }}"
+          class="btn btn-sm btn-danger">
+          <span class="ti ti-file-type-pdf me-1"></span>PDF Rekap
+        </a>
+      </div>
+    </div>
+  </div>
+{% if active_tab == 'dosen' %}
+<!-- TAB DOSEN -->
+  
+
 <div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">Rekap Kinerja Dosen</h6>
+    <a href="{% url 'laporan:index' %}" class="btn btn-sm btn-success">
+      <span class="ti ti-file-export me-1"></span>Export
+    </a>
+  </div>
+
+  
+
   <div class="table-responsive">
     <table class="table table-hover table-sm mb-0">
       <thead class="table-light">
@@ -113,18 +358,12 @@
       <tbody>
         {% for r in rekap_data %}
         <tr>
-          <td>{{ forloop.counter }}</td>
-          <td>
-            <strong>{{ r.dosen.get_full_name|default:r.dosen.username }}</strong>
-          </td>
+          <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+          <td><strong>{{ r.dosen.get_full_name|default:r.dosen.username }}</strong></td>
           <td><code>{{ r.dosen.nidn|default:"-" }}</code></td>
-          <td>
-            <span class="badge bg-teal-lt text-teal">{{ r.dosen.kode_prodi|default:"-" }}</span>
-          </td>
+          <td><span class="badge bg-teal-lt text-teal">{{ r.dosen.kode_prodi|default:"-" }}</span></td>
           <td style="font-size:12px">{{ r.jabfung }}</td>
-          <td>
-            <span class="badge bg-purple-lt text-purple">{{ r.pendidikan }}</span>
-          </td>
+          <td><span class="badge bg-purple-lt text-purple">{{ r.pendidikan }}</span></td>
           <td>
             {% if r.dosen.status_kepegawaian == 'Aktif' or not r.dosen.status_kepegawaian %}
             <span class="badge bg-success-lt text-success">Aktif</span>
@@ -139,39 +378,26 @@
             {% endif %}
           </td>
           <td class="text-center">
-            {% if r.total_bkd > 0 %}
-            <span class="badge bg-success-lt text-success">{{ r.total_bkd }}</span>
-            {% else %}
-            <span class="badge bg-danger-lt text-danger">0</span>
-            {% endif %}
+            {% if r.total_bkd > 0 %}<span class="badge bg-success-lt text-success">{{ r.total_bkd }}</span>
+            {% else %}<span class="badge bg-danger-lt text-danger">0</span>{% endif %}
           </td>
           <td class="text-center">
-            {% if r.total_penelitian > 0 %}
-            <span class="badge bg-success-lt text-success">{{ r.total_penelitian }}</span>
-            {% else %}
-            <span class="text-muted">0</span>
-            {% endif %}
+            <a href="?tab=penelitian&prodi={{ r.dosen.kode_prodi }}" class="text-decoration-none">
+              {% if r.total_penelitian > 0 %}<span class="badge bg-success-lt text-success">{{ r.total_penelitian }}</span>
+              {% else %}<span class="text-muted">0</span>{% endif %}
+            </a>
           </td>
           <td class="text-center">
-            {% if r.total_publikasi > 0 %}
-            <span class="badge bg-success-lt text-success">{{ r.total_publikasi }}</span>
-            {% else %}
-            <span class="text-muted">0</span>
-            {% endif %}
+            {% if r.total_publikasi > 0 %}<span class="badge bg-success-lt text-success">{{ r.total_publikasi }}</span>
+            {% else %}<span class="text-muted">0</span>{% endif %}
           </td>
           <td class="text-center">
-            {% if r.total_pkm > 0 %}
-            <span class="badge bg-success-lt text-success">{{ r.total_pkm }}</span>
-            {% else %}
-            <span class="text-muted">0</span>
-            {% endif %}
+            {% if r.total_pkm > 0 %}<span class="badge bg-success-lt text-success">{{ r.total_pkm }}</span>
+            {% else %}<span class="text-muted">0</span>{% endif %}
           </td>
           <td class="text-center">
-            {% if r.total_hki > 0 %}
-            <span class="badge bg-success-lt text-success">{{ r.total_hki }}</span>
-            {% else %}
-            <span class="text-muted">0</span>
-            {% endif %}
+            {% if r.total_hki > 0 %}<span class="badge bg-success-lt text-success">{{ r.total_hki }}</span>
+            {% else %}<span class="text-muted">0</span>{% endif %}
           </td>
           <td class="text-center">
             <div class="d-flex align-items-center gap-1">
@@ -185,25 +411,634 @@
           <td>
             <div class="d-flex gap-1">
               <a href="{% url 'profil:index' %}?dosen_id={{ r.dosen.id }}"
-                 class="btn btn-xs btn-outline-primary" title="Lihat Profil">
+                 class="btn btn-xs btn-outline-primary" title="Profil">
                 <span class="ti ti-user"></span>
               </a>
               <a href="{% url 'kinerja:index' %}?dosen_id={{ r.dosen.id }}"
-                 class="btn btn-xs btn-outline-success" title="Lihat Kinerja">
+                 class="btn btn-xs btn-outline-success" title="Kinerja">
                 <span class="ti ti-chart-bar"></span>
+              </a>
+              <a href="{% url 'laporan:pdf_dosen' r.dosen.id %}{% if filter_tahun %}?tahun={{ filter_tahun }}&semester={{ filter_semester }}{% endif %}"
+                 class="btn btn-xs btn-outline-danger" title="PDF">
+                <span class="ti ti-file-type-pdf"></span>
               </a>
             </div>
           </td>
         </tr>
         {% empty %}
-        <tr>
-          <td colspan="14" class="text-center text-muted py-4">
-            Belum ada data dosen
-          </td>
-        </tr>
+        <tr><td colspan="14" class="text-center text-muted py-4">Belum ada data dosen</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  <div class="card-footer bg-white">
+    {% include 'components/pagination.html' %}
+  </div>
 </div>
+
+{% elif active_tab == 'penelitian' %}
+<!-- TAB PENELITIAN -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <span class="ti ti-microscope me-1 text-danger"></span>Data Penelitian
+      <span class="badge bg-danger-lt text-danger ms-1">{{ total_penelitian }}</span>
+    </h6>
+    <a href="{% url 'laporan:excel_penelitian' %}?tahun={{ filter_tahun }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}"
+       class="btn btn-sm btn-success">
+      <span class="ti ti-file-spreadsheet me-1"></span>Excel
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Nama Dosen</th>
+          <th>Prodi</th>
+          <th>Judul Penelitian</th>
+          <th>Semester</th>
+          <th>Tahun</th>
+          <th>L/N/I</th>
+          <th>Sumber Dana</th>
+          <th>Pendanaan</th>
+          <th>Mhs</th>
+          <th>Bukti & Dokumen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in penelitian_list %}
+        <tr>
+          <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+          <td>{{ p.user.get_full_name|default:p.user.username }}</td>
+          <td><span class="badge bg-teal-lt text-teal">{{ p.kode_prodi }}</span></td>
+          <td style="max-width:280px; font-size:12px">{{ p.judul|truncatechars:80 }}</td>
+          <td><span class="badge bg-blue-lt text-blue">{{ p.semester|default:"-" }}</span></td>
+          <td>{{ p.tahun_akademik }}</td>
+          <td>{{ p.get_ln_i_display|default:"-" }}</td>
+          <td style="font-size:12px">{{ p.sumber|default:"-" }}</td>
+          <td>Rp {{ p.pendanaan }} Jt</td>
+          <td class="text-center">{{ p.jml_mahasiswa }}</td>
+          <td>
+            <div class="d-flex flex-column gap-1" style="min-width:120px">
+              {% if p.link_bukti %}
+              <a href="{{ p.link_bukti }}" target="_blank"
+                class="btn btn-xs btn-outline-info">
+                <span class="ti ti-link me-1"></span>Link
+              </a>
+              {% endif %}
+              {% if p.dokumen_list %}
+              <button class="btn btn-xs btn-outline-primary"
+                data-bs-toggle="modal" data-bs-target="#modalDokumen"
+                onclick="loadDokumen(
+                  '{{ p.judul|truncatechars:50|escapejs }}',
+                  {{ p.dokumen_list|length }},
+                  '#dok_penelitian_{{ p.id }}'
+                )">
+                <span class="ti ti-files me-1"></span>
+                {{ p.dokumen_list|length }} Dokumen
+              </button>
+              <!-- Hidden dokumen data -->
+              <div id="dok_penelitian_{{ p.id }}" class="d-none">
+                {% for dok in p.dokumen_list %}
+                <div class="dok-item"
+                    data-jenis="{{ dok.get_jenis_dokumen_display }}"
+                    data-nama="{{ dok.nama_dokumen }}"
+                    data-ket="{{ dok.keterangan|default:'-' }}"
+                    data-file="{% if dok.file_dokumen %}{{ dok.file_dokumen.url }}{% endif %}"
+                    data-link="{{ dok.link_dokumen|default:'' }}">
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              {% if not p.link_bukti %}
+              <span class="text-muted small">-</span>
+              {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="11" class="text-center text-muted py-4">Belum ada data penelitian</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white">
+    {% include 'components/pagination.html' %}
+  </div>
+</div>
+
+{% elif active_tab == 'publikasi' %}
+<!-- TAB PUBLIKASI -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <span class="ti ti-book me-1 text-info"></span>Data Publikasi
+      <span class="badge bg-info-lt text-info ms-1">{{ total_publikasi }}</span>
+    </h6>
+    <a href="{% url 'laporan:excel_publikasi' %}?tahun={{ filter_tahun }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}"
+       class="btn btn-sm btn-success">
+      <span class="ti ti-file-spreadsheet me-1"></span>Excel
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Nama Dosen</th>
+          <th>Prodi</th>
+          <th>Judul Publikasi</th>
+          <th>Jenis</th>
+          <th>Nama Jurnal</th>
+          <th>Semester</th>
+          <th>Tahun</th>
+          <th>Th. Terbit</th>
+          <th>Bukti & Dokumen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in publikasi_list %}
+        <tr>
+          <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+          <td>{{ p.user.get_full_name|default:p.user.username }}</td>
+          <td><span class="badge bg-teal-lt text-teal">{{ p.kode_prodi }}</span></td>
+          <td style="max-width:250px; font-size:12px">{{ p.judul|truncatechars:70 }}</td>
+          <td><span class="badge bg-purple-lt text-purple">{{ p.jenis_publikasi }}</span></td>
+          <td style="font-size:12px">{{ p.nama_jurnal|default:"-"|truncatechars:30 }}</td>
+          <td><span class="badge bg-blue-lt text-blue">{{ p.semester|default:"-" }}</span></td>
+          <td>{{ p.tahun_akademik }}</td>
+          <td>{{ p.tahun_terbit|default:"-" }}</td>
+          <td>
+            <div class="d-flex flex-column gap-1" style="min-width:120px">
+              {% if p.link_bukti %}
+              <a href="{{ p.link_bukti }}" target="_blank"
+                class="btn btn-xs btn-outline-info">
+                <span class="ti ti-link me-1"></span>Link
+              </a>
+              {% endif %}
+              {% if p.dokumen_list %}
+              <button class="btn btn-xs btn-outline-primary"
+                data-bs-toggle="modal" data-bs-target="#modalDokumen"
+                onclick="loadDokumen(
+                  '{{ p.judul|truncatechars:50|escapejs }}',
+                  {{ p.dokumen_list|length }},
+                  '#dok_publikasi_{{ p.id }}'
+                )">
+                <span class="ti ti-files me-1"></span>
+                {{ p.dokumen_list|length }} Dokumen
+              </button>
+              <!-- Hidden dokumen data -->
+              <div id="dok_publikasi_{{ p.id }}" class="d-none">
+                {% for dok in p.dokumen_list %}
+                <div class="dok-item"
+                    data-jenis="{{ dok.get_jenis_dokumen_display }}"
+                    data-nama="{{ dok.nama_dokumen }}"
+                    data-ket="{{ dok.keterangan|default:'-' }}"
+                    data-file="{% if dok.file_dokumen %}{{ dok.file_dokumen.url }}{% endif %}"
+                    data-link="{{ dok.link_dokumen|default:'' }}">
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              {% if not p.link_bukti %}
+              <span class="text-muted small">-</span>
+              {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="10" class="text-center text-muted py-4">Belum ada data publikasi</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white">
+    {% include 'components/pagination.html' %}
+  </div>
+</div>
+
+{% elif active_tab == 'pkm' %}
+<!-- TAB PKM -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <span class="ti ti-hearts me-1 text-warning"></span>Data PKM
+      <span class="badge bg-warning-lt text-warning ms-1">{{ total_pkm }}</span>
+    </h6>
+    <a href="{% url 'laporan:excel_pkm' %}?tahun={{ filter_tahun }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}"
+       class="btn btn-sm btn-success">
+      <span class="ti ti-file-spreadsheet me-1"></span>Excel
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Nama Dosen</th>
+          <th>Prodi</th>
+          <th>Judul PKM</th>
+          <th>Semester</th>
+          <th>Tahun</th>
+          <th>L/N/I</th>
+          <th>Sumber Dana</th>
+          <th>Pendanaan</th>
+          <th>Mhs</th>
+          <th>Bukti & Dokumen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pkm_list %}
+        <tr>
+          <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+          <td>{{ p.user.get_full_name|default:p.user.username }}</td>
+          <td><span class="badge bg-teal-lt text-teal">{{ p.kode_prodi }}</span></td>
+          <td style="max-width:280px; font-size:12px">{{ p.judul|truncatechars:80 }}</td>
+          <td><span class="badge bg-blue-lt text-blue">{{ p.semester|default:"-" }}</span></td>
+          <td>{{ p.tahun_akademik }}</td>
+          <td>{{ p.get_ln_i_display|default:"-" }}</td>
+          <td style="font-size:12px">{{ p.sumber|default:"-" }}</td>
+          <td>Rp {{ p.pendanaan }} Jt</td>
+          <td class="text-center">{{ p.jml_mahasiswa }}</td>
+          <td>
+            <div class="d-flex flex-column gap-1" style="min-width:120px">
+              {% if p.link_bukti %}
+              <a href="{{ p.link_bukti }}" target="_blank"
+                class="btn btn-xs btn-outline-info">
+                <span class="ti ti-link me-1"></span>Link
+              </a>
+              {% endif %}
+              {% if p.dokumen_list %}
+              <button class="btn btn-xs btn-outline-primary"
+                data-bs-toggle="modal" data-bs-target="#modalDokumen"
+                onclick="loadDokumen(
+                  '{{ p.judul|truncatechars:50|escapejs }}',
+                  {{ p.dokumen_list|length }},
+                  '#dok_pkm_{{ p.id }}'
+                )">
+                <span class="ti ti-files me-1"></span>
+                {{ p.dokumen_list|length }} Dokumen
+              </button>
+              <!-- Hidden dokumen data -->
+              <div id="dok_pkm_{{ p.id }}" class="d-none">
+                {% for dok in p.dokumen_list %}
+                <div class="dok-item"
+                    data-jenis="{{ dok.get_jenis_dokumen_display }}"
+                    data-nama="{{ dok.nama_dokumen }}"
+                    data-ket="{{ dok.keterangan|default:'-' }}"
+                    data-file="{% if dok.file_dokumen %}{{ dok.file_dokumen.url }}{% endif %}"
+                    data-link="{{ dok.link_dokumen|default:'' }}">
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              {% if not p.link_bukti %}
+              <span class="text-muted small">-</span>
+              {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="11" class="text-center text-muted py-4">Belum ada data PKM</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white">
+    {% include 'components/pagination.html' %}
+  </div>
+</div>
+
+{% elif active_tab == 'hki' %}
+<!-- TAB HKI -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <span class="ti ti-shield-check me-1 text-success"></span>Data HKI
+      <span class="badge bg-success-lt text-success ms-1">{{ total_hki }}</span>
+    </h6>
+    <a href="{% url 'laporan:excel_hki' %}?tahun={{ filter_tahun }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}"
+       class="btn btn-sm btn-success">
+      <span class="ti ti-file-spreadsheet me-1"></span>Excel
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Nama Dosen</th>
+          <th>Prodi</th>
+          <th>Judul HKI</th>
+          <th>Jenis</th>
+          <th>No. HKI</th>
+          <th>Tahun Perolehan</th>
+          <th>Semester</th>
+          <th>Tahun Akademik</th>
+          <th>Bukti Dokumen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in hki_list %}
+        <tr>
+          <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+          <td>{{ h.user.get_full_name|default:h.user.username }}</td>
+          <td><span class="badge bg-teal-lt text-teal">{{ h.kode_prodi }}</span></td>
+          <td style="max-width:250px; font-size:12px">{{ h.judul|truncatechars:70 }}</td>
+          <td><span class="badge bg-teal-lt text-teal">{{ h.jenis_hki }}</span></td>
+          <td>{{ h.no_hki|default:"-" }}</td>
+          <td class="text-center">{{ h.tahun_perolehan|default:"-" }}</td>
+          <td><span class="badge bg-blue-lt text-blue">{{ h.semester|default:"-" }}</span></td>
+          <td>{{ h.tahun_akademik }}</td>
+          <td>
+            <div class="d-flex flex-column gap-1" style="min-width:120px">
+              {% if p.link_bukti %}
+              <a href="{{ p.link_bukti }}" target="_blank"
+                class="btn btn-xs btn-outline-info">
+                <span class="ti ti-link me-1"></span>Link
+              </a>
+              {% endif %}
+              {% if p.dokumen_list %}
+              <button class="btn btn-xs btn-outline-primary"
+                data-bs-toggle="modal" data-bs-target="#modalDokumen"
+                onclick="loadDokumen(
+                  '{{ p.judul|truncatechars:50|escapejs }}',
+                  {{ p.dokumen_list|length }},
+                  '#dok_penelitian_{{ p.id }}'
+                )">
+                <span class="ti ti-files me-1"></span>
+                {{ p.dokumen_list|length }} Dokumen
+              </button>
+              <!-- Hidden dokumen data -->
+              <div id="dok_penelitian_{{ p.id }}" class="d-none">
+                {% for dok in h.dokumen_list %}
+                <div class="dok-item"
+                    data-jenis="{{ dok.get_jenis_dokumen_display }}"
+                    data-nama="{{ dok.nama_dokumen }}"
+                    data-ket="{{ dok.keterangan|default:'-' }}"
+                    data-file="{% if dok.file_dokumen %}{{ dok.file_dokumen.url }}{% endif %}"
+                    data-link="{{ dok.link_dokumen|default:'' }}">
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              {% if not p.link_bukti %}
+              <span class="text-muted small">-</span>
+              {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="10" class="text-center text-muted py-4">Belum ada data HKI</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white">
+    {% include 'components/pagination.html' %}
+  </div>
+</div>
+
+{% elif active_tab == 'bkd' %}
+<!-- TAB BKD -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <span class="ti ti-file-description me-1 text-secondary"></span>Status BKD Dosen
+      <span class="badge bg-secondary-lt text-secondary ms-1">{{ total_bkd }}</span>
+    </h6>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Nama Dosen</th>
+          <th>Prodi</th>
+          <th>Semester</th>
+          <th>Tahun Akademik</th>
+          <th>Keterangan</th>
+          <th class="text-center">Status</th>
+          <th>File & Dokumen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in bkd_list %}
+        <tr>
+          <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+          <td>{{ b.user.get_full_name|default:b.user.username }}</td>
+          <td><span class="badge bg-teal-lt text-teal">{{ b.user.kode_prodi|default:"-" }}</span></td>
+          <td><span class="badge bg-orange-lt text-orange">{{ b.semester }}</span></td>
+          <td>{{ b.tahun_akademik }}</td>
+          <td style="font-size:12px">{{ b.keterangan|default:"-" }}</td>
+          <td class="text-center">
+            {% if b.file_bkd or b.link_bkd %}
+            <span class="badge bg-success-lt text-success">Terupload</span>
+            {% else %}
+            <span class="badge bg-danger-lt text-danger">Belum</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="d-flex flex-column gap-1" style="min-width:120px">
+              {% if b.file_bkd %}
+              <a href="{{ b.file_bkd.url }}" target="_blank"
+                class="btn btn-xs btn-outline-success">
+                <span class="ti ti-file me-1"></span>File BKD
+              </a>
+              {% elif b.link_bkd %}
+              <a href="{{ b.link_bkd }}" target="_blank"
+                class="btn btn-xs btn-outline-info">
+                <span class="ti ti-link me-1"></span>Link BKD
+              </a>
+              {% endif %}
+              {% if b.dokumen_list %}
+              <button class="btn btn-xs btn-outline-primary"
+                data-bs-toggle="modal" data-bs-target="#modalDokumen"
+                onclick="loadDokumen(
+                  'BKD {{ b.semester }} {{ b.tahun_akademik }}',
+                  {{ b.dokumen_list|length }},
+                  '#dok_bkd_{{ b.id }}'
+                )">
+                <span class="ti ti-files me-1"></span>
+                {{ b.dokumen_list|length }} Dokumen
+              </button>
+              <div id="dok_bkd_{{ b.id }}" class="d-none">
+                {% for dok in b.dokumen_list %}
+                <div class="dok-item"
+                    data-jenis="{{ dok.get_jenis_dokumen_display }}"
+                    data-nama="{{ dok.nama_dokumen }}"
+                    data-ket="{{ dok.keterangan|default:'-' }}"
+                    data-file="{% if dok.file_dokumen %}{{ dok.file_dokumen.url }}{% endif %}"
+                    data-link="{{ dok.link_dokumen|default:'' }}">
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Belum ada data BKD</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white">
+    {% include 'components/pagination.html' %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleModeRekap(mode) {
+  document.getElementById('hidden_mode_filter').value = mode;
+  document.getElementById('rekap_filter_tunggal').style.display =
+    mode === 'tunggal' ? '' : 'none';
+  document.getElementById('rekap_filter_rentang').style.display =
+    mode === 'rentang' ? '' : 'none';
+}
+
+function prepareSubmit() {
+  const mode = document.getElementById('hidden_mode_filter').value;
+  if (mode === 'tunggal') {
+    document.getElementById('sel_tahun_awal').disabled = true;
+    document.getElementById('sel_tahun_akhir').disabled = true;
+    document.getElementById('sel_semester_rentang').disabled = true;
+  } else if (mode === 'rentang') {
+    document.getElementById('sel_tahun').disabled = true;
+    document.getElementById('sel_semester_tunggal').disabled = true;
+  } else if (mode === 'semua') {
+    document.getElementById('sel_tahun').disabled = true;
+    document.getElementById('sel_semester_tunggal').disabled = true;
+    document.getElementById('sel_tahun_awal').disabled = true;
+    document.getElementById('sel_tahun_akhir').disabled = true;
+    document.getElementById('sel_semester_rentang').disabled = true;
+  }
+}
+
+function loadDokumen(judul, jumlah, selectorId) {
+  document.getElementById('modalDokJudul').textContent =
+    judul + ' (' + jumlah + ' dokumen)';
+
+  const tbody = document.getElementById('modalDokBody');
+  tbody.innerHTML = '';
+
+  const container = document.querySelector(selectorId);
+  if (!container) return;
+
+  const items = container.querySelectorAll('.dok-item');
+  if (items.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="5" class="text-center text-muted py-3">Belum ada dokumen</td></tr>';
+    return;
+  }
+
+  items.forEach((item, idx) => {
+    const jenis = item.dataset.jenis || '-';
+    const nama = item.dataset.nama || '-';
+    const ket = item.dataset.ket || '-';
+    const file = item.dataset.file || '';
+    const link = item.dataset.link || '';
+
+    let fileTd = '-';
+    if (file) {
+      fileTd = `<a href="${file}" target="_blank"
+                   class="btn btn-xs btn-outline-success">
+                  <span class="ti ti-file me-1"></span>File
+                </a>`;
+    } else if (link) {
+      fileTd = `<a href="${link}" target="_blank"
+                   class="btn btn-xs btn-outline-info">
+                  <span class="ti ti-link me-1"></span>Link
+                </a>`;
+    }
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${idx + 1}</td>
+        <td><span class="badge bg-blue-lt text-blue"
+                  style="font-size:10px">${jenis}</span></td>
+        <td><strong style="font-size:13px">${nama}</strong></td>
+        <td style="font-size:12px;color:#666">${ket}</td>
+        <td>${fileTd}</td>
+      </tr>`;
+  });
+}
+
+function filterProdiRekap(kodeFakultas) {
+  const prodiSelect = document.getElementById('rekap_prodi');
+  const options = prodiSelect.querySelectorAll('option');
+  let hasVisible = false;
+
+  options.forEach(opt => {
+    if (!opt.value) {
+      opt.style.display = '';
+      return;
+    }
+    if (!kodeFakultas || opt.dataset.fakultas === kodeFakultas) {
+      opt.style.display = '';
+      hasVisible = true;
+    } else {
+      opt.style.display = 'none';
+      if (opt.selected) {
+        opt.selected = false;
+        prodiSelect.value = '';
+      }
+    }
+  });
+}
+
+// Jalankan saat load jika fakultas sudah terpilih
+window.addEventListener('load', function() {
+  const fakVal = document.getElementById('rekap_fakultas');
+  if (fakVal && fakVal.value) {
+    filterProdiRekap(fakVal.value);
+    // Pertahankan prodi yang sudah terpilih
+    document.getElementById('rekap_prodi').value = '{{ filter_prodi }}';
+  }
+});
+</script>
+
+<!-- Modal Detail Dokumen -->
+<div class="modal fade" id="modalDokumen" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <span class="ti ti-files me-1 text-primary"></span>
+          <span id="modalDokJudul">Dokumen</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>Jenis</th>
+              <th>Nama Dokumen</th>
+              <th>Keterangan</th>
+              <th>File/Link</th>
+            </tr>
+          </thead>
+          <tbody id="modalDokBody">
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary"
+                data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}

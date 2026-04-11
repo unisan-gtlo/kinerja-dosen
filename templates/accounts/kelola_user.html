@@ -47,6 +47,15 @@
           {% endfor %}
         </select>
       </div>
+        <div class="col-md-2">
+          <label class="form-label small text-muted">Per Halaman</label>
+          <select name="per_halaman" class="form-select" onchange="this.form.submit()">
+            <option value="15" {% if per_halaman == '15' %}selected{% endif %}>15 data</option>
+            <option value="25" {% if per_halaman == '25' %}selected{% endif %}>25 data</option>
+            <option value="50" {% if per_halaman == '50' %}selected{% endif %}>50 data</option>
+            <option value="100" {% if per_halaman == '100' %}selected{% endif %}>100 data</option>
+          </select>
+        </div>
         <div class="col-md-3 d-flex gap-2 flex-wrap">
           <button type="submit" class="btn btn-primary">
             <span class="ti ti-search me-1"></span>Filter
@@ -69,7 +78,7 @@
 <div class="card border-0 shadow-sm">
   <div class="card-header bg-white d-flex justify-content-between align-items-center">
     <h4 class="card-title mb-0">Daftar Pengguna</h4>
-    <span class="badge bg-blue-lt">{{ users.count }} pengguna</span>
+    <span class="badge bg-blue-lt">{{ total }} pengguna</span>
   </div>
   <div class="table-responsive">
     <table class="table table-hover mb-0">
@@ -83,16 +92,14 @@
           <th>Fakultas</th>
           <th>Prodi</th>
           <th>Status Akun</th>
-            
           <th>Status Kepegawaian</th>
-          
           <th>Aksi</th>
         </tr>
       </thead>
       <tbody>
         {% for u in users %}
         <tr>
-          <td>{{ forloop.counter }}</td>
+          <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
           <td>{{ u.get_full_name|default:u.username }}</td>
           <td><code>{{ u.username }}</code></td>
           <td>{{ u.nidn|default:"-" }}</td>
@@ -100,9 +107,12 @@
             {% if u.role == 'admin' %}<span class="badge bg-red-lt text-red">Admin</span>
             {% elif u.role == 'rektorat' %}<span class="badge bg-purple-lt text-purple">Rektorat</span>
             {% elif u.role == 'dekan' %}<span class="badge bg-blue-lt text-blue">Dekan</span>
+            {% elif u.role == 'wadek' %}<span class="badge bg-blue-lt text-blue">Wakil Dekan</span>
             {% elif u.role == 'kaprodi' %}<span class="badge bg-teal-lt text-teal">Kaprodi</span>
+            {% elif u.role == 'sekprodi' %}<span class="badge bg-teal-lt text-teal">Sekprodi</span>
             {% elif u.role == 'dosen' %}<span class="badge bg-green-lt text-green">Dosen</span>
             {% elif u.role == 'operator' %}<span class="badge bg-orange-lt text-orange">Operator</span>
+            {% elif u.role == 'biro' %}<span class="badge bg-yellow-lt text-yellow">Biro</span>
             {% else %}<span class="badge bg-gray-lt">{{ u.role }}</span>
             {% endif %}
           </td>
@@ -130,14 +140,21 @@
           </td>
           <td>
             <div class="d-flex gap-1">
-              <a href="{% url 'accounts:edit_user' u.id %}" class="btn btn-sm btn-outline-primary">
+              <a href="{% url 'accounts:edit_user' u.id %}"
+                 class="btn btn-sm btn-outline-primary" title="Edit">
                 <span class="ti ti-edit"></span>
+              </a>
+              <a href="{% url 'accounts:unlock_user' u.id %}"
+                class="btn btn-sm btn-outline-warning"
+                title="Buka Kunci Akun"
+                onclick="return confirm('Buka kunci akun {{ u.username }}?')">
+                <span class="ti ti-lock-open"></span>
               </a>
               {% if u != request.user %}
               <form method="post" action="{% url 'accounts:hapus_user' u.id %}"
                     onsubmit="return confirm('Hapus user {{ u.username }}?')">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-danger">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus">
                   <span class="ti ti-trash"></span>
                 </button>
               </form>
@@ -147,11 +164,18 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="10" class="text-center text-muted py-4">Belum ada pengguna</td>
+          <td colspan="10" class="text-center text-muted py-4">
+            <span class="ti ti-users-off" style="font-size:32px; opacity:0.3"></span>
+            <div class="mt-2">Belum ada pengguna</div>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
+  <!-- Pagination -->
+  <div class="card-footer bg-white">
+    {% include 'components/pagination.html' %}
   </div>
 </div>
 
