@@ -1048,7 +1048,7 @@ def export_pdf_dosen(request, dosen_id):
     # Tanda tangan
     from datetime import date
     ttd_data = [[
-        Paragraph('Mengetahui,<br/>Kepala Program Studi', small_style),
+        Paragraph('Mengetahui,<br/>Ketua Program Studi', small_style),
         Paragraph('', small_style),
         Paragraph(f'Gorontalo, {date.today().strftime("%d %B %Y")}<br/>Yang Bersangkutan', small_style),
     ]]
