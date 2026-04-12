@@ -147,7 +147,7 @@ AXES_COOLOFF_TIME = 1
 AXES_LOCKOUT_TEMPLATE = 'accounts/lockout.html'
 AXES_RESET_ON_SUCCESS = True
 AXES_USERNAME_FORM_FIELD = 'username'
-AXES_LOCK_OUT_BY_COMBINATION_USER_AND_IP = True
+AXES_LOCKOUT_PARAMETERS = ['username', 'ip_address']
 AXES_IP_WHITELIST = ['127.0.0.1', '::1']
 
 # ============================================================
