@@ -11,7 +11,7 @@ os.makedirs(BASE_DIR / 'logs', exist_ok=True)
 # SECURITY
 # ============================================================
 SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 # ============================================================
@@ -35,7 +35,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # ← untuk static files
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -66,7 +66,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # ============================================================
-# DATABASE — Support Railway DATABASE_URL & lokal PostgreSQL
+# DATABASE
 # ============================================================
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 if DATABASE_URL:
@@ -118,13 +118,22 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = 'Lax'
 
-# Aktifkan setelah Railway pakai HTTPS (otomatis aktif di Railway)
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
-SECURE_SSL_REDIRECT = not DEBUG
-SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
-SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Cek apakah running di Railway
+RAILWAY_ENV = os.environ.get('RAILWAY_ENVIRONMENT', '')
+
+# HTTPS hanya aktif di Railway, tidak di lokal
+if RAILWAY_ENV:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+else:
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = False
+    SECURE_HSTS_SECONDS = 0
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -163,8 +172,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # ============================================================
 # FILE UPLOAD
 # ============================================================
-DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
-FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = 1 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 1 * 1024 * 1024
 ALLOWED_FILE_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png']
 
 # ============================================================
@@ -179,32 +188,61 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+        'auth': {
+            'format': '[{asctime}] {levelname} | {message}',
             'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'verbose': {
+            'format': '[{asctime}] {levelname} {module} | {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
         },
     },
     'handlers': {
         'console': {
-            'level': 'WARNING',
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
+        },
+        'auth_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(BASE_DIR / 'logs/auth.log'),
+            'maxBytes': 5 * 1024 * 1024,  # 5MB per file
+            'backupCount': 10,             # simpan 10 file lama
+            'formatter': 'auth',
+            'encoding': 'utf-8',
+        },
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(BASE_DIR / 'logs/error.log'),
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 5,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+    },
+    'loggers': {
+        'sikd.auth': {
+            'handlers': ['auth_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['error_file', 'console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'axes': {
+            'handlers': ['auth_file'],
+            'level': 'WARNING',
+            'propagate': False,
         },
     },
     'root': {
         'handlers': ['console'],
         'level': 'WARNING',
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'WARNING',
-            'propagate': True,
-        },
-        'axes': {
-            'handlers': ['console'],
-            'level': 'WARNING',
-            'propagate': False,
-        },
     },
 }

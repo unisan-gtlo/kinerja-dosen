@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}Log Aktivitas — SIKD{% endblock %}
+{% block page_title %}Log Aktivitas Login{% endblock %}
+
+{% block content %}
+
+<!-- Filter -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Jenis Aktivitas</label>
+        <select name="jenis" class="form-select form-select-sm">
+          <option value="">Semua</option>
+          {% for val, label in jenis_choices %}
+          <option value="{{ val }}" {% if filter_jenis == val %}selected{% endif %}>
+            {{ label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Username</label>
+        <input type="text" name="username" class="form-control form-control-sm"
+               value="{{ filter_username }}" placeholder="Cari username...">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Tanggal</label>
+        <input type="date" name="tanggal" class="form-control form-control-sm"
+               value="{{ filter_tanggal }}">
+      </div>
+      <div class="col-md-3 d-flex gap-2 align-items-end">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <span class="ti ti-search me-1"></span>Filter
+        </button>
+        <a href="{% url 'accounts:log_aktivitas' %}"
+           class="btn btn-outline-secondary btn-sm">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Info Total -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2 d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">Total: {{ total }} record</span>
+    <div class="d-flex gap-2">
+      <span class="badge bg-success-lt text-success">
+        <span class="ti ti-login me-1"></span>
+        Login Berhasil: {{ logs|length }}
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Tabel Log -->
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Waktu</th>
+          <th>Username</th>
+          <th>Nama</th>
+          <th>Role</th>
+          <th>IP Address</th>
+          <th>Aktivitas</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+          <td style="font-size:12px; white-space:nowrap">
+            {{ log.waktu|date:"d/m/Y H:i:s" }}
+          </td>
+          <td><code>{{ log.username }}</code></td>
+          <td style="font-size:13px">{{ log.nama|default:"-" }}</td>
+          <td>
+            {% if log.role == 'admin' %}
+            <span class="badge bg-red-lt text-red">Admin</span>
+            {% elif log.role == 'dosen' %}
+            <span class="badge bg-green-lt text-green">Dosen</span>
+            {% elif log.role == 'kaprodi' %}
+            <span class="badge bg-teal-lt text-teal">Kaprodi</span>
+            {% elif log.role == 'dekan' %}
+            <span class="badge bg-blue-lt text-blue">Dekan</span>
+            {% else %}
+            <span class="badge bg-gray-lt">{{ log.role|default:"-" }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <code style="font-size:11px">{{ log.ip_address|default:"-" }}</code>
+          </td>
+          <td>
+            {% if log.jenis == 'login_berhasil' %}
+            <span class="badge bg-success-lt text-success">
+              <span class="ti ti-check me-1"></span>Login Berhasil
+            </span>
+            {% elif log.jenis == 'login_gagal' %}
+            <span class="badge bg-danger-lt text-danger">
+              <span class="ti ti-x me-1"></span>Login Gagal
+            </span>
+            {% elif log.jenis == 'login_nonaktif' %}
+            <span class="badge bg-warning-lt text-warning">
+              <span class="ti ti-ban me-1"></span>Akun Nonaktif
+            </span>
+            {% elif log.jenis == 'captcha_salah' %}
+            <span class="badge bg-orange-lt text-orange">
+              <span class="ti ti-alert-triangle me-1"></span>CAPTCHA Salah
+            </span>
+            {% elif log.jenis == 'logout' %}
+            <span class="badge bg-blue-lt text-blue">
+              <span class="ti ti-logout me-1"></span>Logout
+            </span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-4">
+            <span class="ti ti-clipboard-off" style="font-size:32px; opacity:0.3"></span>
+            <div class="mt-2">Belum ada log aktivitas</div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white">
+    {% include 'components/pagination.html' %}
+  </div>
+</div>
+
+{% endblock %}

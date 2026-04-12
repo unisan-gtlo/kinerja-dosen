@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+
 ROLE_CHOICES = [
     ('admin', 'Administrator'),
     ('rektorat', 'Rektorat'),
@@ -85,3 +86,27 @@ class User(AbstractUser):
         'dosen': 'Dosen',
     }
         return role_labels.get(self.role, self.role)    
+
+class LogAktivitas(models.Model):
+    JENIS_CHOICES = [
+        ('login_berhasil', 'Login Berhasil'),
+        ('login_gagal', 'Login Gagal'),
+        ('login_nonaktif', 'Login Ditolak (Nonaktif)'),
+        ('captcha_salah', 'CAPTCHA Salah'),
+        ('logout', 'Logout'),
+    ]
+    username = models.CharField(max_length=150)
+    nama = models.CharField(max_length=200, blank=True)
+    role = models.CharField(max_length=20, blank=True)
+    jenis = models.CharField(max_length=20, choices=JENIS_CHOICES)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    waktu = models.DateTimeField(auto_now_add=True)
+    keterangan = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-waktu']
+        verbose_name = 'Log Aktivitas'
+        verbose_name_plural = 'Log Aktivitas'
+
+    def __str__(self):
+        return f'{self.waktu} | {self.jenis} | {self.username} | {self.ip_address}'

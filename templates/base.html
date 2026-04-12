@@ -237,6 +237,15 @@
               <span class="nav-link-title">Kelola User</span>
             </a>
           </li>
+          {% if request.user.role == 'admin' %}
+          <li class="nav-item">
+            <a class="nav-link {% if 'log-aktivitas' in request.path %}active{% endif %}"
+              href="{% url 'accounts:log_aktivitas' %}">
+              <span class="nav-link-icon"><span class="ti ti-shield-search"></span></span>
+              <span class="nav-link-title">Log Aktivitas</span>
+            </a>
+          </li>
+          {% endif %}
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'master' %}active{% endif %}"
                href="{% url 'master:index' %}">

@@ -15,4 +15,5 @@ urlpatterns = [
     path('ganti-password/', views.ganti_password, name='ganti_password'),
     path('unlock-user/<int:user_id>/', views.unlock_user, name='unlock_user'),
     path('refresh-captcha/', views.refresh_captcha, name='refresh_captcha'),
+    path('log-aktivitas/', views.log_aktivitas, name='log_aktivitas'),
 ]

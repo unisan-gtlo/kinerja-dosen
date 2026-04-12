@@ -13,13 +13,40 @@ from django.http import JsonResponse
 import random
 import logging
 from django.utils import timezone
+from .models import User, LogAktivitas
 
 logger = logging.getLogger(__name__)
     
   
 
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
+def get_client_ip(request):
+    """Ambil IP address asli user"""
+    x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded:
+        return x_forwarded.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', 'Unknown')
+
+
+def catat_log(username, jenis, ip, nama='', role='', keterangan=''):
+    """Simpan log aktivitas ke database"""
+    try:
+        LogAktivitas.objects.create(
+            username=username,
+            nama=nama,
+            role=role,
+            jenis=jenis,
+            ip_address=ip if ip != 'Unknown' else None,
+            keterangan=keterangan
+        )
+    except Exception as e:
+        logger.error(f'Gagal simpan log: {e}')
+
+
 def generate_captcha(request):
-    """Generate soal matematika sederhana dan simpan jawaban di session"""
+    """Generate soal matematika sederhana"""
     a = random.randint(1, 10)
     b = random.randint(1, 10)
     ops = ['+', '-', 'x']
@@ -40,6 +67,14 @@ def generate_captcha(request):
     return soal
 
 
+def refresh_captcha(request):
+    soal = generate_captcha(request)
+    return JsonResponse({'soal': soal})
+
+
+# ============================================================
+# LOGIN & LOGOUT
+# ============================================================
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('dashboard:index')
@@ -48,8 +83,9 @@ def login_view(request):
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
         captcha_input = request.POST.get('captcha', '').strip()
+        ip = get_client_ip(request)
+        waktu = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        # Validasi input kosong
         if not username or not password:
             messages.error(request, 'Username dan password wajib diisi.')
             soal = generate_captcha(request)
@@ -59,6 +95,10 @@ def login_view(request):
         captcha_answer = request.session.get('captcha_answer')
         try:
             if int(captcha_input) != captcha_answer:
+                logger.warning(
+                    f'CAPTCHA SALAH | User: {username} | IP: {ip} | Waktu: {waktu}'
+                )
+                catat_log(username=username, jenis='captcha_salah', ip=ip)
                 messages.error(request, 'Jawaban verifikasi salah. Coba lagi.')
                 soal = generate_captcha(request)
                 return render(request, 'accounts/login.html', {'captcha_soal': soal})
@@ -69,41 +109,70 @@ def login_view(request):
 
         # Autentikasi
         user = authenticate(request, username=username, password=password)
+
         if user is not None:
             if user.status_akun == 'aktif':
                 login(request, user)
                 logger.info(
-                    f'LOGIN SUCCESS: {username} dari IP '
-                    f'{request.META.get("REMOTE_ADDR")} '
-                    f'pada {timezone.now()}'
+                    f'LOGIN BERHASIL | User: {username} | '
+                    f'Nama: {user.get_full_name()} | '
+                    f'Role: {user.role} | '
+                    f'IP: {ip} | Waktu: {waktu}'
+                )
+                catat_log(
+                    username=username,
+                    jenis='login_berhasil',
+                    ip=ip,
+                    nama=user.get_full_name(),
+                    role=user.role
                 )
                 next_url = request.GET.get('next', '/')
                 return redirect(next_url)
             else:
+                logger.warning(
+                    f'LOGIN DITOLAK (nonaktif) | User: {username} | '
+                    f'IP: {ip} | Waktu: {waktu}'
+                )
+                catat_log(
+                    username=username,
+                    jenis='login_nonaktif',
+                    ip=ip
+                )
                 messages.error(
                     request,
                     'Akun Anda tidak aktif. Hubungi administrator.'
                 )
-                logger.warning(
-                    f'LOGIN BLOCKED (nonaktif): {username} '
-                    f'dari IP {request.META.get("REMOTE_ADDR")}'
-                )
         else:
-            messages.error(request, 'Username atau password salah.')
             logger.warning(
-                f'LOGIN FAILED: {username} '
-                f'dari IP {request.META.get("REMOTE_ADDR")}'
+                f'LOGIN GAGAL | User: {username} | '
+                f'IP: {ip} | Waktu: {waktu}'
             )
+            catat_log(username=username, jenis='login_gagal', ip=ip)
+            messages.error(request, 'Username atau password salah.')
 
-        # Generate captcha baru setelah gagal
         soal = generate_captcha(request)
         return render(request, 'accounts/login.html', {'captcha_soal': soal})
 
-    # GET request — generate captcha baru
     soal = generate_captcha(request)
     return render(request, 'accounts/login.html', {'captcha_soal': soal})
 
+
+@login_required
 def logout_view(request):
+    ip = get_client_ip(request)
+    waktu = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+    logger.info(
+        f'LOGOUT | User: {request.user.username} | '
+        f'Nama: {request.user.get_full_name()} | '
+        f'IP: {ip} | Waktu: {waktu}'
+    )
+    catat_log(
+        username=request.user.username,
+        jenis='logout',
+        ip=ip,
+        nama=request.user.get_full_name(),
+        role=request.user.role
+    )
     logout(request)
     return redirect('accounts:login')
 
@@ -532,3 +601,37 @@ def unlock_user(request, user_id):
 def refresh_captcha(request):
     soal = generate_captcha(request)
     return JsonResponse({'soal': soal})
+
+@login_required
+def log_aktivitas(request):
+    if request.user.role != 'admin':
+        return redirect('dashboard:index')
+
+    from django.core.paginator import Paginator
+
+    filter_jenis = request.GET.get('jenis', '')
+    filter_username = request.GET.get('username', '').strip()
+    filter_tanggal = request.GET.get('tanggal', '')
+
+    logs = LogAktivitas.objects.all()
+
+    if filter_jenis:
+        logs = logs.filter(jenis=filter_jenis)
+    if filter_username:
+        logs = logs.filter(username__icontains=filter_username)
+    if filter_tanggal:
+        logs = logs.filter(waktu__date=filter_tanggal)
+
+    paginator = Paginator(logs, 25)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+
+    context = {
+        'page_obj': page_obj,
+        'logs': page_obj,
+        'filter_jenis': filter_jenis,
+        'filter_username': filter_username,
+        'filter_tanggal': filter_tanggal,
+        'jenis_choices': LogAktivitas.JENIS_CHOICES,
+        'total': logs.count(),
+    }
+    return render(request, 'accounts/log_aktivitas.html', context)
