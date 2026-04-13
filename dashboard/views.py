@@ -137,7 +137,7 @@ def index(request):
             status_akun='aktif'
         ).count()
         context['total_prodi'] = Prodi.objects.filter(
-            fakultas_kode_fakultas=user.kode_fakultas, status='aktif'
+            fakultas__kode_fakultas=user.kode_fakultas, status='aktif'
         ).count()
         context['total_penelitian'] = Penelitian.objects.filter(
             kode_fakultas=user.kode_fakultas
