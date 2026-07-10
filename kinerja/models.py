@@ -37,7 +37,7 @@ class Penelitian(models.Model):
     durasi = models.IntegerField(default=1)
     ln_i = models.CharField(
         max_length=5,
-        choices=[('L', 'Lokal'), ('N', 'Nasional'), ('I', 'Internasional')],
+        choices=[('L', 'Lokal'), ('R', 'Regional'), ('N', 'Nasional'), ('I', 'Internasional')],
         blank=True, null=True
     )
     semester = models.CharField(
@@ -124,7 +124,7 @@ class PKM(models.Model):
     durasi = models.IntegerField(default=1)
     ln_i = models.CharField(
         max_length=5,
-        choices=[('L', 'Lokal'), ('N', 'Nasional'), ('I', 'Internasional')],
+        choices=[('L', 'Lokal'), ('R', 'Regional'), ('N', 'Nasional'), ('I', 'Internasional')],
         blank=True, null=True
     )
     semester = models.CharField(
@@ -256,7 +256,7 @@ class Penghargaan(models.Model):
     lembaga_pemberi = models.CharField(max_length=150, blank=True, null=True)
     tingkat = models.CharField(
         max_length=5,
-        choices=[('L', 'Lokal'), ('N', 'Nasional'), ('I', 'Internasional')],
+        choices=[('L', 'Lokal'), ('R', 'Regional'), ('N', 'Nasional'), ('I', 'Internasional')],
         blank=True, null=True
     )
     tahun = models.IntegerField(blank=True, null=True)
@@ -306,7 +306,7 @@ class KegiatanPenunjang(models.Model):
     penyelenggara = models.CharField(max_length=150, blank=True, null=True)
     tingkat = models.CharField(
         max_length=5,
-        choices=[('L', 'Lokal'), ('N', 'Nasional'), ('I', 'Internasional')],
+        choices=[('L', 'Lokal'), ('R', 'Regional'), ('N', 'Nasional'), ('I', 'Internasional')],
         blank=True, null=True
     )
     tanggal_mulai = models.DateField(blank=True, null=True)

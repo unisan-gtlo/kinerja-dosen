@@ -15,4 +15,8 @@ urlpatterns = [
     path('tambah-sertifikat/', views.tambah_sertifikat, name='tambah_sertifikat'),
     path('edit-sertifikat/<int:sert_id>/', views.edit_sertifikat, name='edit_sertifikat'),
     path('hapus-sertifikat/<int:sert_id>/', views.hapus_sertifikat, name='hapus_sertifikat'),
+    path('kualifikasi/', views.kualifikasi_index, name='kualifikasi_index'),
+    path('tambah-diklat/', views.tambah_diklat, name='tambah_diklat'),
+    path('edit-diklat/<int:id>/', views.edit_diklat, name='edit_diklat'),
+    path('hapus-diklat/<int:id>/', views.hapus_diklat, name='hapus_diklat'),
 ]

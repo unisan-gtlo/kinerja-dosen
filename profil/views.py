@@ -8,7 +8,7 @@ from simda_dosen.models import (
     AgamaPublik, JabatanFungsionalPublik,
 )
 from simda_dosen.utils import get_simda_dosen_or_none
-from .models import Sertifikat, DokumenLain
+from .models import Sertifikat, DokumenLain, Diklat
 
 def cek_status_input():
     try:
@@ -299,3 +299,115 @@ def edit_sertifikat(request, sert_id):
         sert.save()
         messages.success(request, 'Sertifikat berhasil diupdate.')
     return redirect('profil:index')
+
+
+# ============================================================
+# KUALIFIKASI (Diklat -- Pendidikan Formal & Riwayat Pekerjaan menyusul)
+# ============================================================
+
+@login_required
+def kualifikasi_index(request):
+    user = request.user
+    target_user = user
+
+    dosen_id = request.GET.get('dosen_id')
+    if dosen_id and user.role in ['admin', 'kaprodi', 'sekprodi', 'operator', 'dekan', 'wadek', 'rektorat', 'biro']:
+        target_user = get_object_or_404(User, id=dosen_id)
+
+    tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
+    input_terbuka = cek_status_input()
+    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+
+    diklat_list = target_user.diklat_set.all()
+
+    context = {
+        'target_user': target_user,
+        'tahun_list': tahun_list,
+        'bisa_edit': bisa_edit,
+        'input_terbuka': input_terbuka,
+        'diklat_list': diklat_list,
+    }
+    return render(request, 'profil/kualifikasi.html', context)
+
+
+@login_required
+def tambah_diklat(request):
+    if request.method != 'POST':
+        return redirect('profil:kualifikasi_index')
+    if not cek_status_input():
+        messages.error(request, 'Input data sedang dikunci.')
+        return redirect('profil:kualifikasi_index')
+
+    user = request.user
+    dosen_id = request.POST.get('dosen_id')
+    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+
+    diklat = Diklat(
+        user=target_user,
+        kode_prodi=target_user.kode_prodi or '',
+        kode_fakultas=target_user.kode_fakultas or '',
+        jenis_diklat=request.POST.get('jenis_diklat', ''),
+        nama_diklat=request.POST.get('nama_diklat', '').strip(),
+        penyelenggara=request.POST.get('penyelenggara', '').strip(),
+        peran=request.POST.get('peran', '').strip(),
+        tingkatan=request.POST.get('tingkatan', ''),
+        jumlah_jam=request.POST.get('jumlah_jam') or None,
+        no_sertifikat=request.POST.get('no_sertifikat', '').strip(),
+        tanggal_sertifikat=request.POST.get('tanggal_sertifikat') or None,
+        tahun_penyelenggaraan=request.POST.get('tahun_penyelenggaraan') or None,
+        tempat=request.POST.get('tempat', '').strip(),
+        tanggal_mulai=request.POST.get('tanggal_mulai') or None,
+        tanggal_selesai=request.POST.get('tanggal_selesai') or None,
+        no_sk_penugasan=request.POST.get('no_sk_penugasan', '').strip(),
+        tanggal_sk_penugasan=request.POST.get('tanggal_sk_penugasan') or None,
+        semester=request.POST.get('semester', ''),
+        tahun_akademik=request.POST.get('tahun_akademik', ''),
+        updated_by=user.username,
+    )
+    if 'file_sertifikat' in request.FILES:
+        diklat.file_sertifikat = request.FILES['file_sertifikat']
+    diklat.save()
+    messages.success(request, 'Data diklat berhasil ditambahkan.')
+    return redirect('profil:kualifikasi_index')
+
+
+@login_required
+def hapus_diklat(request, id):
+    obj = get_object_or_404(Diklat, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:kualifikasi_index')
+    obj.delete()
+    messages.success(request, 'Data diklat berhasil dihapus.')
+    return redirect('profil:kualifikasi_index')
+
+
+@login_required
+def edit_diklat(request, id):
+    obj = get_object_or_404(Diklat, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:kualifikasi_index')
+    if request.method == 'POST':
+        obj.jenis_diklat = request.POST.get('jenis_diklat', obj.jenis_diklat)
+        obj.nama_diklat = request.POST.get('nama_diklat', '').strip()
+        obj.penyelenggara = request.POST.get('penyelenggara', '').strip()
+        obj.peran = request.POST.get('peran', '').strip()
+        obj.tingkatan = request.POST.get('tingkatan', obj.tingkatan)
+        obj.jumlah_jam = request.POST.get('jumlah_jam') or None
+        obj.no_sertifikat = request.POST.get('no_sertifikat', '').strip()
+        obj.tanggal_sertifikat = request.POST.get('tanggal_sertifikat') or obj.tanggal_sertifikat
+        obj.tahun_penyelenggaraan = request.POST.get('tahun_penyelenggaraan') or obj.tahun_penyelenggaraan
+        obj.tempat = request.POST.get('tempat', '').strip()
+        obj.tanggal_mulai = request.POST.get('tanggal_mulai') or obj.tanggal_mulai
+        obj.tanggal_selesai = request.POST.get('tanggal_selesai') or obj.tanggal_selesai
+        obj.no_sk_penugasan = request.POST.get('no_sk_penugasan', '').strip()
+        obj.tanggal_sk_penugasan = request.POST.get('tanggal_sk_penugasan') or None
+        obj.semester = request.POST.get('semester', '')
+        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
+        obj.updated_by = request.user.username
+        if 'file_sertifikat' in request.FILES:
+            obj.file_sertifikat = request.FILES['file_sertifikat']
+        obj.save()
+        messages.success(request, 'Data diklat berhasil diupdate.')
+    return redirect('profil:kualifikasi_index')

@@ -91,6 +91,76 @@ class Sertifikat(models.Model):
         return f"{self.user.get_full_name()} - {self.nama_sertifikat}"
 
 
+def upload_diklat(instance, filename):
+    ext = os.path.splitext(filename)[1].lower()
+    return f'diklat/{instance.user.username}/{filename}'
+
+
+class Diklat(models.Model):
+    """Kategori Kualifikasi > Diklat, field mengikuti form SISTER (Menu Diklat.docx)."""
+    JENIS_DIKLAT = [
+        ('pelatihan_profesional', 'Pelatihan Profesional'),
+        ('lemhanas', 'Lemhanas'),
+        ('diklat_prajabatan', 'Diklat Prajabatan'),
+        ('diklat_kepemimpinan', 'Diklat Kepemimpinan'),
+        ('academic_exchange', 'Academic Exchange'),
+        ('lainnya', 'Lainnya'),
+    ]
+    TINGKATAN = [
+        ('Lokal', 'Lokal'),
+        ('Regional', 'Regional'),
+        ('Nasional', 'Nasional'),
+        ('Internasional', 'Internasional'),
+    ]
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='diklat_set'
+    )
+    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
+    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
+    jenis_diklat = models.CharField(max_length=25, choices=JENIS_DIKLAT)
+    nama_diklat = models.CharField(max_length=200)
+    penyelenggara = models.CharField(max_length=200)
+    peran = models.CharField(max_length=100, blank=True, null=True)
+    tingkatan = models.CharField(max_length=15, choices=TINGKATAN)
+    jumlah_jam = models.IntegerField(blank=True, null=True)
+    no_sertifikat = models.CharField(max_length=100)
+    tanggal_sertifikat = models.DateField()
+    tahun_penyelenggaraan = models.IntegerField()
+    tempat = models.CharField(max_length=150, blank=True, null=True)
+    tanggal_mulai = models.DateField()
+    tanggal_selesai = models.DateField()
+    no_sk_penugasan = models.CharField(max_length=100, blank=True, null=True)
+    tanggal_sk_penugasan = models.DateField(blank=True, null=True)
+    file_sertifikat = models.FileField(
+        upload_to=upload_diklat,
+        validators=[validate_file],
+        blank=True, null=True
+    )
+    semester = models.CharField(
+        max_length=10,
+        choices=[('Ganjil', 'Ganjil'), ('Genap', 'Genap'), ('Keduanya', 'Keduanya')],
+        blank=True, null=True
+    )
+    tahun_akademik = models.CharField(max_length=10, blank=True, null=True)
+    tgl_input = models.DateTimeField(auto_now_add=True)
+    updated_by = models.CharField(max_length=50, blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Diklat'
+        verbose_name_plural = 'Diklat'
+        ordering = ['-tahun_penyelenggaraan']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.nama_diklat}"
+
+    @property
+    def periode(self):
+        if self.semester:
+            return f"{self.semester} {self.tahun_akademik}"
+        return str(self.tahun_penyelenggaraan)
+
+
 class DokumenLain(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='dokumen_set'

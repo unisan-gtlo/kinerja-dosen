@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block title %}Kualifikasi — SIKD{% endblock %}
+{% block page_title %}
+  Kualifikasi
+  {% if target_user != request.user %}
+  <small class="text-muted fs-5">— {{ target_user.get_full_name|default:target_user.username }}</small>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if not input_terbuka %}
+<div class="alert alert-warning">
+  <span class="ti ti-lock me-1"></span>
+  Input data sedang <strong>dikunci</strong> oleh admin.
+</div>
+{% endif %}
+
+<ul class="nav nav-tabs mb-0" id="kualifikasiTab">
+  <li class="nav-item">
+    <a class="nav-link active" data-bs-toggle="tab" href="#tab-diklat">
+      <span class="ti ti-certificate me-1"></span>Diklat
+      <span class="badge bg-blue-lt ms-1">{{ diklat_list.count }}</span>
+    </a>
+  </li>
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
+
+  <!-- TAB DIKLAT -->
+  <div class="tab-pane fade show active" id="tab-diklat">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Diklat</h6>
+        <form method="post" action="{% url 'profil:tambah_diklat' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jenis Diklat *</label>
+              <select name="jenis_diklat" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="pelatihan_profesional">Pelatihan Profesional</option>
+                <option value="lemhanas">Lemhanas</option>
+                <option value="diklat_prajabatan">Diklat Prajabatan</option>
+                <option value="diklat_kepemimpinan">Diklat Kepemimpinan</option>
+                <option value="academic_exchange">Academic Exchange</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Nama Diklat *</label>
+              <input type="text" name="nama_diklat" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Penyelenggara *</label>
+              <input type="text" name="penyelenggara" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Peran</label>
+              <input type="text" name="peran" class="form-control" placeholder="Peserta, Instruktur, dll">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tingkatan *</label>
+              <select name="tingkatan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="Lokal">Lokal</option>
+                <option value="Regional">Regional</option>
+                <option value="Nasional">Nasional</option>
+                <option value="Internasional">Internasional</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Jumlah Jam</label>
+              <input type="number" name="jumlah_jam" class="form-control" min="0">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Penyelenggaraan *</label>
+              <input type="number" name="tahun_penyelenggaraan" class="form-control" required min="1970" max="2035">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tempat</label>
+              <input type="text" name="tempat" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">No. Sertifikat *</label>
+              <input type="text" name="no_sertifikat" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Sertifikat *</label>
+              <input type="date" name="tanggal_sertifikat" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Mulai *</label>
+              <input type="date" name="tanggal_mulai" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Selesai *</label>
+              <input type="date" name="tanggal_selesai" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Nomor SK Penugasan</label>
+              <input type="text" name="no_sk_penugasan" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal SK Penugasan</label>
+              <input type="date" name="tanggal_sk_penugasan" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Upload Sertifikat (PDF/JPG, max 5MB)</label>
+              <input type="file" name="file_sertifikat" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Nama Diklat</th><th>Jenis</th><th>Penyelenggara</th>
+            <th>Tingkatan</th><th>Tahun</th><th>Sertifikat</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in diklat_list %}
+          <tr>
+            <td style="max-width:220px">{{ d.nama_diklat|truncatechars:60 }}</td>
+            <td><span class="badge bg-purple-lt text-purple">{{ d.get_jenis_diklat_display }}</span></td>
+            <td>{{ d.penyelenggara }}</td>
+            <td>{{ d.tingkatan }}</td>
+            <td>{{ d.tahun_penyelenggaraan }}</td>
+            <td>
+              {% if d.file_sertifikat %}
+              <a href="{{ d.file_sertifikat.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-file"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <div class="d-flex gap-1">
+                <form method="post" action="{% url 'profil:hapus_diklat' d.id %}"
+                      onsubmit="return confirm('Hapus data diklat ini?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <span class="ti ti-trash"></span>
+                  </button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data diklat</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
