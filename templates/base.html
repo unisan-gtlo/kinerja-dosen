@@ -196,10 +196,17 @@
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.app_name == 'kinerja' %}active{% endif %}"
+            <a class="nav-link {% if request.resolver_match.app_name == 'kinerja' and request.resolver_match.url_name != 'bkd_index' %}active{% endif %}"
                href="{% url 'kinerja:index' %}">
               <span class="nav-link-icon"><span class="ti ti-chart-bar"></span></span>
               <span class="nav-link-title">Data Kinerja</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'bkd_index' %}active{% endif %}"
+               href="{% url 'kinerja:bkd_index' %}">
+              <span class="nav-link-icon"><span class="ti ti-file-description"></span></span>
+              <span class="nav-link-title">Laporan BKD</span>
             </a>
           </li>
           {% endif %}

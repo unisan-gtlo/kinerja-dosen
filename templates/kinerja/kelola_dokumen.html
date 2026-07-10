@@ -24,7 +24,8 @@
           {{ pemilik.get_full_name }}
         </small>
       </div>
-      <a href="{% url 'kinerja:index' %}" class="btn btn-sm btn-outline-secondary">
+      <a href="{% if jenis_kinerja == 'bkd' %}{% url 'kinerja:bkd_index' %}{% else %}{% url 'kinerja:index' %}{% endif %}"
+         class="btn btn-sm btn-outline-secondary">
         <span class="ti ti-arrow-left me-1"></span>Kembali
       </a>
     </div>

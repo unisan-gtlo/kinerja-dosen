@@ -5,6 +5,7 @@ app_name = 'kinerja'
 
 urlpatterns = [
     path('', views.index, name='index'),
+    path('bkd/', views.bkd_index, name='bkd_index'),
     path('tambah-bkd/', views.tambah_bkd, name='tambah_bkd'),
     path('hapus-bkd/<int:bkd_id>/', views.hapus_bkd, name='hapus_bkd'),
     path('tambah-penelitian/', views.tambah_penelitian, name='tambah_penelitian'),

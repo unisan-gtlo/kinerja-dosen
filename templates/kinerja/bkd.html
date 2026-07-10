@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+{% block title %}Laporan BKD — SIKD{% endblock %}
+{% block page_title %}
+  Laporan BKD
+  {% if target_user != request.user %}
+  <small class="text-muted fs-5">— {{ target_user.get_full_name|default:target_user.username }}</small>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if not input_terbuka %}
+<div class="alert alert-warning">
+  <span class="ti ti-lock me-1"></span>
+  Input data sedang <strong>dikunci</strong> oleh admin.
+</div>
+{% endif %}
+
+<div class="alert alert-info">
+  <span class="ti ti-info-circle me-1"></span>
+  Unggah PDF BKD yang diunduh dari SISTER untuk setiap periode. Status pengesahan diverifikasi oleh Kaprodi/Dekan.
+</div>
+
+<!-- Filter -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      {% if target_user != request.user %}
+      <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+      {% endif %}
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Filter Tahun Akademik</label>
+        <select name="tahun" class="form-select form-select-sm">
+          <option value="">Semua Tahun</option>
+          {% for t in tahun_list %}
+          <option value="{{ t.tahun_akademik }}" {% if filter_tahun == t.tahun_akademik %}selected{% endif %}>
+            {{ t.tahun_akademik }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Filter Semester</label>
+        <select name="semester" class="form-select form-select-sm">
+          <option value="">Semua Semester</option>
+          <option value="Ganjil" {% if filter_semester == 'Ganjil' %}selected{% endif %}>Ganjil</option>
+          <option value="Genap" {% if filter_semester == 'Genap' %}selected{% endif %}>Genap</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+        <a href="{% url 'kinerja:bkd_index' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="bg-white p-4 shadow-sm rounded">
+  {% if bisa_edit %}
+  <div class="card border-0 bg-light mb-4">
+    <div class="card-body">
+      <h6 class="fw-semibold mb-3">Tambah BKD (langsung ke SIMDA)</h6>
+      <form method="post" action="{% url 'kinerja:tambah_bkd' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if target_user != request.user %}
+        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+        {% endif %}
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">Periode (Tahun Akademik & Semester) *</label>
+            <select name="periode_id" class="form-select" required>
+              <option value="">-- Pilih --</option>
+              {% for p in periode_list %}
+              <option value="{{ p.id }}">{{ p.label_lengkap|default:p.tahun_akademik }} {{ p.semester_aktif }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">SKS Pengajaran</label>
+            <input type="number" step="0.01" name="sks_pengajaran" class="form-control">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">SKS Penelitian</label>
+            <input type="number" step="0.01" name="sks_penelitian" class="form-control">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">SKS PkM</label>
+            <input type="number" step="0.01" name="sks_pkm" class="form-control">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">SKS Penunjang</label>
+            <input type="number" step="0.01" name="sks_penunjang" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Upload PDF BKD (max 1MB)</label>
+            <input type="file" name="file_bkd" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Atau Link Google Drive / SISTER</label>
+            <input type="url" name="link_bkd" class="form-control" placeholder="https://...">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">Keterangan</label>
+            <input type="text" name="keterangan" class="form-control">
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary">
+              <span class="ti ti-upload me-1"></span>Simpan BKD
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead class="table-light">
+        <tr>
+          <th>Periode</th><th>Total SKS</th><th>Keterangan</th>
+          <th>File BKD</th><th>Status Pengesahan</th><th>Dokumen</th><th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in bkd_list %}
+        <tr>
+          <td><strong>{{ b.periode.label_lengkap|default:b.periode.tahun_akademik }} {{ b.periode.semester_aktif }}</strong></td>
+          <td>{{ b.total_sks }}</td>
+          <td>{{ b.keterangan|default:"-" }}</td>
+          <td>
+            {% if b.file_bkd %}
+            <a href="{{ b.file_bkd.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+              <span class="ti ti-file-description me-1"></span>Lihat PDF
+            </a>
+            {% elif b.link_bkd %}
+            <a href="{{ b.link_bkd }}" target="_blank" class="btn btn-sm btn-outline-info">
+              <span class="ti ti-link me-1"></span>Buka Link
+            </a>
+            {% else %}-{% endif %}
+          </td>
+          <td>
+            {% if b.status_pengesahan == 'disahkan' %}
+            <span class="badge bg-success-lt text-success">Disahkan</span>
+            {% elif b.status_pengesahan == 'ditolak' %}
+            <span class="badge bg-danger-lt text-danger">Ditolak</span>
+            {% else %}
+            <span class="badge bg-warning-lt text-warning">Belum Disahkan</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'kinerja:kelola_dokumen' 'bkd' b.id %}"
+               class="btn btn-sm btn-outline-primary">
+              <span class="ti ti-files me-1"></span>Dokumen
+            </a>
+          </td>
+          <td>
+            {% if bisa_edit %}
+            <div class="d-flex gap-1">
+              <button class="btn btn-sm btn-outline-primary"
+                onclick="editBKD({{ b.id }},'{{ b.sks_pengajaran|default:'' }}','{{ b.sks_penelitian|default:'' }}','{{ b.sks_pkm|default:'' }}','{{ b.sks_penunjang|default:'' }}','{{ b.link_bkd|default:'' }}','{{ b.keterangan|default:''|escapejs }}','{{ b.status_pengesahan }}')">
+                <span class="ti ti-edit"></span>
+              </button>
+              <form method="post" action="{% url 'kinerja:hapus_bkd' b.id %}"
+                    onsubmit="return confirm('Hapus BKD ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data BKD</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===================== MODAL EDIT BKD ===================== -->
+<div class="modal fade" id="modalEditBKD" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'kinerja:edit_bkd' 0 %}" id="formEditBKD" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if target_user != request.user %}
+        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+        {% endif %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit BKD</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2 mb-3">
+            <div class="col-3">
+              <label class="form-label">SKS Ajar</label>
+              <input type="number" step="0.01" name="sks_pengajaran" id="edit_bkd_sks_ajar" class="form-control">
+            </div>
+            <div class="col-3">
+              <label class="form-label">SKS Riset</label>
+              <input type="number" step="0.01" name="sks_penelitian" id="edit_bkd_sks_riset" class="form-control">
+            </div>
+            <div class="col-3">
+              <label class="form-label">SKS PkM</label>
+              <input type="number" step="0.01" name="sks_pkm" id="edit_bkd_sks_pkm" class="form-control">
+            </div>
+            <div class="col-3">
+              <label class="form-label">SKS Penunjang</label>
+              <input type="number" step="0.01" name="sks_penunjang" id="edit_bkd_sks_penunjang" class="form-control">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Upload File BKD Baru</label>
+            <input type="file" name="file_bkd" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            <small class="text-muted">Kosongkan jika tidak ingin mengganti file</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Link BKD</label>
+            <input type="url" name="link_bkd" id="edit_bkd_link" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Keterangan</label>
+            <input type="text" name="keterangan" id="edit_bkd_ket" class="form-control">
+          </div>
+          {% if request.user.role == 'admin' or request.user.role == 'kaprodi' or request.user.role == 'sekprodi' or request.user.role == 'dekan' or request.user.role == 'wadek' or request.user.role == 'rektorat' %}
+          <div class="mb-3">
+            <label class="form-label">Status Pengesahan</label>
+            <select name="status_pengesahan" id="edit_bkd_status" class="form-select">
+              <option value="belum">Belum Disahkan</option>
+              <option value="disahkan">Disahkan</option>
+              <option value="ditolak">Ditolak</option>
+            </select>
+          </div>
+          {% endif %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editBKD(id, sks_ajar, sks_riset, sks_pkm, sks_penunjang, link, ket, status) {
+  const form = document.getElementById('formEditBKD');
+  form.action = `/kinerja/edit-bkd/${id}/`;
+  document.getElementById('edit_bkd_sks_ajar').value = sks_ajar;
+  document.getElementById('edit_bkd_sks_riset').value = sks_riset;
+  document.getElementById('edit_bkd_sks_pkm').value = sks_pkm;
+  document.getElementById('edit_bkd_sks_penunjang').value = sks_penunjang;
+  document.getElementById('edit_bkd_link').value = link;
+  document.getElementById('edit_bkd_ket').value = ket;
+  const statusEl = document.getElementById('edit_bkd_status');
+  if (statusEl) { statusEl.value = status; }
+  new bootstrap.Modal(document.getElementById('modalEditBKD')).show();
+}
+</script>
+{% endblock %}

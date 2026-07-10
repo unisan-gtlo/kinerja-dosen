@@ -31,8 +31,6 @@ def index(request):
     filter_tahun = request.GET.get('tahun', '')
     filter_semester = request.GET.get('semester', '')
 
-    dosen = get_simda_dosen_or_none(target_user)
-    bkd_list = dosen.riwayat_bkd.all() if dosen else RiwayatBKD.objects.none()
     pengajaran_list = target_user.pengajaran_set.all()
     penelitian_list = target_user.penelitian_set.all()
     publikasi_list = target_user.publikasi_set.all()
@@ -42,7 +40,6 @@ def index(request):
     penunjang_list = target_user.penunjang_set.all()
 
     if filter_tahun:
-        bkd_list = bkd_list.filter(periode__tahun_akademik=filter_tahun)
         pengajaran_list = pengajaran_list.filter(tahun_akademik=filter_tahun)
         penelitian_list = penelitian_list.filter(tahun_akademik=filter_tahun)
         publikasi_list = publikasi_list.filter(tahun_akademik=filter_tahun)
@@ -52,7 +49,6 @@ def index(request):
         penunjang_list = penunjang_list.filter(tahun_akademik=filter_tahun)
 
     if filter_semester:
-        bkd_list = bkd_list.filter(periode__semester_aktif=filter_semester)
         pengajaran_list = pengajaran_list.filter(semester=filter_semester)
         penelitian_list = penelitian_list.filter(semester=filter_semester)
         publikasi_list = publikasi_list.filter(semester=filter_semester)
@@ -64,12 +60,10 @@ def index(request):
     context = {
         'target_user': target_user,
         'tahun_list': tahun_list,
-        'periode_list': TahunAkademikPublik.objects.using('simda').all(),
         'bisa_edit': bisa_edit,
         'input_terbuka': input_terbuka,
         'filter_tahun': filter_tahun,
         'filter_semester': filter_semester,
-        'bkd_list': bkd_list,
         'pengajaran_list': pengajaran_list,
         'penelitian_list': penelitian_list,
         'publikasi_list': publikasi_list,
@@ -82,12 +76,49 @@ def index(request):
 
 
 @login_required
+def bkd_index(request):
+    user = request.user
+    target_user = user
+
+    dosen_id = request.GET.get('dosen_id')
+    if dosen_id and user.role in ['admin', 'kaprodi', 'sekprodi', 'operator', 'dekan', 'wadek', 'rektorat', 'biro']:
+        target_user = get_object_or_404(User, id=dosen_id)
+
+    tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
+    input_terbuka = cek_status_input()
+    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+
+    filter_tahun = request.GET.get('tahun', '')
+    filter_semester = request.GET.get('semester', '')
+
+    dosen = get_simda_dosen_or_none(target_user)
+    bkd_list = dosen.riwayat_bkd.all() if dosen else RiwayatBKD.objects.none()
+
+    if filter_tahun:
+        bkd_list = bkd_list.filter(periode__tahun_akademik=filter_tahun)
+    if filter_semester:
+        bkd_list = bkd_list.filter(periode__semester_aktif=filter_semester)
+
+    context = {
+        'target_user': target_user,
+        'tahun_list': tahun_list,
+        'periode_list': TahunAkademikPublik.objects.using('simda').all(),
+        'bisa_edit': bisa_edit,
+        'input_terbuka': input_terbuka,
+        'filter_tahun': filter_tahun,
+        'filter_semester': filter_semester,
+        'bkd_list': bkd_list,
+    }
+    return render(request, 'kinerja/bkd.html', context)
+
+
+@login_required
 def tambah_bkd(request):
     if request.method != 'POST':
-        return redirect('kinerja:index')
+        return redirect('kinerja:bkd_index')
     if not cek_status_input():
         messages.error(request, 'Input data sedang dikunci.')
-        return redirect('kinerja:index')
+        return redirect('kinerja:bkd_index')
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
@@ -95,13 +126,13 @@ def tambah_bkd(request):
     dosen = get_simda_dosen_or_none(target_user)
     if not dosen:
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
-        return redirect('kinerja:index')
+        return redirect('kinerja:bkd_index')
 
     periode_id = request.POST.get('periode_id')
 
     if RiwayatBKD.objects.filter(dosen=dosen, periode_id=periode_id).exists():
         messages.error(request, 'BKD untuk periode ini sudah ada.')
-        return redirect('kinerja:index')
+        return redirect('kinerja:bkd_index')
 
     bkd = RiwayatBKD(
         dosen=dosen,
@@ -117,7 +148,7 @@ def tambah_bkd(request):
         bkd.file_bkd = request.FILES['file_bkd']
     bkd.save()
     messages.success(request, 'BKD berhasil disimpan ke SIMDA.')
-    return redirect('kinerja:index')
+    return redirect('kinerja:bkd_index')
 
 
 @login_required
@@ -125,10 +156,10 @@ def hapus_bkd(request, bkd_id):
     bkd = get_object_or_404(RiwayatBKD, id=bkd_id)
     if request.user.nidn != bkd.dosen.nidn and request.user.role not in ['admin', 'operator']:
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:index')
+        return redirect('kinerja:bkd_index')
     bkd.delete()
     messages.success(request, 'BKD berhasil dihapus.')
-    return redirect('kinerja:index')
+    return redirect('kinerja:bkd_index')
 
 
 @login_required
@@ -533,7 +564,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
     # Cek kepemilikan
     if pemilik != user and user.role not in ['admin', 'operator']:
         messages.error(request, 'Anda tidak memiliki akses.')
-        return redirect('kinerja:index')
+        return redirect('kinerja:bkd_index' if jenis_kinerja == 'bkd' else 'kinerja:index')
 
     dokumen_list = DokumenKinerja.objects.filter(
         user=pemilik,
@@ -632,7 +663,7 @@ def edit_bkd(request, id):
     is_admin = request.user.role in ['admin', 'operator']
     if not is_owner and not is_admin:
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:index')
+        return redirect('kinerja:bkd_index')
     if request.method == 'POST':
         obj.sks_pengajaran = request.POST.get('sks_pengajaran') or None
         obj.sks_penelitian = request.POST.get('sks_penelitian') or None
@@ -648,7 +679,7 @@ def edit_bkd(request, id):
             obj.status_pengesahan = request.POST.get('status_pengesahan', obj.status_pengesahan)
         obj.save()
         messages.success(request, 'BKD berhasil diupdate.')
-    return redirect('kinerja:index')
+    return redirect('kinerja:bkd_index')
 
 
 @login_required
