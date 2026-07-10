@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'kinerja',
     'dashboard',
     'laporan',
+    'simda_dosen',
 ]
 
 MIDDLEWARE = [
@@ -85,6 +86,21 @@ else:
             'PORT': config('DB_PORT', default='5432'),
         }
     }
+
+# Koneksi kedua: langsung ke database SIMDA (unisan_db) lewat role sikd_rw
+# (baca-tulis terbatas ke tabel data_dosen/riwayat_jabfung/riwayat_pendidikan_dosen/
+# riwayat_bkd -- lihat buat_role_sikd_rw.sql di repo SIMDA). Dipakai oleh app
+# simda_dosen (model unmanaged) lewat DATABASE_ROUTERS di bawah.
+DATABASES['simda'] = {
+    'ENGINE': 'django.db.backends.postgresql',
+    'NAME': config('SIMDA_DB_NAME', default='unisan_db'),
+    'USER': config('SIMDA_DB_USER', default='sikd_rw'),
+    'PASSWORD': config('SIMDA_DB_PASSWORD', default=''),
+    'HOST': config('SIMDA_DB_HOST', default='localhost'),
+    'PORT': config('SIMDA_DB_PORT', default='5432'),
+}
+
+DATABASE_ROUTERS = ['config.db_router.SimdaRouter']
 
 # ============================================================
 # AUTH
