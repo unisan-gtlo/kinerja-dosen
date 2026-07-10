@@ -11,3 +11,12 @@ def get_simda_dosen(user):
     if not user.nidn:
         raise DataDosen.DoesNotExist(f'User {user.username} belum punya nidn di SIKD')
     return get_object_or_404(DataDosen, nidn=user.nidn)
+
+
+def get_simda_dosen_or_none(user):
+    """Sama seperti get_simda_dosen, tapi return None (bukan 404) kalau tidak
+    ketemu -- dipakai di dashboard/laporan yang harus tetap render walau ada
+    user yang nidn-nya belum dibenerin (lihat audit_nidn)."""
+    if not user or not user.nidn:
+        return None
+    return DataDosen.objects.using('simda').filter(nidn=user.nidn).first()

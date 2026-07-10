@@ -3,8 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from accounts.models import User
 from master.models import Fakultas, Prodi, TahunAkademik, Pengaturan
-from profil.models import ProfilDosen
-from kinerja.models import Penelitian, Publikasi, PKM, HKI, BKD
+from simda_dosen.models import DataDosen, RiwayatBKD, JabatanFungsionalPublik
+from simda_dosen.utils import get_simda_dosen_or_none
+from kinerja.models import Penelitian, Publikasi, PKM, HKI
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -155,30 +156,30 @@ def export_excel_rekap(request):
         publikasi_qs = dosen.publikasi_set.all()
         pkm_qs = dosen.pkm_set.all()
         hki_qs = dosen.hki_set.all()
-        bkd_qs = dosen.bkd_set.all()
+        profil = get_simda_dosen_or_none(dosen)
+        bkd_qs = profil.riwayat_bkd.all() if profil else RiwayatBKD.objects.none()
 
         if tahun_range:
             penelitian_qs = penelitian_qs.filter(tahun_akademik__in=tahun_range)
             publikasi_qs = publikasi_qs.filter(tahun_akademik__in=tahun_range)
             pkm_qs = pkm_qs.filter(tahun_akademik__in=tahun_range)
             hki_qs = hki_qs.filter(tahun_akademik__in=tahun_range)
-            bkd_qs = bkd_qs.filter(tahun_akademik__in=tahun_range)
-          
-            
+            bkd_qs = bkd_qs.filter(periode__tahun_akademik__in=tahun_range)
+
+
 
         if filter_semester:
             penelitian_qs = penelitian_qs.filter(semester=filter_semester)
             publikasi_qs = publikasi_qs.filter(semester=filter_semester)
             pkm_qs = pkm_qs.filter(semester=filter_semester)
             hki_qs = hki_qs.filter(semester=filter_semester)
-            bkd_qs = bkd_qs.filter(semester=filter_semester)
+            bkd_qs = bkd_qs.filter(periode__semester_aktif=filter_semester)
 
-        try:
-            profil = dosen.profil
+        if profil:
             kelengkapan = profil.persentase_kelengkapan
-            jabfung = profil.jabfung_aktif or '-'
+            jabfung = profil.jabatan_fungsional_nama or '-'
             pendidikan = profil.pendidikan_terakhir or '-'
-        except:
+        else:
             kelengkapan = 0
             jabfung = '-'
             pendidikan = '-'
@@ -443,29 +444,29 @@ def export_pdf_rekap(request):
         publikasi_qs = dosen.publikasi_set.all()
         pkm_qs = dosen.pkm_set.all()
         hki_qs = dosen.hki_set.all()
-        bkd_qs = dosen.bkd_set.all()
+        profil = get_simda_dosen_or_none(dosen)
+        bkd_qs = profil.riwayat_bkd.all() if profil else RiwayatBKD.objects.none()
 
         if tahun_range:
             penelitian_qs = penelitian_qs.filter(tahun_akademik__in=tahun_range)
             publikasi_qs = publikasi_qs.filter(tahun_akademik__in=tahun_range)
             pkm_qs = pkm_qs.filter(tahun_akademik__in=tahun_range)
             hki_qs = hki_qs.filter(tahun_akademik__in=tahun_range)
-            bkd_qs = bkd_qs.filter(tahun_akademik__in=tahun_range)
-         
+            bkd_qs = bkd_qs.filter(periode__tahun_akademik__in=tahun_range)
+
 
         if filter_semester:
             penelitian_qs = penelitian_qs.filter(semester=filter_semester)
             publikasi_qs = publikasi_qs.filter(semester=filter_semester)
             pkm_qs = pkm_qs.filter(semester=filter_semester)
             hki_qs = hki_qs.filter(semester=filter_semester)
-            bkd_qs = bkd_qs.filter(semester=filter_semester)
+            bkd_qs = bkd_qs.filter(periode__semester_aktif=filter_semester)
 
-        try:
-            profil = dosen.profil
+        if profil:
             kelengkapan = profil.persentase_kelengkapan
-            jabfung = profil.jabfung_aktif or '-'
+            jabfung = profil.jabatan_fungsional_nama or '-'
             pendidikan = profil.pendidikan_terakhir or '-'
-        except:
+        else:
             kelengkapan = 0
             jabfung = '-'
             pendidikan = '-'
@@ -737,34 +738,31 @@ def export_pdf_dosen(request, dosen_id):
     filter_semester = request.GET.get('semester', '')
 
     # Ambil data
-    try:
-        profil = target_dosen.profil
-    except:
-        profil = None
+    profil = get_simda_dosen_or_none(target_dosen)
 
-    jabfung_list = target_dosen.jabfung_set.all().order_by('-tgl_sk')
-    pendidikan_list = target_dosen.pendidikan_set.all().order_by('-tahun_lulus')
+    jabfung_list = profil.riwayat_jabfung.all().order_by('-tmt') if profil else []
+    pendidikan_list = profil.riwayat_pendidikan.all().order_by('-tahun_lulus') if profil else []
     sertifikat_list = target_dosen.sertifikat_set.all().order_by('-tahun_terbit')
 
     penelitian_qs = target_dosen.penelitian_set.all()
     publikasi_qs = target_dosen.publikasi_set.all()
     pkm_qs = target_dosen.pkm_set.all()
     hki_qs = target_dosen.hki_set.all()
-    bkd_qs = target_dosen.bkd_set.all()
+    bkd_qs = profil.riwayat_bkd.all() if profil else RiwayatBKD.objects.none()
 
     if tahun_range:
         penelitian_qs = penelitian_qs.filter(tahun_akademik__in=tahun_range)
         publikasi_qs = publikasi_qs.filter(tahun_akademik__in=tahun_range)
         pkm_qs = pkm_qs.filter(tahun_akademik__in=tahun_range)
         hki_qs = hki_qs.filter(tahun_akademik__in=tahun_range)
-        bkd_qs = bkd_qs.filter(tahun_akademik__in=tahun_range)
+        bkd_qs = bkd_qs.filter(periode__tahun_akademik__in=tahun_range)
 
     if filter_semester:
         penelitian_qs = penelitian_qs.filter(semester=filter_semester)
         publikasi_qs = publikasi_qs.filter(semester=filter_semester)
         pkm_qs = pkm_qs.filter(semester=filter_semester)
         hki_qs = hki_qs.filter(semester=filter_semester)
-        bkd_qs = bkd_qs.filter(semester=filter_semester)
+        bkd_qs = bkd_qs.filter(periode__semester_aktif=filter_semester)
 
     # Build PDF
     buffer = io.BytesIO()
@@ -821,9 +819,9 @@ def export_pdf_dosen(request, dosen_id):
     nidn = target_dosen.nidn or '-'
     prodi = target_dosen.kode_prodi or '-'
     fakultas = target_dosen.kode_fakultas or '-'
-    jabfung_aktif = profil.jabfung_aktif if profil else '-'
+    jabfung_aktif = profil.jabatan_fungsional_nama if profil else '-'
     pendidikan = profil.pendidikan_terakhir if profil else '-'
-    bidang = profil.bidang_keahlian if profil else '-'
+    bidang = '-'
     status_kpg = target_dosen.status_kepegawaian or 'Aktif'
 
     identitas_data = [
@@ -871,7 +869,7 @@ def export_pdf_dosen(request, dosen_id):
         bkd_data = [['No', 'Semester', 'Tahun Akademik', 'Status']]
         for i, b in enumerate(bkd_qs, 1):
             status = 'Terupload' if (b.file_bkd or b.link_bkd) else 'Belum Upload'
-            bkd_data.append([str(i), b.semester, b.tahun_akademik, status])
+            bkd_data.append([str(i), b.periode.semester_aktif, b.periode.tahun_akademik, status])
         t = Table(bkd_data, colWidths=[1*cm, 4*cm, 6*cm, 6*cm])
         t.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), header_color),
@@ -1101,7 +1099,7 @@ def export_excel_statistik_kinerja(request):
         tahun_range = []
 
     from master.models import Fakultas, Prodi
-    from kinerja.models import Penelitian, Publikasi, PKM, HKI, BKD
+    from kinerja.models import Penelitian, Publikasi, PKM, HKI
 
     fakultas_list = Fakultas.objects.filter(status='aktif').order_by('kode_fakultas')
     prodi_list = Prodi.objects.filter(status='aktif').order_by(
@@ -1401,39 +1399,40 @@ def export_excel_statistik_profil(request):
         'fakultas__kode_fakultas', 'kode_prodi'
     )
 
-    from profil.models import ProfilDosen
-
     def get_profil_counts(filter_kwargs):
         dosen_qs = User.objects.filter(role='dosen', **filter_kwargs)
         total = dosen_qs.count()
+        nidn_list = list(dosen_qs.exclude(nidn__isnull=True).exclude(nidn='').values_list('nidn', flat=True))
 
         # Pendidikan
-        s1 = ProfilDosen.objects.filter(
-            user__in=dosen_qs, pendidikan_terakhir='S1'
+        s1 = DataDosen.objects.using('simda').filter(
+            nidn__in=nidn_list, pendidikan_terakhir='S1'
         ).count()
-        s2 = ProfilDosen.objects.filter(
-            user__in=dosen_qs, pendidikan_terakhir='S2'
+        s2 = DataDosen.objects.using('simda').filter(
+            nidn__in=nidn_list, pendidikan_terakhir='S2'
         ).count()
-        s3 = ProfilDosen.objects.filter(
-            user__in=dosen_qs, pendidikan_terakhir='S3'
+        s3 = DataDosen.objects.using('simda').filter(
+            nidn__in=nidn_list, pendidikan_terakhir='S3'
         ).count()
 
-        # Jabfung
-        tp = ProfilDosen.objects.filter(
-            user__in=dosen_qs, jabfung_aktif='Tenaga Pengajar'
-        ).count()
-        aa = ProfilDosen.objects.filter(
-            user__in=dosen_qs, jabfung_aktif='Asisten Ahli'
-        ).count()
-        lek = ProfilDosen.objects.filter(
-            user__in=dosen_qs, jabfung_aktif='Lektor'
-        ).count()
-        lk = ProfilDosen.objects.filter(
-            user__in=dosen_qs, jabfung_aktif='Lektor Kepala'
-        ).count()
-        gb = ProfilDosen.objects.filter(
-            user__in=dosen_qs, jabfung_aktif='Guru Besar'
-        ).count()
+        # Jabfung -- cocokkan nama ke id via view referensi SIMDA
+        jabfung_ref = {
+            jf.nama: jf.id for jf in JabatanFungsionalPublik.objects.using('simda').all()
+        }
+
+        def count_jabfung(nama):
+            jf_id = jabfung_ref.get(nama)
+            if not jf_id:
+                return 0
+            return DataDosen.objects.using('simda').filter(
+                nidn__in=nidn_list, jabatan_fungsional_id=jf_id
+            ).count()
+
+        tp = count_jabfung('Tenaga Pengajar')
+        aa = count_jabfung('Asisten Ahli')
+        lek = count_jabfung('Lektor')
+        lk = count_jabfung('Lektor Kepala')
+        gb = count_jabfung('Guru Besar')
 
         # Sertifikasi dosen
         from profil.models import Sertifikat

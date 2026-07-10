@@ -3,7 +3,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
-from .models import ProfilDosen, RiwayatJabfung, RiwayatPendidikan, Sertifikat, DokumenLain
+from simda_dosen.models import (
+    DataDosen, RiwayatJabatanFungsional, RiwayatPendidikanDosen,
+    AgamaPublik, JabatanFungsionalPublik,
+)
+from simda_dosen.utils import get_simda_dosen_or_none
+from .models import Sertifikat, DokumenLain
 
 def cek_status_input():
     try:
@@ -21,13 +26,15 @@ def index(request):
     if dosen_id and user.role in ['admin', 'kaprodi', 'sekprodi', 'operator', 'dekan', 'wadek', 'rektorat', 'biro']:
         target_user = get_object_or_404(User, id=dosen_id)
 
-    try:
-        profil = target_user.profil
-    except ProfilDosen.DoesNotExist:
-        profil = None
+    profil = get_simda_dosen_or_none(target_user)
 
-    jabfung_list = target_user.jabfung_set.all().order_by('-tgl_sk')
-    pendidikan_list = target_user.pendidikan_set.all().order_by('-tahun_lulus')
+    if profil:
+        jabfung_list = profil.riwayat_jabfung.all().order_by('-tmt')
+        pendidikan_list = profil.riwayat_pendidikan.all().order_by('-tahun_lulus')
+    else:
+        jabfung_list = RiwayatJabatanFungsional.objects.none()
+        pendidikan_list = RiwayatPendidikanDosen.objects.none()
+
     sertifikat_list = target_user.sertifikat_set.all().order_by('-tahun_terbit')
     dokumen_list = target_user.dokumen_set.all().order_by('-tgl_input')
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
@@ -44,6 +51,8 @@ def index(request):
         'tahun_list': tahun_list,
         'bisa_edit': bisa_edit,
         'input_terbuka': input_terbuka,
+        'agama_list': AgamaPublik.objects.using('simda').all(),
+        'jabfung_ref_list': JabatanFungsionalPublik.objects.using('simda').all(),
     }
     return render(request, 'profil/index.html', context)
 
@@ -62,21 +71,31 @@ def simpan_profil(request):
     else:
         target_user = user
 
-    profil, created = ProfilDosen.objects.get_or_create(user=target_user)
+    profil = get_simda_dosen_or_none(target_user)
+    if not profil:
+        messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin untuk membetulkan NIDN.')
+        return redirect('profil:index')
+
     profil.nik = request.POST.get('nik', '').strip()
     profil.tempat_lahir = request.POST.get('tempat_lahir', '').strip()
     profil.tgl_lahir = request.POST.get('tgl_lahir') or None
     profil.jenis_kelamin = request.POST.get('jenis_kelamin', '')
-    profil.agama = request.POST.get('agama', '')
+    profil.agama_id = request.POST.get('agama_id') or None
     profil.status_pernikahan = request.POST.get('status_pernikahan', '')
-    profil.alamat = request.POST.get('alamat', '').strip()
+    profil.alamat_domisili = request.POST.get('alamat_domisili', '').strip()
+    profil.kode_pos = request.POST.get('kode_pos', '').strip()
+    profil.no_hp = request.POST.get('no_hp', '').strip()
     profil.email_pribadi = request.POST.get('email_pribadi', '').strip()
-    profil.jabfung_aktif = request.POST.get('jabfung_aktif', '')
-    profil.pendidikan_terakhir = request.POST.get('pendidikan_terakhir', '')
-    profil.bidang_keahlian = request.POST.get('bidang_keahlian', '').strip()
-    profil.mata_kuliah_diampu = request.POST.get('mata_kuliah_diampu', '').strip()
-    profil.link_dokumen_lain = request.POST.get('link_dokumen_lain', '').strip()
-    profil.updated_by = user.username
+    profil.id_sinta = request.POST.get('id_sinta', '').strip()
+    profil.id_scopus = request.POST.get('id_scopus', '').strip()
+    profil.id_google_scholar = request.POST.get('id_google_scholar', '').strip()
+    profil.orcid = request.POST.get('orcid', '').strip()
+    profil.id_garuda = request.POST.get('id_garuda', '').strip()
+    profil.h_index_sinta = request.POST.get('h_index_sinta') or None
+    profil.h_index_scopus = request.POST.get('h_index_scopus') or None
+    profil.nira = request.POST.get('nira', '').strip()
+    profil.minat_penelitian = request.POST.get('minat_penelitian', '').strip()
+    profil.npwp = request.POST.get('npwp', '').strip()
 
     if 'foto' in request.FILES:
         profil.foto = request.FILES['foto']
@@ -84,11 +103,9 @@ def simpan_profil(request):
         profil.file_ktp = request.FILES['file_ktp']
     if 'file_npwp' in request.FILES:
         profil.file_npwp = request.FILES['file_npwp']
-    if 'file_sk_yayasan' in request.FILES:
-        profil.file_sk_yayasan = request.FILES['file_sk_yayasan']
 
     profil.save()
-    messages.success(request, 'Profil berhasil disimpan.')
+    messages.success(request, 'Profil berhasil disimpan ke SIMDA.')
     return redirect('profil:index')
 
 @login_required
@@ -102,37 +119,32 @@ def tambah_jabfung(request):
     user = request.user
     dosen_id = request.POST.get('dosen_id')
     target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+    dosen = get_simda_dosen_or_none(target_user)
+    if not dosen:
+        messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
+        return redirect('profil:index')
 
-    jabfung = RiwayatJabfung(
-        user=target_user,
-        jabatan=request.POST.get('jabatan', ''),
+    jabfung = RiwayatJabatanFungsional(
+        dosen=dosen,
+        jabatan_fungsional_id=request.POST.get('jabatan_fungsional_id') or None,
         no_sk=request.POST.get('no_sk', '').strip(),
         tgl_sk=request.POST.get('tgl_sk') or None,
-        tmt_berlaku=request.POST.get('tmt_berlaku') or None,
-        instansi_penerbit=request.POST.get('instansi_penerbit', '').strip(),
-        link_sk=request.POST.get('link_sk', '').strip(),
-        status=request.POST.get('status', 'aktif'),
-        updated_by=user.username
+        tmt=request.POST.get('tmt') or None,
+        tgl_selesai=request.POST.get('tgl_selesai') or None,
+        url_sk=request.POST.get('url_sk', '').strip(),
+        keterangan=request.POST.get('keterangan', '').strip(),
     )
     if 'file_sk' in request.FILES:
         jabfung.file_sk = request.FILES['file_sk']
     jabfung.save()
 
-    if jabfung.status == 'aktif':
-        try:
-            profil = target_user.profil
-            profil.jabfung_aktif = jabfung.jabatan
-            profil.save()
-        except:
-            pass
-
-    messages.success(request, f'Jabatan "{jabfung.jabatan}" berhasil ditambahkan.')
+    messages.success(request, 'Riwayat jabatan fungsional berhasil ditambahkan ke SIMDA.')
     return redirect('profil:index')
 
 @login_required
 def hapus_jabfung(request, jabfung_id):
-    jabfung = get_object_or_404(RiwayatJabfung, id=jabfung_id)
-    if request.user != jabfung.user and request.user.role not in ['admin', 'operator']:
+    jabfung = get_object_or_404(RiwayatJabatanFungsional, id=jabfung_id)
+    if request.user.nidn != jabfung.dosen.nidn and request.user.role not in ['admin', 'operator']:
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
     jabfung.delete()
@@ -150,31 +162,33 @@ def tambah_pendidikan(request):
     user = request.user
     dosen_id = request.POST.get('dosen_id')
     target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+    dosen = get_simda_dosen_or_none(target_user)
+    if not dosen:
+        messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
+        return redirect('profil:index')
 
-    pend = RiwayatPendidikan(
-        user=target_user,
+    pend = RiwayatPendidikanDosen(
+        dosen=dosen,
         jenjang=request.POST.get('jenjang', ''),
-        bidang_ilmu=request.POST.get('bidang_ilmu', '').strip(),
-        nama_pt=request.POST.get('nama_pt', '').strip(),
-        kota_pt=request.POST.get('kota_pt', '').strip(),
-        negara=request.POST.get('negara', 'Indonesia').strip(),
+        institusi=request.POST.get('nama_pt', '').strip(),
+        prodi_studi=request.POST.get('bidang_ilmu', '').strip(),
         tahun_masuk=request.POST.get('tahun_masuk') or None,
         tahun_lulus=request.POST.get('tahun_lulus') or None,
         no_ijazah=request.POST.get('no_ijazah', '').strip(),
-        updated_by=user.username
+        judul_thesis=request.POST.get('judul_thesis', '').strip(),
     )
     if 'file_ijazah' in request.FILES:
         pend.file_ijazah = request.FILES['file_ijazah']
     if 'file_transkrip' in request.FILES:
         pend.file_transkrip = request.FILES['file_transkrip']
     pend.save()
-    messages.success(request, 'Data pendidikan berhasil ditambahkan.')
+    messages.success(request, 'Data pendidikan berhasil ditambahkan ke SIMDA.')
     return redirect('profil:index')
 
 @login_required
 def hapus_pendidikan(request, pend_id):
-    pend = get_object_or_404(RiwayatPendidikan, id=pend_id)
-    if request.user != pend.user and request.user.role not in ['admin', 'operator']:
+    pend = get_object_or_404(RiwayatPendidikanDosen, id=pend_id)
+    if request.user.nidn != pend.dosen.nidn and request.user.role not in ['admin', 'operator']:
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
     pend.delete()
@@ -221,49 +235,38 @@ def hapus_sertifikat(request, sert_id):
 
 @login_required
 def edit_jabfung(request, jabfung_id):
-    jabfung = get_object_or_404(RiwayatJabfung, id=jabfung_id)
-    if request.user != jabfung.user and request.user.role not in ['admin', 'operator']:
+    jabfung = get_object_or_404(RiwayatJabatanFungsional, id=jabfung_id)
+    if request.user.nidn != jabfung.dosen.nidn and request.user.role not in ['admin', 'operator']:
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
     if request.method == 'POST':
-        jabfung.jabatan = request.POST.get('jabatan', jabfung.jabatan)
+        jabfung.jabatan_fungsional_id = request.POST.get('jabatan_fungsional_id') or jabfung.jabatan_fungsional_id
         jabfung.no_sk = request.POST.get('no_sk', '').strip()
         jabfung.tgl_sk = request.POST.get('tgl_sk') or None
-        jabfung.tmt_berlaku = request.POST.get('tmt_berlaku') or None
-        jabfung.instansi_penerbit = request.POST.get('instansi_penerbit', '').strip()
-        jabfung.link_sk = request.POST.get('link_sk', '').strip()
-        jabfung.status = request.POST.get('status', jabfung.status)
-        jabfung.updated_by = request.user.username
+        jabfung.tmt = request.POST.get('tmt') or None
+        jabfung.tgl_selesai = request.POST.get('tgl_selesai') or None
+        jabfung.url_sk = request.POST.get('url_sk', '').strip()
+        jabfung.keterangan = request.POST.get('keterangan', '').strip()
         if 'file_sk' in request.FILES:
             jabfung.file_sk = request.FILES['file_sk']
         jabfung.save()
-        if jabfung.status == 'aktif':
-            try:
-                profil = jabfung.user.profil
-                profil.jabfung_aktif = jabfung.jabatan
-                profil.save()
-            except:
-                pass
         messages.success(request, 'Data jabatan berhasil diupdate.')
     return redirect('profil:index')
 
 
 @login_required
 def edit_pendidikan(request, pend_id):
-    pend = get_object_or_404(RiwayatPendidikan, id=pend_id)
-    if request.user != pend.user and request.user.role not in ['admin', 'operator']:
+    pend = get_object_or_404(RiwayatPendidikanDosen, id=pend_id)
+    if request.user.nidn != pend.dosen.nidn and request.user.role not in ['admin', 'operator']:
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
     if request.method == 'POST':
         pend.jenjang = request.POST.get('jenjang', pend.jenjang)
-        pend.bidang_ilmu = request.POST.get('bidang_ilmu', '').strip()
-        pend.nama_pt = request.POST.get('nama_pt', '').strip()
-        pend.kota_pt = request.POST.get('kota_pt', '').strip()
-        pend.negara = request.POST.get('negara', 'Indonesia').strip()
+        pend.institusi = request.POST.get('nama_pt', '').strip()
+        pend.prodi_studi = request.POST.get('bidang_ilmu', '').strip()
         pend.tahun_masuk = request.POST.get('tahun_masuk') or None
         pend.tahun_lulus = request.POST.get('tahun_lulus') or None
         pend.no_ijazah = request.POST.get('no_ijazah', '').strip()
-        pend.updated_by = request.user.username
         if 'file_ijazah' in request.FILES:
             pend.file_ijazah = request.FILES['file_ijazah']
         if 'file_transkrip' in request.FILES:

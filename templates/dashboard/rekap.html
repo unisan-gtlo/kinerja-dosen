@@ -831,10 +831,10 @@
         {% for b in bkd_list %}
         <tr>
           <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
-          <td>{{ b.user.get_full_name|default:b.user.username }}</td>
-          <td><span class="badge bg-teal-lt text-teal">{{ b.user.kode_prodi|default:"-" }}</span></td>
-          <td><span class="badge bg-orange-lt text-orange">{{ b.semester }}</span></td>
-          <td>{{ b.tahun_akademik }}</td>
+          <td>{{ b.dosen.nama_lengkap_gelar|default:b.dosen.nama_lengkap }}</td>
+          <td><span class="badge bg-teal-lt text-teal">{{ b.dosen.kode_prodi|default:"-" }}</span></td>
+          <td><span class="badge bg-orange-lt text-orange">{{ b.periode.semester_aktif }}</span></td>
+          <td>{{ b.periode.tahun_akademik }}</td>
           <td style="font-size:12px">{{ b.keterangan|default:"-" }}</td>
           <td class="text-center">
             {% if b.file_bkd or b.link_bkd %}
@@ -860,7 +860,7 @@
               <button class="btn btn-xs btn-outline-primary"
                 data-bs-toggle="modal" data-bs-target="#modalDokumen"
                 onclick="loadDokumen(
-                  'BKD {{ b.semester }} {{ b.tahun_akademik }}',
+                  'BKD {{ b.periode.semester_aktif }} {{ b.periode.tahun_akademik }}',
                   {{ b.dokumen_list|length }},
                   '#dok_bkd_{{ b.id }}'
                 )">

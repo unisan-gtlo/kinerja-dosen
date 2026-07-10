@@ -3,7 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
-from .models import BKD, Penelitian, Publikasi, PKM, HKI
+from simda_dosen.models import RiwayatBKD, TahunAkademikPublik
+from simda_dosen.utils import get_simda_dosen_or_none
+from .models import Penelitian, Publikasi, PKM, HKI
 
 def cek_status_input():
     try:
@@ -29,21 +31,22 @@ def index(request):
     filter_tahun = request.GET.get('tahun', '')
     filter_semester = request.GET.get('semester', '')
 
-    bkd_list = target_user.bkd_set.all()
+    dosen = get_simda_dosen_or_none(target_user)
+    bkd_list = dosen.riwayat_bkd.all() if dosen else RiwayatBKD.objects.none()
     penelitian_list = target_user.penelitian_set.all()
     publikasi_list = target_user.publikasi_set.all()
     pkm_list = target_user.pkm_set.all()
     hki_list = target_user.hki_set.all()
 
     if filter_tahun:
-        bkd_list = bkd_list.filter(tahun_akademik=filter_tahun)
+        bkd_list = bkd_list.filter(periode__tahun_akademik=filter_tahun)
         penelitian_list = penelitian_list.filter(tahun_akademik=filter_tahun)
         publikasi_list = publikasi_list.filter(tahun_akademik=filter_tahun)
         pkm_list = pkm_list.filter(tahun_akademik=filter_tahun)
         hki_list = hki_list.filter(tahun_akademik=filter_tahun)
 
     if filter_semester:
-        bkd_list = bkd_list.filter(semester=filter_semester)
+        bkd_list = bkd_list.filter(periode__semester_aktif=filter_semester)
         penelitian_list = penelitian_list.filter(semester=filter_semester)
         publikasi_list = publikasi_list.filter(semester=filter_semester)
         pkm_list = pkm_list.filter(semester=filter_semester)
@@ -52,6 +55,7 @@ def index(request):
     context = {
         'target_user': target_user,
         'tahun_list': tahun_list,
+        'periode_list': TahunAkademikPublik.objects.using('simda').all(),
         'bisa_edit': bisa_edit,
         'input_terbuka': input_terbuka,
         'filter_tahun': filter_tahun,
@@ -76,35 +80,38 @@ def tambah_bkd(request):
     user = request.user
     dosen_id = request.POST.get('dosen_id')
     target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
-
-    semester = request.POST.get('semester', '')
-    tahun_akademik = request.POST.get('tahun_akademik', '')
-
-    if BKD.objects.filter(user=target_user, semester=semester, tahun_akademik=tahun_akademik).exists():
-        messages.error(request, f'BKD {semester} {tahun_akademik} sudah ada.')
+    dosen = get_simda_dosen_or_none(target_user)
+    if not dosen:
+        messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
         return redirect('kinerja:index')
 
-    bkd = BKD(
-        user=target_user,
-        kode_prodi=target_user.kode_prodi,
-        kode_fakultas=target_user.kode_fakultas,
-        semester=semester,
-        tahun_akademik=tahun_akademik,
+    periode_id = request.POST.get('periode_id')
+
+    if RiwayatBKD.objects.filter(dosen=dosen, periode_id=periode_id).exists():
+        messages.error(request, 'BKD untuk periode ini sudah ada.')
+        return redirect('kinerja:index')
+
+    bkd = RiwayatBKD(
+        dosen=dosen,
+        periode_id=periode_id,
+        sks_pengajaran=request.POST.get('sks_pengajaran') or None,
+        sks_penelitian=request.POST.get('sks_penelitian') or None,
+        sks_pkm=request.POST.get('sks_pkm') or None,
+        sks_penunjang=request.POST.get('sks_penunjang') or None,
         link_bkd=request.POST.get('link_bkd', '').strip(),
         keterangan=request.POST.get('keterangan', '').strip(),
-        updated_by=user.username
     )
     if 'file_bkd' in request.FILES:
         bkd.file_bkd = request.FILES['file_bkd']
     bkd.save()
-    messages.success(request, f'BKD {semester} {tahun_akademik} berhasil disimpan.')
+    messages.success(request, 'BKD berhasil disimpan ke SIMDA.')
     return redirect('kinerja:index')
 
 
 @login_required
 def hapus_bkd(request, bkd_id):
-    bkd = get_object_or_404(BKD, id=bkd_id)
-    if request.user != bkd.user and request.user.role not in ['admin', 'operator']:
+    bkd = get_object_or_404(RiwayatBKD, id=bkd_id)
+    if request.user.nidn != bkd.dosen.nidn and request.user.role not in ['admin', 'operator']:
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('kinerja:index')
     bkd.delete()
@@ -280,7 +287,7 @@ def hapus_hki(request, id):
     messages.success(request, 'Data HKI berhasil dihapus.')
     return redirect('kinerja:index')
 
-from .models import BKD, Penelitian, Publikasi, PKM, HKI, DokumenKinerja
+from .models import Penelitian, Publikasi, PKM, HKI, DokumenKinerja
 from django.core.exceptions import ValidationError
 import os
 
@@ -302,7 +309,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         'publikasi': Publikasi,
         'pkm': PKM,
         'hki': HKI,
-        'bkd': BKD,
+        'bkd': RiwayatBKD,
     }
 
     if jenis_kinerja not in KINERJA_MAP:
@@ -312,13 +319,20 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
     Model = KINERJA_MAP[jenis_kinerja]
     kinerja_obj = get_object_or_404(Model, id=kinerja_id)
 
+    # BKD dimiliki DataDosen (SIMDA), bukan User (SIKD) -- resolve balik ke
+    # User SIKD lewat nidn supaya DokumenKinerja (yang FK ke User) tetap konsisten.
+    if jenis_kinerja == 'bkd':
+        pemilik = User.objects.filter(nidn=kinerja_obj.dosen.nidn).first()
+    else:
+        pemilik = kinerja_obj.user
+
     # Cek kepemilikan
-    if kinerja_obj.user != user and user.role not in ['admin', 'operator']:
+    if pemilik != user and user.role not in ['admin', 'operator']:
         messages.error(request, 'Anda tidak memiliki akses.')
         return redirect('kinerja:index')
 
     dokumen_list = DokumenKinerja.objects.filter(
-        user=kinerja_obj.user,
+        user=pemilik,
         jenis_kinerja=jenis_kinerja,
         kinerja_id=kinerja_id
     ).order_by('jenis_dokumen')
@@ -336,7 +350,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
                 messages.error(request, 'Nama dokumen wajib diisi.')
             else:
                 dok = DokumenKinerja(
-                    user=kinerja_obj.user,
+                    user=pemilik,
                     jenis_kinerja=jenis_kinerja,
                     kinerja_id=kinerja_id,
                     jenis_dokumen=jenis_dok,
@@ -359,14 +373,14 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         elif aksi == 'hapus':
             dok_id = request.POST.get('dok_id')
             dok = get_object_or_404(DokumenKinerja, id=dok_id)
-            if dok.user == kinerja_obj.user or user.role in ['admin', 'operator']:
+            if dok.user == pemilik or user.role in ['admin', 'operator']:
                 nama = dok.nama_dokumen
                 dok.delete()
                 messages.success(request, f'Dokumen "{nama}" berhasil dihapus.')
         elif aksi == 'edit':
             dok_id = request.POST.get('dok_id')
             dok = get_object_or_404(DokumenKinerja, id=dok_id)
-            if dok.user == kinerja_obj.user or user.role in ['admin', 'operator']:
+            if dok.user == pemilik or user.role in ['admin', 'operator']:
                 dok.jenis_dokumen = request.POST.get('jenis_dokumen', dok.jenis_dokumen)
                 dok.nama_dokumen = request.POST.get('nama_dokumen', '').strip() or dok.nama_dokumen
                 dok.keterangan = request.POST.get('keterangan', '').strip()
@@ -390,10 +404,11 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
     if hasattr(kinerja_obj, 'judul'):
         judul_kinerja = kinerja_obj.judul[:80]
     else:
-        judul_kinerja = f'BKD {kinerja_obj.semester} {kinerja_obj.tahun_akademik}'
+        judul_kinerja = f'BKD periode {kinerja_obj.periode}'
 
     context = {
         'kinerja_obj': kinerja_obj,
+        'pemilik': pemilik,
         'jenis_kinerja': jenis_kinerja,
         'kinerja_id': kinerja_id,
         'judul_kinerja': judul_kinerja,
@@ -404,18 +419,25 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
 
 @login_required
 def edit_bkd(request, id):
-    obj = get_object_or_404(BKD, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    obj = get_object_or_404(RiwayatBKD, id=id)
+    is_owner = request.user.nidn == obj.dosen.nidn
+    is_admin = request.user.role in ['admin', 'operator']
+    if not is_owner and not is_admin:
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('kinerja:index')
     if request.method == 'POST':
-        obj.semester = request.POST.get('semester', obj.semester)
-        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
+        obj.sks_pengajaran = request.POST.get('sks_pengajaran') or None
+        obj.sks_penelitian = request.POST.get('sks_penelitian') or None
+        obj.sks_pkm = request.POST.get('sks_pkm') or None
+        obj.sks_penunjang = request.POST.get('sks_penunjang') or None
         obj.link_bkd = request.POST.get('link_bkd', '').strip() or None
         obj.keterangan = request.POST.get('keterangan', '').strip()
-        obj.updated_by = request.user.username
         if 'file_bkd' in request.FILES:
             obj.file_bkd = request.FILES['file_bkd']
+        # Hanya admin/kaprodi/sekprodi/dekan/wadek/rektorat yang boleh sahkan BKD --
+        # dosen pemilik record tidak bisa mengesahkan BKD-nya sendiri.
+        if request.user.role in RiwayatBKD.ROLE_BOLEH_SAHKAN:
+            obj.status_pengesahan = request.POST.get('status_pengesahan', obj.status_pengesahan)
         obj.save()
         messages.success(request, 'BKD berhasil diupdate.')
     return redirect('kinerja:index')

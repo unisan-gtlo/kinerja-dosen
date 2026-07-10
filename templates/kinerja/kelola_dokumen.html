@@ -21,7 +21,7 @@
         <h6 class="mb-1 fw-semibold">{{ judul_kinerja }}</h6>
         <small class="text-muted">
           <span class="ti ti-user me-1"></span>
-          {{ kinerja_obj.user.get_full_name }}
+          {{ pemilik.get_full_name }}
         </small>
       </div>
       <a href="{% url 'kinerja:index' %}" class="btn btn-sm btn-outline-secondary">

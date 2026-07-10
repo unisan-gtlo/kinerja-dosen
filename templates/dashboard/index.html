@@ -67,7 +67,7 @@
           {{ request.user.get_full_name|default:request.user.username }} &mdash;
           {% now "j F Y" %}
         </div>
-        <h2 style="color:#ffffff !important; font-size:32px; font-weight:700; margin-bottom:4px; text-shadow: 1px 1px 3px rgba(0,0,0,0.3);">
+        <h2 style="color:#ffffff !important; font-size:25px; font-weight:700; margin-bottom:4px; text-shadow: 1px 1px 3px rgba(0,0,0,0.3);">
           Selamat Datang, {{ request.user.get_full_name|default:request.user.username }}!
         </h2>
         <p style="color:rgba(255,255,255,0.8); font-size:14px; margin-bottom:16px">
@@ -204,8 +204,8 @@
         </div>
         <div class="col py-2">
           <div style="color:#60a5fa !important; font-weight:700; font-size:14px">
-            {% if profil and profil.jabfung_aktif %}
-              {{ profil.jabfung_aktif }}
+            {% if profil and profil.jabatan_fungsional_nama %}
+              {{ profil.jabatan_fungsional_nama }}
             {% else %}-{% endif %}
           </div>
           <div style="color:rgba(255,255,255,0.6) !important; font-size:10px">Jabfung</div>
@@ -234,8 +234,8 @@
             <tbody>
               {% for b in bkd_list %}
               <tr>
-                <td><span class="badge bg-orange-lt text-orange">{{ b.semester }}</span></td>
-                <td>{{ b.tahun_akademik }}</td>
+                <td><span class="badge bg-orange-lt text-orange">{{ b.periode.semester_aktif }}</span></td>
+                <td>{{ b.periode.tahun_akademik }}</td>
                 <td>
                   {% if b.file_bkd or b.link_bkd %}
                   <span class="badge bg-success-lt text-success">Terupload</span>
@@ -278,7 +278,7 @@
           <select id="modal_tahun" class="form-select">
             <option value="">Semua Tahun</option>
             {% for b in bkd_list %}
-            <option value="{{ b.tahun_akademik }}">{{ b.tahun_akademik }}</option>
+            <option value="{{ b.periode.tahun_akademik }}">{{ b.periode.tahun_akademik }}</option>
             {% endfor %}
           </select>
         </div>

@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     DataDosen, RiwayatJabatanFungsional, RiwayatPendidikanDosen, RiwayatBKD,
     FakultasPublik, ProdiPublik, TahunAkademikPublik,
+    AgamaPublik, JabatanFungsionalPublik,
 )
 
 
@@ -42,3 +43,13 @@ class ProdiPublikAdmin(admin.ModelAdmin):
 @admin.register(TahunAkademikPublik)
 class TahunAkademikPublikAdmin(admin.ModelAdmin):
     list_display = ['tahun_akademik', 'semester_aktif', 'is_aktif']
+
+
+@admin.register(AgamaPublik)
+class AgamaPublikAdmin(admin.ModelAdmin):
+    list_display = ['kode', 'nama', 'urutan']
+
+
+@admin.register(JabatanFungsionalPublik)
+class JabatanFungsionalPublikAdmin(admin.ModelAdmin):
+    list_display = ['kode', 'nama', 'singkatan', 'urutan']

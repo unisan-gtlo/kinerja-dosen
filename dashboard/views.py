@@ -2,8 +2,9 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from accounts.models import User
 from master.models import Fakultas, Prodi, TahunAkademik, Pengaturan
-from profil.models import ProfilDosen
-from kinerja.models import Penelitian, Publikasi, PKM, HKI, BKD, DokumenKinerja
+from simda_dosen.models import DataDosen, RiwayatBKD, JabatanFungsionalPublik
+from simda_dosen.utils import get_simda_dosen_or_none
+from kinerja.models import Penelitian, Publikasi, PKM, HKI, DokumenKinerja
 
 
 def annotate_dokumen(qs, jenis):
@@ -52,21 +53,21 @@ def index(request):
         publikasi_qs = Publikasi.objects.all()
         pkm_qs = PKM.objects.all()
         hki_qs = HKI.objects.all()
-        bkd_qs = BKD.objects.all()
+        bkd_qs = RiwayatBKD.objects.using('simda').all()
 
         if tahun_range:
             penelitian_qs = penelitian_qs.filter(tahun_akademik__in=tahun_range)
             publikasi_qs = publikasi_qs.filter(tahun_akademik__in=tahun_range)
             pkm_qs = pkm_qs.filter(tahun_akademik__in=tahun_range)
             hki_qs = hki_qs.filter(tahun_akademik__in=tahun_range)
-            bkd_qs = bkd_qs.filter(tahun_akademik__in=tahun_range)
+            bkd_qs = bkd_qs.filter(periode__tahun_akademik__in=tahun_range)
 
         if filter_semester_db:
             penelitian_qs = penelitian_qs.filter(semester=filter_semester_db)
             publikasi_qs = publikasi_qs.filter(semester=filter_semester_db)
             pkm_qs = pkm_qs.filter(semester=filter_semester_db)
             hki_qs = hki_qs.filter(semester=filter_semester_db)
-            bkd_qs = bkd_qs.filter(semester=filter_semester_db)
+            bkd_qs = bkd_qs.filter(periode__semester_aktif=filter_semester_db)
 
         context['total_dosen'] = User.objects.filter(
             role='dosen', status_akun='aktif'
@@ -103,19 +104,19 @@ def index(request):
         pendidikan_choices = ['S1', 'S2', 'S3']
         grafik_pend_data = []
         for p in pendidikan_choices:
-            count = ProfilDosen.objects.filter(pendidikan_terakhir=p).count()
+            count = DataDosen.objects.using('simda').filter(pendidikan_terakhir=p).count()
             grafik_pend_data.append(count)
         context['grafik_pend_labels'] = pendidikan_choices
         context['grafik_pend_data'] = grafik_pend_data
 
-        # Grafik jabfung
-        jabfung_choices = [
-            'Tenaga Pengajar', 'Asisten Ahli',
-            'Lektor', 'Lektor Kepala', 'Guru Besar'
-        ]
+        # Grafik jabfung -- nama jabfung dicocokkan ke id via view referensi SIMDA
+        jabfung_ref = {
+            jf.nama: jf.id for jf in JabatanFungsionalPublik.objects.using('simda').all()
+        }
+        jabfung_choices = list(jabfung_ref.keys())
         grafik_jabfung_data = []
         for j in jabfung_choices:
-            count = ProfilDosen.objects.filter(jabfung_aktif=j).count()
+            count = DataDosen.objects.using('simda').filter(jabatan_fungsional_id=jabfung_ref[j]).count()
             grafik_jabfung_data.append(count)
         context['grafik_jabfung_labels'] = jabfung_choices
         context['grafik_jabfung_data'] = grafik_jabfung_data
@@ -175,22 +176,22 @@ def index(request):
         ).order_by('first_name')
 
     elif user.role == 'dosen':
-        try:
-            profil = user.profil
+        profil = get_simda_dosen_or_none(user)
+        if profil:
             context['kelengkapan'] = profil.persentase_kelengkapan
             context['profil'] = profil
-        except Exception:
+            context['total_bkd'] = profil.riwayat_bkd.count()
+            context['bkd_list'] = profil.riwayat_bkd.all().order_by('-periode__urutan')[:6]
+        else:
             context['kelengkapan'] = 0
             context['profil'] = None
+            context['total_bkd'] = 0
+            context['bkd_list'] = RiwayatBKD.objects.none()
 
         context['total_penelitian'] = user.penelitian_set.count()
         context['total_publikasi'] = user.publikasi_set.count()
         context['total_pkm'] = user.pkm_set.count()
         context['total_hki'] = user.hki_set.count()
-        context['total_bkd'] = user.bkd_set.count()
-        context['bkd_list'] = user.bkd_set.all().order_by(
-            '-tahun_akademik', 'semester'
-        )[:6]
 
         try:
             prodi_obj = Prodi.objects.get(kode_prodi=user.kode_prodi)
@@ -238,7 +239,7 @@ def rekap(request):
         publikasi_qs = Publikasi.objects.all()
         pkm_qs = PKM.objects.all()
         hki_qs = HKI.objects.all()
-        bkd_qs = BKD.objects.all()
+        bkd_qs = RiwayatBKD.objects.using('simda').all()
     elif user.role in ['dekan', 'wadek']:
         dosen_qs = User.objects.filter(
             role='dosen', kode_fakultas=user.kode_fakultas
@@ -254,8 +255,8 @@ def rekap(request):
         )
         pkm_qs = PKM.objects.filter(kode_fakultas=user.kode_fakultas)
         hki_qs = HKI.objects.filter(kode_fakultas=user.kode_fakultas)
-        bkd_qs = BKD.objects.filter(
-            user__kode_fakultas=user.kode_fakultas
+        bkd_qs = RiwayatBKD.objects.using('simda').filter(
+            dosen__kode_fakultas=user.kode_fakultas
         )
     elif user.role in ['kaprodi', 'sekprodi', 'operator']:
         dosen_qs = User.objects.filter(
@@ -266,14 +267,14 @@ def rekap(request):
         publikasi_qs = Publikasi.objects.filter(kode_prodi=user.kode_prodi)
         pkm_qs = PKM.objects.filter(kode_prodi=user.kode_prodi)
         hki_qs = HKI.objects.filter(kode_prodi=user.kode_prodi)
-        bkd_qs = BKD.objects.filter(user__kode_prodi=user.kode_prodi)
+        bkd_qs = RiwayatBKD.objects.using('simda').filter(dosen__kode_prodi=user.kode_prodi)
     else:
         dosen_qs = User.objects.none()
         penelitian_qs = Penelitian.objects.none()
         publikasi_qs = Publikasi.objects.none()
         pkm_qs = PKM.objects.none()
         hki_qs = HKI.objects.none()
-        bkd_qs = BKD.objects.none()
+        bkd_qs = RiwayatBKD.objects.none()
 
     # Terapkan filter
     if filter_prodi:
@@ -282,7 +283,7 @@ def rekap(request):
         publikasi_qs = publikasi_qs.filter(kode_prodi=filter_prodi)
         pkm_qs = pkm_qs.filter(kode_prodi=filter_prodi)
         hki_qs = hki_qs.filter(kode_prodi=filter_prodi)
-        bkd_qs = bkd_qs.filter(user__kode_prodi=filter_prodi)
+        bkd_qs = bkd_qs.filter(dosen__kode_prodi=filter_prodi)
 
     if filter_fakultas:
         dosen_qs = dosen_qs.filter(kode_fakultas=filter_fakultas)
@@ -290,7 +291,7 @@ def rekap(request):
         publikasi_qs = publikasi_qs.filter(kode_fakultas=filter_fakultas)
         pkm_qs = pkm_qs.filter(kode_fakultas=filter_fakultas)
         hki_qs = hki_qs.filter(kode_fakultas=filter_fakultas)
-        bkd_qs = bkd_qs.filter(user__kode_fakultas=filter_fakultas)
+        bkd_qs = bkd_qs.filter(dosen__kode_fakultas=filter_fakultas)
 
     if filter_status:
         dosen_qs = dosen_qs.filter(status_kepegawaian=filter_status)
@@ -300,14 +301,14 @@ def rekap(request):
         publikasi_qs = publikasi_qs.filter(tahun_akademik__in=tahun_range)
         pkm_qs = pkm_qs.filter(tahun_akademik__in=tahun_range)
         hki_qs = hki_qs.filter(tahun_akademik__in=tahun_range)
-        bkd_qs = bkd_qs.filter(tahun_akademik__in=tahun_range)
+        bkd_qs = bkd_qs.filter(periode__tahun_akademik__in=tahun_range)
 
     if filter_semester:
         penelitian_qs = penelitian_qs.filter(semester=filter_semester)
         publikasi_qs = publikasi_qs.filter(semester=filter_semester)
         pkm_qs = pkm_qs.filter(semester=filter_semester)
         hki_qs = hki_qs.filter(semester=filter_semester)
-        bkd_qs = bkd_qs.filter(semester=filter_semester)
+        bkd_qs = bkd_qs.filter(periode__semester_aktif=filter_semester)
 
     # Order
     dosen_qs = dosen_qs.order_by('kode_fakultas', 'kode_prodi', 'first_name')
@@ -323,19 +324,19 @@ def rekap(request):
     hki_qs = hki_qs.select_related('user').order_by(
         '-tahun_akademik', 'user__first_name'
     )
-    bkd_qs = bkd_qs.select_related('user').order_by(
-        '-tahun_akademik', 'user__first_name'
+    bkd_qs = bkd_qs.select_related('dosen').order_by(
+        '-periode__tahun_akademik', 'dosen__nama_lengkap'
     )
 
     # Rekap per dosen
     rekap_data = []
     for dosen in dosen_qs:
-        try:
-            profil = dosen.profil
+        profil = get_simda_dosen_or_none(dosen)
+        if profil:
             kelengkapan = profil.persentase_kelengkapan
-            jabfung = profil.jabfung_aktif or '-'
+            jabfung = profil.jabatan_fungsional_nama or '-'
             pendidikan = profil.pendidikan_terakhir or '-'
-        except Exception:
+        else:
             kelengkapan = 0
             jabfung = '-'
             pendidikan = '-'
@@ -344,7 +345,7 @@ def rekap(request):
         d_publikasi = publikasi_qs.filter(user=dosen)
         d_pkm = pkm_qs.filter(user=dosen)
         d_hki = hki_qs.filter(user=dosen)
-        d_bkd = bkd_qs.filter(user=dosen)
+        d_bkd = bkd_qs.filter(dosen__nidn=dosen.nidn) if dosen.nidn else bkd_qs.none()
 
         rekap_data.append({
             'dosen': dosen,

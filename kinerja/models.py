@@ -16,52 +16,12 @@ def validate_bkd_file(value):
     if value.size > 5 * 1024 * 1024:
         raise ValidationError('Ukuran file maksimal 5MB.')
 
+# BKD pindah ke simda_dosen.RiwayatBKD (ditulis langsung ke SIMDA) -- lihat
+# simda_dosen/models.py. Fungsi di bawah TIDAK dipakai lagi tapi tetap
+# dipertahankan karena migration lama (0003_bkd) merujuknya by-reference.
 def upload_bkd(instance, filename):
     ext = os.path.splitext(filename)[1].lower()
     return f'bkd/{instance.user.username}/BKD_{instance.semester}_{instance.tahun_akademik}{ext}'
-
-
-class BKD(models.Model):
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='bkd_set'
-    )
-    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
-    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
-    semester = models.CharField(
-        max_length=10,
-        choices=[('Ganjil', 'Ganjil'), ('Genap', 'Genap')]
-    )
-    tahun_akademik = models.CharField(max_length=10)
-    file_bkd = models.FileField(
-        upload_to=upload_bkd,
-        validators=[validate_bkd_file],
-        blank=True, null=True,
-        help_text='Upload file PDF BKD dari SISTER (max 5MB)'
-    )
-    link_bkd = models.URLField(
-        blank=True, null=True,
-        help_text='Atau isi link Google Drive'
-    )
-    keterangan = models.TextField(blank=True, null=True)
-    tgl_input = models.DateTimeField(auto_now_add=True)
-    updated_by = models.CharField(max_length=50, blank=True, null=True)
-
-    class Meta:
-        verbose_name = 'BKD'
-        verbose_name_plural = 'BKD'
-        ordering = ['-tahun_akademik', 'semester']
-        unique_together = ['user', 'semester', 'tahun_akademik']
-
-    def __str__(self):
-        return f"{self.user.get_full_name()} - BKD {self.semester} {self.tahun_akademik}"
-
-    @property
-    def bukti_tersedia(self):
-        return bool(self.file_bkd or self.link_bkd)
-
-    @property
-    def periode(self):
-        return f"{self.semester} {self.tahun_akademik}"
 
 
 class Penelitian(models.Model):

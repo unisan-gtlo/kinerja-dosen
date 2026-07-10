@@ -114,6 +114,36 @@ class DataDosen(models.Model):
         belakang = f', {self.gelar_belakang}' if self.gelar_belakang else ''
         return f'{gelar}{self.nama_lengkap}{belakang}'
 
+    @property
+    def nama_lengkap_gelar(self):
+        gelar = f'{self.gelar_depan} ' if self.gelar_depan else ''
+        belakang = f', {self.gelar_belakang}' if self.gelar_belakang else ''
+        return f'{gelar}{self.nama_lengkap}{belakang}'
+
+    @property
+    def jabatan_fungsional_nama(self):
+        """Nama jabfung aktif (cache admin) -- lookup ke view referensi. N+1
+        kalau dipanggil dalam loop besar, tapi skala dosen SIKD kecil (~150)."""
+        if not self.jabatan_fungsional_id:
+            return ''
+        jf = JabatanFungsionalPublik.objects.using('simda').filter(
+            id=self.jabatan_fungsional_id).first()
+        return jf.nama if jf else ''
+
+    @property
+    def persentase_kelengkapan(self):
+        """Kelengkapan profil berdasarkan field yang ada di SIMDA (beda
+        definisi dari versi lama SIKD yang mengecek jabfung_aktif/
+        bidang_keahlian/mata_kuliah_diampu -- field itu tidak ada di SIMDA)."""
+        fields = [
+            self.nik, self.tempat_lahir, self.tgl_lahir,
+            self.jenis_kelamin, self.agama_id, self.alamat_domisili,
+            self.email_pribadi, self.pendidikan_terakhir,
+            self.foto, self.file_ktp,
+        ]
+        filled = sum(1 for f in fields if f)
+        return int((filled / len(fields)) * 100)
+
 
 class RiwayatJabatanFungsional(models.Model):
     dosen = models.ForeignKey(DataDosen, on_delete=models.DO_NOTHING,
@@ -180,7 +210,8 @@ class RiwayatBKD(models.Model):
 
     dosen = models.ForeignKey(DataDosen, on_delete=models.DO_NOTHING,
                                related_name='riwayat_bkd', db_column='dosen_id')
-    periode_id = models.IntegerField(help_text='FK id ke organisasi.TahunAkademik SIMDA')
+    periode = models.ForeignKey('TahunAkademikPublik', on_delete=models.DO_NOTHING,
+                                 related_name='riwayat_bkd', db_column='periode_id')
     sks_pengajaran = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     sks_penelitian = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     sks_pkm = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
@@ -215,6 +246,46 @@ class RiwayatBKD(models.Model):
             self.sks_pkm or 0,
             self.sks_penunjang or 0,
         ])
+
+
+class AgamaPublik(models.Model):
+    """Read-only, sumbernya master.v_agama_publik (view SIMDA). Dipakai
+    untuk dropdown agama -- id-nya dipakai sebagai DataDosen.agama_id."""
+    id = models.IntegerField(primary_key=True)
+    kode = models.CharField(max_length=10)
+    nama = models.CharField(max_length=50)
+    urutan = models.IntegerField()
+
+    class Meta:
+        managed = False
+        db_table = 'master"."v_agama_publik'
+        verbose_name = 'Agama (SIMDA)'
+        verbose_name_plural = 'Agama (SIMDA)'
+        ordering = ['urutan']
+
+    def __str__(self):
+        return self.nama
+
+
+class JabatanFungsionalPublik(models.Model):
+    """Read-only, sumbernya master.v_jabatan_fungsional_publik (view SIMDA).
+    Dipakai untuk dropdown jabfung -- id-nya dipakai sebagai
+    RiwayatJabatanFungsional.jabatan_fungsional_id."""
+    id = models.IntegerField(primary_key=True)
+    kode = models.CharField(max_length=10)
+    nama = models.CharField(max_length=100)
+    singkatan = models.CharField(max_length=10, blank=True)
+    urutan = models.IntegerField()
+
+    class Meta:
+        managed = False
+        db_table = 'master"."v_jabatan_fungsional_publik'
+        verbose_name = 'Jabatan Fungsional (SIMDA)'
+        verbose_name_plural = 'Jabatan Fungsional (SIMDA)'
+        ordering = ['urutan']
+
+    def __str__(self):
+        return self.nama
 
 
 class FakultasPublik(models.Model):

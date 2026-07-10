@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Penelitian, Publikasi, PKM, HKI, BKD, DokumenKinerja
+from .models import Penelitian, Publikasi, PKM, HKI, DokumenKinerja
 @admin.register(Penelitian)
 class PenelitianAdmin(admin.ModelAdmin):
     list_display = ['user', 'judul', 'tahun_akademik', 'jenis_hibah', 'pendanaan']
@@ -24,14 +24,6 @@ class HKIAdmin(admin.ModelAdmin):
     list_display = ['user', 'judul', 'jenis_hki', 'tahun_akademik', 'no_hki']
     list_filter = ['jenis_hki', 'tahun_akademik']
     search_fields = ['user__username', 'judul']
-
-
-
-@admin.register(BKD)
-class BKDAdmin(admin.ModelAdmin):
-    list_display = ['user', 'semester', 'tahun_akademik', 'bukti_tersedia', 'tgl_input']
-    list_filter = ['semester', 'tahun_akademik']
-    search_fields = ['user__username', 'user__first_name', 'user__last_name']
 
 
 
