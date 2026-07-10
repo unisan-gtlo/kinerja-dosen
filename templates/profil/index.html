@@ -109,6 +109,30 @@
 
         <div class="col-md-10">
           <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">Gelar Depan</label>
+              <input type="text" name="gelar_depan" class="form-control" placeholder="Dr., Prof."
+                     value="{{ profil.gelar_depan|default:'' }}"
+                     {% if not bisa_edit %}readonly{% endif %}>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Nama Lengkap (tanpa gelar)</label>
+              <input type="text" name="nama_lengkap" class="form-control" required
+                     value="{{ profil.nama_lengkap|default:'' }}"
+                     {% if not bisa_edit %}readonly{% endif %}>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">Gelar Belakang</label>
+              <input type="text" name="gelar_belakang" class="form-control" placeholder="M.Si., Ph.D."
+                     value="{{ profil.gelar_belakang|default:'' }}"
+                     {% if not bisa_edit %}readonly{% endif %}>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">NUPTK</label>
+              <input type="text" name="nuptk" class="form-control"
+                     value="{{ profil.nuptk|default:'' }}"
+                     {% if not bisa_edit %}readonly{% endif %}>
+            </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">NIK</label>
               <input type="text" name="nik" class="form-control"

@@ -37,10 +37,6 @@ class DataDosen(models.Model):
     nidn = models.CharField(max_length=20, unique=True, db_index=True)
     nip = models.CharField(max_length=30, blank=True)
     nip_yayasan = models.CharField(max_length=30, blank=True)
-    nuptk = models.CharField(max_length=20, blank=True, db_index=True)
-    nama_lengkap = models.CharField(max_length=150)
-    gelar_depan = models.CharField(max_length=50, blank=True)
-    gelar_belakang = models.CharField(max_length=100, blank=True)
     kode_fakultas = models.CharField(max_length=10, db_column='kode_fakultas')
     kode_prodi = models.CharField(max_length=10, db_column='kode_prodi')
     jenis_kepegawaian_id = models.IntegerField(null=True, blank=True)
@@ -62,6 +58,11 @@ class DataDosen(models.Model):
     tgl_diperbarui = models.DateTimeField(auto_now=True)
 
     # ── SELF-SERVICE (boleh diedit dosen lewat SIKD) ──────────────
+    nuptk = models.CharField(max_length=20, blank=True, db_index=True,
+                              verbose_name='NUPTK')
+    nama_lengkap = models.CharField(max_length=150)
+    gelar_depan = models.CharField(max_length=50, blank=True)
+    gelar_belakang = models.CharField(max_length=100, blank=True)
     jenis_kelamin = models.CharField(max_length=1, choices=JENIS_KEL)
     tempat_lahir = models.CharField(max_length=100, blank=True)
     tgl_lahir = models.DateField(null=True, blank=True)
@@ -95,6 +96,7 @@ class DataDosen(models.Model):
 
     # Field yang boleh diedit dosen sendiri lewat form profil SIKD.
     SELF_SERVICE_FIELDS = [
+        'nuptk', 'nama_lengkap', 'gelar_depan', 'gelar_belakang',
         'jenis_kelamin', 'tempat_lahir', 'tgl_lahir', 'agama_id',
         'status_pernikahan', 'alamat_domisili', 'kabupaten_domisili_id',
         'provinsi_domisili_id', 'kode_pos', 'no_hp', 'email_pribadi',

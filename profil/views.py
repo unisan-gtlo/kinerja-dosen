@@ -76,6 +76,10 @@ def simpan_profil(request):
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin untuk membetulkan NIDN.')
         return redirect('profil:index')
 
+    profil.nuptk = request.POST.get('nuptk', '').strip()
+    profil.nama_lengkap = request.POST.get('nama_lengkap', '').strip() or profil.nama_lengkap
+    profil.gelar_depan = request.POST.get('gelar_depan', '').strip()
+    profil.gelar_belakang = request.POST.get('gelar_belakang', '').strip()
     profil.nik = request.POST.get('nik', '').strip()
     profil.tempat_lahir = request.POST.get('tempat_lahir', '').strip()
     profil.tgl_lahir = request.POST.get('tgl_lahir') or None
