@@ -195,6 +195,146 @@ class HKI(models.Model):
             return f"{self.semester} {self.tahun_akademik}"
         return self.tahun_akademik
 
+
+class Pengajaran(models.Model):
+    JENIS_KEGIATAN = [
+        ('mengajar', 'Mengajar Mata Kuliah'),
+        ('membimbing_skripsi', 'Membimbing Skripsi/Tugas Akhir'),
+        ('membimbing_tesis', 'Membimbing Tesis'),
+        ('membimbing_disertasi', 'Membimbing Disertasi'),
+        ('membimbing_pa', 'Pembimbing Akademik (PA)'),
+        ('menguji', 'Menguji (Sidang/Komprehensif)'),
+        ('lainnya', 'Lainnya'),
+    ]
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='pengajaran_set'
+    )
+    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
+    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
+    jenis_kegiatan = models.CharField(max_length=25, choices=JENIS_KEGIATAN)
+    nama_kegiatan = models.CharField(
+        max_length=200,
+        help_text='Nama mata kuliah / nama mahasiswa dibimbing / jenis ujian'
+    )
+    sks = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True,
+                               help_text='Diisi untuk kegiatan Mengajar')
+    jumlah_mahasiswa = models.IntegerField(default=0,
+                                            help_text='Diisi untuk Membimbing/Menguji')
+    peran = models.CharField(max_length=100, blank=True, null=True,
+                              help_text='Contoh: Pembimbing 1, Ketua Penguji')
+    semester = models.CharField(
+        max_length=10, choices=SEMESTER_CHOICES,
+        blank=True, null=True
+    )
+    tahun_akademik = models.CharField(max_length=10)
+    link_bukti = models.URLField(blank=True, null=True)
+    tgl_input = models.DateTimeField(auto_now_add=True)
+    updated_by = models.CharField(max_length=50, blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Pengajaran'
+        verbose_name_plural = 'Pengajaran'
+        ordering = ['-tahun_akademik', 'semester']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.get_jenis_kegiatan_display()} - {self.nama_kegiatan[:50]}"
+
+    @property
+    def periode(self):
+        if self.semester:
+            return f"{self.semester} {self.tahun_akademik}"
+        return self.tahun_akademik
+
+
+class Penghargaan(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='penghargaan_set'
+    )
+    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
+    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
+    nama_penghargaan = models.CharField(max_length=200)
+    lembaga_pemberi = models.CharField(max_length=150, blank=True, null=True)
+    tingkat = models.CharField(
+        max_length=5,
+        choices=[('L', 'Lokal'), ('N', 'Nasional'), ('I', 'Internasional')],
+        blank=True, null=True
+    )
+    tahun = models.IntegerField(blank=True, null=True)
+    semester = models.CharField(
+        max_length=10, choices=SEMESTER_CHOICES,
+        blank=True, null=True
+    )
+    tahun_akademik = models.CharField(max_length=10)
+    link_bukti = models.URLField(blank=True, null=True)
+    tgl_input = models.DateTimeField(auto_now_add=True)
+    updated_by = models.CharField(max_length=50, blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Penghargaan'
+        verbose_name_plural = 'Penghargaan'
+        ordering = ['-tahun_akademik', 'semester']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.nama_penghargaan[:50]}"
+
+    @property
+    def periode(self):
+        if self.semester:
+            return f"{self.semester} {self.tahun_akademik}"
+        return self.tahun_akademik
+
+
+class KegiatanPenunjang(models.Model):
+    JENIS_KEGIATAN = [
+        ('reviewer', 'Reviewer Jurnal/Prosiding'),
+        ('editor', 'Editor Jurnal'),
+        ('narasumber', 'Narasumber/Pemateri'),
+        ('panitia', 'Panitia Kegiatan'),
+        ('organisasi_profesi', 'Pengurus Organisasi Profesi'),
+        ('asesor', 'Asesor/Reviewer Akreditasi'),
+        ('tim_adhoc', 'Tim Ad Hoc/Satgas'),
+        ('lainnya', 'Lainnya'),
+    ]
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='penunjang_set'
+    )
+    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
+    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
+    jenis_kegiatan = models.CharField(max_length=25, choices=JENIS_KEGIATAN)
+    nama_kegiatan = models.CharField(max_length=200)
+    peran = models.CharField(max_length=100, blank=True, null=True)
+    penyelenggara = models.CharField(max_length=150, blank=True, null=True)
+    tingkat = models.CharField(
+        max_length=5,
+        choices=[('L', 'Lokal'), ('N', 'Nasional'), ('I', 'Internasional')],
+        blank=True, null=True
+    )
+    tanggal_mulai = models.DateField(blank=True, null=True)
+    tanggal_selesai = models.DateField(blank=True, null=True)
+    semester = models.CharField(
+        max_length=10, choices=SEMESTER_CHOICES,
+        blank=True, null=True
+    )
+    tahun_akademik = models.CharField(max_length=10)
+    link_bukti = models.URLField(blank=True, null=True)
+    tgl_input = models.DateTimeField(auto_now_add=True)
+    updated_by = models.CharField(max_length=50, blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Kegiatan Penunjang'
+        verbose_name_plural = 'Kegiatan Penunjang'
+        ordering = ['-tahun_akademik', 'semester']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.get_jenis_kegiatan_display()} - {self.nama_kegiatan[:50]}"
+
+    @property
+    def periode(self):
+        if self.semester:
+            return f"{self.semester} {self.tahun_akademik}"
+        return self.tahun_akademik
+
+
 def upload_dokumen_kinerja(instance, filename):
     ext = os.path.splitext(filename)[1].lower()
     return f'kinerja/dokumen/{instance.user.username}/{instance.jenis_kinerja}/{filename}'
@@ -207,6 +347,9 @@ class DokumenKinerja(models.Model):
         ('pkm', 'PKM'),
         ('hki', 'HKI'),
         ('bkd', 'BKD'),
+        ('pengajaran', 'Pengajaran'),
+        ('penghargaan', 'Penghargaan'),
+        ('penunjang', 'Kegiatan Penunjang'),
     ]
     JENIS_DOKUMEN = [
         ('surat_tugas', 'Surat Tugas'),

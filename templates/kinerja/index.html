@@ -81,6 +81,12 @@
     </a>
   </li>
   <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-pengajaran">
+      <span class="ti ti-chalkboard me-1"></span>Pengajaran
+      <span class="badge bg-blue-lt ms-1">{{ pengajaran_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
     <a class="nav-link" data-bs-toggle="tab" href="#tab-penelitian">
       <span class="ti ti-microscope me-1"></span>Penelitian
       <span class="badge bg-blue-lt ms-1">{{ penelitian_list.count }}</span>
@@ -102,6 +108,18 @@
     <a class="nav-link" data-bs-toggle="tab" href="#tab-hki">
       <span class="ti ti-shield-check me-1"></span>HKI
       <span class="badge bg-blue-lt ms-1">{{ hki_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-penghargaan">
+      <span class="ti ti-award me-1"></span>Penghargaan
+      <span class="badge bg-blue-lt ms-1">{{ penghargaan_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-penunjang">
+      <span class="ti ti-puzzle me-1"></span>Kegiatan Penunjang
+      <span class="badge bg-blue-lt ms-1">{{ penunjang_list.count }}</span>
     </a>
   </li>
 </ul>
@@ -227,6 +245,130 @@
           </tr>
           {% empty %}
           <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data BKD</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB PENGAJARAN -->
+  <div class="tab-pane fade" id="tab-pengajaran">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Kegiatan Pengajaran</h6>
+        <form method="post" action="{% url 'kinerja:tambah_pengajaran' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Jenis Kegiatan *</label>
+              <select name="jenis_kegiatan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="mengajar">Mengajar Mata Kuliah</option>
+                <option value="membimbing_skripsi">Membimbing Skripsi/Tugas Akhir</option>
+                <option value="membimbing_tesis">Membimbing Tesis</option>
+                <option value="membimbing_disertasi">Membimbing Disertasi</option>
+                <option value="membimbing_pa">Pembimbing Akademik (PA)</option>
+                <option value="menguji">Menguji (Sidang/Komprehensif)</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Nama Mata Kuliah / Mahasiswa / Ujian *</label>
+              <input type="text" name="nama_kegiatan" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">SKS <small class="text-muted">(mengajar)</small></label>
+              <input type="number" step="0.1" name="sks" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Jml Mhs <small class="text-muted">(bimbing/uji)</small></label>
+              <input type="number" name="jumlah_mahasiswa" class="form-control" value="0" min="0">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Peran</label>
+              <input type="text" name="peran" class="form-control" placeholder="Pembimbing 1, Ketua Penguji, dll">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Link Bukti</label>
+              <input type="url" name="link_bukti" class="form-control" placeholder="https://...">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Jenis</th><th>Nama Kegiatan</th><th>SKS</th><th>Jml Mhs</th>
+            <th>Peran</th><th>Periode</th><th>Bukti</th>
+            <th>Dokumen</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pg in pengajaran_list %}
+          <tr>
+            <td><span class="badge bg-orange-lt text-orange">{{ pg.get_jenis_kegiatan_display }}</span></td>
+            <td style="max-width:220px">{{ pg.nama_kegiatan|truncatechars:60 }}</td>
+            <td>{{ pg.sks|default:"-" }}</td>
+            <td>{{ pg.jumlah_mahasiswa|default:"-" }}</td>
+            <td>{{ pg.peran|default:"-" }}</td>
+            <td><span class="badge bg-blue-lt text-blue">{{ pg.periode }}</span></td>
+            <td>
+              {% if pg.link_bukti %}
+              <a href="{{ pg.link_bukti }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              <a href="{% url 'kinerja:kelola_dokumen' 'pengajaran' pg.id %}"
+                 class="btn btn-sm btn-outline-primary">
+                <span class="ti ti-files me-1"></span>Dokumen
+              </a>
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'kinerja:hapus_pengajaran' pg.id %}"
+                    onsubmit="return confirm('Hapus data ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="9" class="text-center text-muted py-3">Belum ada data pengajaran</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -783,6 +925,259 @@
           </tr>
           {% empty %}
           <tr><td colspan="8" class="text-center text-muted py-3">Belum ada data HKI</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB PENGHARGAAN -->
+  <div class="tab-pane fade" id="tab-penghargaan">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Penghargaan</h6>
+        <form method="post" action="{% url 'kinerja:tambah_penghargaan' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Nama Penghargaan *</label>
+              <input type="text" name="nama_penghargaan" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Lembaga Pemberi</label>
+              <input type="text" name="lembaga_pemberi" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tingkat</label>
+              <select name="tingkat" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="L">Lokal</option>
+                <option value="N">Nasional</option>
+                <option value="I">Internasional</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun</label>
+              <input type="number" name="tahun" class="form-control" min="1990" max="2030">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Link Bukti</label>
+              <input type="url" name="link_bukti" class="form-control" placeholder="https://...">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Nama Penghargaan</th><th>Lembaga</th><th>Tingkat</th>
+            <th>Tahun</th><th>Periode</th><th>Bukti</th>
+            <th>Dokumen</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in penghargaan_list %}
+          <tr>
+            <td style="max-width:250px">{{ p.nama_penghargaan|truncatechars:70 }}</td>
+            <td>{{ p.lembaga_pemberi|default:"-" }}</td>
+            <td>{{ p.get_tingkat_display|default:"-" }}</td>
+            <td>{{ p.tahun|default:"-" }}</td>
+            <td><span class="badge bg-blue-lt text-blue">{{ p.periode }}</span></td>
+            <td>
+              {% if p.link_bukti %}
+              <a href="{{ p.link_bukti }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              <a href="{% url 'kinerja:kelola_dokumen' 'penghargaan' p.id %}"
+                 class="btn btn-sm btn-outline-primary">
+                <span class="ti ti-files me-1"></span>Dokumen
+              </a>
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'kinerja:hapus_penghargaan' p.id %}"
+                    onsubmit="return confirm('Hapus data ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-3">Belum ada data penghargaan</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB KEGIATAN PENUNJANG -->
+  <div class="tab-pane fade" id="tab-penunjang">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Kegiatan Penunjang</h6>
+        <form method="post" action="{% url 'kinerja:tambah_penunjang' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Jenis Kegiatan *</label>
+              <select name="jenis_kegiatan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="reviewer">Reviewer Jurnal/Prosiding</option>
+                <option value="editor">Editor Jurnal</option>
+                <option value="narasumber">Narasumber/Pemateri</option>
+                <option value="panitia">Panitia Kegiatan</option>
+                <option value="organisasi_profesi">Pengurus Organisasi Profesi</option>
+                <option value="asesor">Asesor/Reviewer Akreditasi</option>
+                <option value="tim_adhoc">Tim Ad Hoc/Satgas</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Nama Kegiatan *</label>
+              <input type="text" name="nama_kegiatan" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Peran</label>
+              <input type="text" name="peran" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Penyelenggara</label>
+              <input type="text" name="penyelenggara" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tingkat</label>
+              <select name="tingkat" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="L">Lokal</option>
+                <option value="N">Nasional</option>
+                <option value="I">Internasional</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Mulai</label>
+              <input type="date" name="tanggal_mulai" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Selesai</label>
+              <input type="date" name="tanggal_selesai" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Link Bukti</label>
+              <input type="url" name="link_bukti" class="form-control" placeholder="https://...">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Jenis</th><th>Nama Kegiatan</th><th>Peran</th><th>Penyelenggara</th>
+            <th>Tingkat</th><th>Periode</th><th>Bukti</th>
+            <th>Dokumen</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for k in penunjang_list %}
+          <tr>
+            <td><span class="badge bg-purple-lt text-purple">{{ k.get_jenis_kegiatan_display }}</span></td>
+            <td style="max-width:220px">{{ k.nama_kegiatan|truncatechars:60 }}</td>
+            <td>{{ k.peran|default:"-" }}</td>
+            <td>{{ k.penyelenggara|default:"-" }}</td>
+            <td>{{ k.get_tingkat_display|default:"-" }}</td>
+            <td><span class="badge bg-blue-lt text-blue">{{ k.periode }}</span></td>
+            <td>
+              {% if k.link_bukti %}
+              <a href="{{ k.link_bukti }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              <a href="{% url 'kinerja:kelola_dokumen' 'penunjang' k.id %}"
+                 class="btn btn-sm btn-outline-primary">
+                <span class="ti ti-files me-1"></span>Dokumen
+              </a>
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <form method="post" action="{% url 'kinerja:hapus_penunjang' k.id %}"
+                    onsubmit="return confirm('Hapus data ini?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <span class="ti ti-trash"></span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="9" class="text-center text-muted py-3">Belum ada kegiatan penunjang</td></tr>
           {% endfor %}
         </tbody>
       </table>
