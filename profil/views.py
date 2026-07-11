@@ -364,8 +364,6 @@ def tambah_diklat(request):
         tahun_akademik=request.POST.get('tahun_akademik', ''),
         updated_by=user.username,
     )
-    if 'file_sertifikat' in request.FILES:
-        diklat.file_sertifikat = request.FILES['file_sertifikat']
     diklat.save()
     messages.success(request, 'Data diklat berhasil ditambahkan.')
     return redirect('profil:kualifikasi_index')
@@ -406,8 +404,6 @@ def edit_diklat(request, id):
         obj.semester = request.POST.get('semester', '')
         obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
         obj.updated_by = request.user.username
-        if 'file_sertifikat' in request.FILES:
-            obj.file_sertifikat = request.FILES['file_sertifikat']
         obj.save()
         messages.success(request, 'Data diklat berhasil diupdate.')
     return redirect('profil:kualifikasi_index')

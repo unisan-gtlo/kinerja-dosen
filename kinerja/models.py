@@ -350,6 +350,7 @@ class DokumenKinerja(models.Model):
         ('pengajaran', 'Pengajaran'),
         ('penghargaan', 'Penghargaan'),
         ('penunjang', 'Kegiatan Penunjang'),
+        ('diklat', 'Diklat'),
     ]
     JENIS_DOKUMEN = [
         ('surat_tugas', 'Surat Tugas'),

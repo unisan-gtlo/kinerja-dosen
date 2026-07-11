@@ -126,14 +126,11 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Upload Sertifikat (PDF/JPG, max 5MB)</label>
-              <input type="file" name="file_sertifikat" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-            </div>
             <div class="col-12">
               <button type="submit" class="btn btn-primary">
                 <span class="ti ti-plus me-1"></span>Tambah
               </button>
+              <small class="text-muted ms-2">Dokumen (sertifikat, surat tugas, dll) diunggah setelah data tersimpan lewat tombol Dokumen.</small>
             </div>
           </div>
         </form>
@@ -146,7 +143,7 @@
         <thead class="table-light">
           <tr>
             <th>Nama Diklat</th><th>Jenis</th><th>Penyelenggara</th>
-            <th>Tingkatan</th><th>Tahun</th><th>Sertifikat</th><th>Aksi</th>
+            <th>Tingkatan</th><th>Tahun</th><th>Dokumen</th><th>Aksi</th>
           </tr>
         </thead>
         <tbody>
@@ -158,15 +155,41 @@
             <td>{{ d.tingkatan }}</td>
             <td>{{ d.tahun_penyelenggaraan }}</td>
             <td>
-              {% if d.file_sertifikat %}
-              <a href="{{ d.file_sertifikat.url }}" target="_blank" class="btn btn-sm btn-outline-success">
-                <span class="ti ti-file"></span>
+              <a href="{% url 'kinerja:kelola_dokumen' 'diklat' d.id %}"
+                 class="btn btn-sm btn-outline-primary">
+                <span class="ti ti-files me-1"></span>Dokumen
               </a>
-              {% else %}-{% endif %}
             </td>
             <td>
-              {% if bisa_edit %}
               <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-info"
+                  onclick="infoDiklat(
+                    '{{ d.get_jenis_diklat_display }}','{{ d.nama_diklat|escapejs }}',
+                    '{{ d.penyelenggara|escapejs }}','{{ d.peran|default:''|escapejs }}',
+                    '{{ d.tingkatan }}','{{ d.jumlah_jam|default:'-' }}',
+                    '{{ d.no_sertifikat }}','{{ d.tanggal_sertifikat|date:'d/m/Y' }}',
+                    '{{ d.tahun_penyelenggaraan }}','{{ d.tempat|default:'-' }}',
+                    '{{ d.tanggal_mulai|date:'d/m/Y' }}','{{ d.tanggal_selesai|date:'d/m/Y' }}',
+                    '{{ d.no_sk_penugasan|default:'-' }}',
+                    '{{ d.tanggal_sk_penugasan|date:'d/m/Y'|default:'-' }}'
+                  )">
+                  <span class="ti ti-info-circle"></span>
+                </button>
+                {% if bisa_edit %}
+                <button class="btn btn-sm btn-outline-primary"
+                  onclick="editDiklat(
+                    {{ d.id }},'{{ d.jenis_diklat }}','{{ d.nama_diklat|escapejs }}',
+                    '{{ d.penyelenggara|escapejs }}','{{ d.peran|default:''|escapejs }}',
+                    '{{ d.tingkatan }}','{{ d.jumlah_jam|default:'' }}',
+                    '{{ d.no_sertifikat|escapejs }}','{{ d.tanggal_sertifikat|date:'Y-m-d' }}',
+                    '{{ d.tahun_penyelenggaraan }}','{{ d.tempat|default:''|escapejs }}',
+                    '{{ d.tanggal_mulai|date:'Y-m-d' }}','{{ d.tanggal_selesai|date:'Y-m-d' }}',
+                    '{{ d.no_sk_penugasan|default:''|escapejs }}',
+                    '{{ d.tanggal_sk_penugasan|date:'Y-m-d'|default:'' }}',
+                    '{{ d.semester|default:'' }}','{{ d.tahun_akademik|default:'' }}'
+                  )">
+                  <span class="ti ti-edit"></span>
+                </button>
                 <form method="post" action="{% url 'profil:hapus_diklat' d.id %}"
                       onsubmit="return confirm('Hapus data diklat ini?')">
                   {% csrf_token %}
@@ -174,8 +197,8 @@
                     <span class="ti ti-trash"></span>
                   </button>
                 </form>
+                {% endif %}
               </div>
-              {% endif %}
             </td>
           </tr>
           {% empty %}
@@ -187,4 +210,193 @@
   </div>
 
 </div>
+
+<!-- MODAL INFO DIKLAT -->
+<div class="modal fade" id="modalInfoDiklat" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail Diklat</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <table class="table table-sm">
+          <tr><th style="width:220px">Jenis Diklat</th><td id="info_jenis"></td></tr>
+          <tr><th>Nama Diklat</th><td id="info_nama"></td></tr>
+          <tr><th>Penyelenggara</th><td id="info_penyelenggara"></td></tr>
+          <tr><th>Peran</th><td id="info_peran"></td></tr>
+          <tr><th>Tingkatan</th><td id="info_tingkatan"></td></tr>
+          <tr><th>Jumlah Jam</th><td id="info_jam"></td></tr>
+          <tr><th>No. Sertifikat</th><td id="info_no_sert"></td></tr>
+          <tr><th>Tanggal Sertifikat</th><td id="info_tgl_sert"></td></tr>
+          <tr><th>Tahun Penyelenggaraan</th><td id="info_tahun"></td></tr>
+          <tr><th>Tempat</th><td id="info_tempat"></td></tr>
+          <tr><th>Tanggal Mulai</th><td id="info_mulai"></td></tr>
+          <tr><th>Tanggal Selesai</th><td id="info_selesai"></td></tr>
+          <tr><th>No. SK Penugasan</th><td id="info_sk"></td></tr>
+          <tr><th>Tanggal SK Penugasan</th><td id="info_tgl_sk"></td></tr>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT DIKLAT -->
+<div class="modal fade" id="modalEditDiklat" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{% url 'profil:edit_diklat' 0 %}" id="formEditDiklat">
+        {% csrf_token %}
+        {% if target_user != request.user %}
+        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+        {% endif %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Diklat</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jenis Diklat *</label>
+              <select name="jenis_diklat" id="ed_jenis" class="form-select" required>
+                <option value="pelatihan_profesional">Pelatihan Profesional</option>
+                <option value="lemhanas">Lemhanas</option>
+                <option value="diklat_prajabatan">Diklat Prajabatan</option>
+                <option value="diklat_kepemimpinan">Diklat Kepemimpinan</option>
+                <option value="academic_exchange">Academic Exchange</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Nama Diklat *</label>
+              <input type="text" name="nama_diklat" id="ed_nama" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Penyelenggara *</label>
+              <input type="text" name="penyelenggara" id="ed_penyelenggara" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Peran</label>
+              <input type="text" name="peran" id="ed_peran" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tingkatan *</label>
+              <select name="tingkatan" id="ed_tingkatan" class="form-select" required>
+                <option value="Lokal">Lokal</option>
+                <option value="Regional">Regional</option>
+                <option value="Nasional">Nasional</option>
+                <option value="Internasional">Internasional</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Jumlah Jam</label>
+              <input type="number" name="jumlah_jam" id="ed_jam" class="form-control" min="0">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Penyelenggaraan *</label>
+              <input type="number" name="tahun_penyelenggaraan" id="ed_tahun" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tempat</label>
+              <input type="text" name="tempat" id="ed_tempat" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">No. Sertifikat *</label>
+              <input type="text" name="no_sertifikat" id="ed_no_sert" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Sertifikat *</label>
+              <input type="date" name="tanggal_sertifikat" id="ed_tgl_sert" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Mulai *</label>
+              <input type="date" name="tanggal_mulai" id="ed_mulai" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Selesai *</label>
+              <input type="date" name="tanggal_selesai" id="ed_selesai" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Nomor SK Penugasan</label>
+              <input type="text" name="no_sk_penugasan" id="ed_sk" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal SK Penugasan</label>
+              <input type="date" name="tanggal_sk_penugasan" id="ed_tgl_sk" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" id="ed_semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" id="ed_tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function infoDiklat(jenis, nama, penyelenggara, peran, tingkatan, jam, noSert, tglSert, tahun, tempat, mulai, selesai, sk, tglSk) {
+  document.getElementById('info_jenis').textContent = jenis;
+  document.getElementById('info_nama').textContent = nama;
+  document.getElementById('info_penyelenggara').textContent = penyelenggara;
+  document.getElementById('info_peran').textContent = peran || '-';
+  document.getElementById('info_tingkatan').textContent = tingkatan;
+  document.getElementById('info_jam').textContent = jam;
+  document.getElementById('info_no_sert').textContent = noSert;
+  document.getElementById('info_tgl_sert').textContent = tglSert;
+  document.getElementById('info_tahun').textContent = tahun;
+  document.getElementById('info_tempat').textContent = tempat;
+  document.getElementById('info_mulai').textContent = mulai;
+  document.getElementById('info_selesai').textContent = selesai;
+  document.getElementById('info_sk').textContent = sk;
+  document.getElementById('info_tgl_sk').textContent = tglSk;
+  new bootstrap.Modal(document.getElementById('modalInfoDiklat')).show();
+}
+
+function editDiklat(id, jenis, nama, penyelenggara, peran, tingkatan, jam, noSert, tglSert, tahun, tempat, mulai, selesai, sk, tglSk, semester, tahunAkademik) {
+  const form = document.getElementById('formEditDiklat');
+  form.action = `/profil/edit-diklat/${id}/`;
+  document.getElementById('ed_jenis').value = jenis;
+  document.getElementById('ed_nama').value = nama;
+  document.getElementById('ed_penyelenggara').value = penyelenggara;
+  document.getElementById('ed_peran').value = peran;
+  document.getElementById('ed_tingkatan').value = tingkatan;
+  document.getElementById('ed_jam').value = jam;
+  document.getElementById('ed_no_sert').value = noSert;
+  document.getElementById('ed_tgl_sert').value = tglSert;
+  document.getElementById('ed_tahun').value = tahun;
+  document.getElementById('ed_tempat').value = tempat;
+  document.getElementById('ed_mulai').value = mulai;
+  document.getElementById('ed_selesai').value = selesai;
+  document.getElementById('ed_sk').value = sk;
+  document.getElementById('ed_tgl_sk').value = tglSk;
+  document.getElementById('ed_semester').value = semester;
+  document.getElementById('ed_tahun_akademik').value = tahunAkademik;
+  new bootstrap.Modal(document.getElementById('modalEditDiklat')).show();
+}
+</script>
 {% endblock %}

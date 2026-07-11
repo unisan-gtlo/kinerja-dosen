@@ -5,6 +5,7 @@ from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import RiwayatBKD, TahunAkademikPublik
 from simda_dosen.utils import get_simda_dosen_or_none
+from profil.models import Diklat
 from .models import Penelitian, Publikasi, PKM, HKI, Pengajaran, Penghargaan, KegiatanPenunjang
 
 def cek_status_input():
@@ -545,6 +546,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         'pengajaran': Pengajaran,
         'penghargaan': Penghargaan,
         'penunjang': KegiatanPenunjang,
+        'diklat': Diklat,
     }
 
     if jenis_kinerja not in KINERJA_MAP:
@@ -642,6 +644,8 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         judul_kinerja = kinerja_obj.nama_kegiatan[:80]
     elif hasattr(kinerja_obj, 'nama_penghargaan'):
         judul_kinerja = kinerja_obj.nama_penghargaan[:80]
+    elif hasattr(kinerja_obj, 'nama_diklat'):
+        judul_kinerja = kinerja_obj.nama_diklat[:80]
     else:
         judul_kinerja = f'BKD periode {kinerja_obj.periode}'
 

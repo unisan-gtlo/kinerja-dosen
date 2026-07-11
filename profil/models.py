@@ -132,11 +132,6 @@ class Diklat(models.Model):
     tanggal_selesai = models.DateField()
     no_sk_penugasan = models.CharField(max_length=100, blank=True, null=True)
     tanggal_sk_penugasan = models.DateField(blank=True, null=True)
-    file_sertifikat = models.FileField(
-        upload_to=upload_diklat,
-        validators=[validate_file],
-        blank=True, null=True
-    )
     semester = models.CharField(
         max_length=10,
         choices=[('Ganjil', 'Ganjil'), ('Genap', 'Genap'), ('Keduanya', 'Keduanya')],

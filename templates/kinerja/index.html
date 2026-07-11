@@ -228,13 +228,24 @@
             </td>
             <td>
               {% if bisa_edit %}
-              <form method="post" action="{% url 'kinerja:hapus_pengajaran' pg.id %}"
-                    onsubmit="return confirm('Hapus data ini?')">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-danger">
-                  <span class="ti ti-trash"></span>
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary"
+                  onclick="editPengajaran(
+                    {{ pg.id }},'{{ pg.jenis_kegiatan }}','{{ pg.nama_kegiatan|escapejs }}',
+                    '{{ pg.sks|default:'' }}','{{ pg.jumlah_mahasiswa|default:0 }}',
+                    '{{ pg.peran|default:''|escapejs }}','{{ pg.semester|default:'' }}',
+                    '{{ pg.tahun_akademik }}','{{ pg.link_bukti|default:'' }}'
+                  )">
+                  <span class="ti ti-edit"></span>
                 </button>
-              </form>
+                <form method="post" action="{% url 'kinerja:hapus_pengajaran' pg.id %}"
+                      onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <span class="ti ti-trash"></span>
+                  </button>
+                </form>
+              </div>
               {% endif %}
             </td>
           </tr>
@@ -902,13 +913,24 @@
             </td>
             <td>
               {% if bisa_edit %}
-              <form method="post" action="{% url 'kinerja:hapus_penghargaan' p.id %}"
-                    onsubmit="return confirm('Hapus data ini?')">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-danger">
-                  <span class="ti ti-trash"></span>
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary"
+                  onclick="editPenghargaan(
+                    {{ p.id }},'{{ p.nama_penghargaan|escapejs }}',
+                    '{{ p.lembaga_pemberi|default:''|escapejs }}','{{ p.tingkat|default:'' }}',
+                    '{{ p.tahun|default:'' }}','{{ p.semester|default:'' }}',
+                    '{{ p.tahun_akademik }}','{{ p.link_bukti|default:'' }}'
+                  )">
+                  <span class="ti ti-edit"></span>
                 </button>
-              </form>
+                <form method="post" action="{% url 'kinerja:hapus_penghargaan' p.id %}"
+                      onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <span class="ti ti-trash"></span>
+                  </button>
+                </form>
+              </div>
               {% endif %}
             </td>
           </tr>
@@ -1041,13 +1063,27 @@
             </td>
             <td>
               {% if bisa_edit %}
-              <form method="post" action="{% url 'kinerja:hapus_penunjang' k.id %}"
-                    onsubmit="return confirm('Hapus data ini?')">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-danger">
-                  <span class="ti ti-trash"></span>
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary"
+                  onclick="editPenunjang(
+                    {{ k.id }},'{{ k.jenis_kegiatan }}','{{ k.nama_kegiatan|escapejs }}',
+                    '{{ k.peran|default:''|escapejs }}','{{ k.penyelenggara|default:''|escapejs }}',
+                    '{{ k.tingkat|default:'' }}',
+                    '{{ k.tanggal_mulai|date:'Y-m-d'|default:'' }}',
+                    '{{ k.tanggal_selesai|date:'Y-m-d'|default:'' }}',
+                    '{{ k.semester|default:'' }}','{{ k.tahun_akademik }}',
+                    '{{ k.link_bukti|default:'' }}'
+                  )">
+                  <span class="ti ti-edit"></span>
                 </button>
-              </form>
+                <form method="post" action="{% url 'kinerja:hapus_penunjang' k.id %}"
+                      onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <span class="ti ti-trash"></span>
+                  </button>
+                </form>
+              </div>
               {% endif %}
             </td>
           </tr>
@@ -1378,6 +1414,240 @@
   </div>
 </div>
 
+<!-- ===================== MODAL EDIT PENGAJARAN ===================== -->
+<div class="modal fade" id="modalEditPengajaran" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="" id="formEditPengajaran">
+        {% csrf_token %}
+        {% if target_user != request.user %}
+        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+        {% endif %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Pengajaran</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jenis Kegiatan *</label>
+              <select name="jenis_kegiatan" id="epg_jenis" class="form-select" required>
+                <option value="mengajar">Mengajar Mata Kuliah</option>
+                <option value="membimbing_skripsi">Membimbing Skripsi/Tugas Akhir</option>
+                <option value="membimbing_tesis">Membimbing Tesis</option>
+                <option value="membimbing_disertasi">Membimbing Disertasi</option>
+                <option value="membimbing_pa">Pembimbing Akademik (PA)</option>
+                <option value="menguji">Menguji (Sidang/Komprehensif)</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Nama Mata Kuliah / Mahasiswa / Ujian *</label>
+              <input type="text" name="nama_kegiatan" id="epg_nama" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">SKS</label>
+              <input type="number" step="0.1" name="sks" id="epg_sks" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Jml Mhs</label>
+              <input type="number" name="jumlah_mahasiswa" id="epg_jml" class="form-control" min="0">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Peran</label>
+              <input type="text" name="peran" id="epg_peran" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" id="epg_semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" id="epg_tahun" class="form-select" required>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Link Bukti</label>
+              <input type="url" name="link_bukti" id="epg_link" class="form-control">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL EDIT PENGHARGAAN ===================== -->
+<div class="modal fade" id="modalEditPenghargaan" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="" id="formEditPenghargaan">
+        {% csrf_token %}
+        {% if target_user != request.user %}
+        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+        {% endif %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Penghargaan</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label">Nama Penghargaan *</label>
+              <input type="text" name="nama_penghargaan" id="eph_nama" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Lembaga Pemberi</label>
+              <input type="text" name="lembaga_pemberi" id="eph_lembaga" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tingkat</label>
+              <select name="tingkat" id="eph_tingkat" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="L">Lokal</option>
+                <option value="R">Regional</option>
+                <option value="N">Nasional</option>
+                <option value="I">Internasional</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun</label>
+              <input type="number" name="tahun" id="eph_tahun_dapat" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Semester</label>
+              <select name="semester" id="eph_semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" id="eph_tahun" class="form-select" required>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Link Bukti</label>
+              <input type="url" name="link_bukti" id="eph_link" class="form-control">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL EDIT PENUNJANG ===================== -->
+<div class="modal fade" id="modalEditPenunjang" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="" id="formEditPenunjang">
+        {% csrf_token %}
+        {% if target_user != request.user %}
+        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+        {% endif %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Kegiatan Penunjang</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jenis Kegiatan *</label>
+              <select name="jenis_kegiatan" id="epn_jenis" class="form-select" required>
+                <option value="reviewer">Reviewer Jurnal/Prosiding</option>
+                <option value="editor">Editor Jurnal</option>
+                <option value="narasumber">Narasumber/Pemateri</option>
+                <option value="panitia">Panitia Kegiatan</option>
+                <option value="organisasi_profesi">Pengurus Organisasi Profesi</option>
+                <option value="asesor">Asesor/Reviewer Akreditasi</option>
+                <option value="tim_adhoc">Tim Ad Hoc/Satgas</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Nama Kegiatan *</label>
+              <input type="text" name="nama_kegiatan" id="epn_nama" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Peran</label>
+              <input type="text" name="peran" id="epn_peran" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Penyelenggara</label>
+              <input type="text" name="penyelenggara" id="epn_penyelenggara" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tingkat</label>
+              <select name="tingkat" id="epn_tingkat" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="L">Lokal</option>
+                <option value="R">Regional</option>
+                <option value="N">Nasional</option>
+                <option value="I">Internasional</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Mulai</label>
+              <input type="date" name="tanggal_mulai" id="epn_mulai" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Selesai</label>
+              <input type="date" name="tanggal_selesai" id="epn_selesai" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" id="epn_semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik *</label>
+              <select name="tahun_akademik" id="epn_tahun" class="form-select" required>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Link Bukti</label>
+              <input type="url" name="link_bukti" id="epn_link" class="form-control">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1451,6 +1721,52 @@ function editHKI(id, judul, jenis, no_hki, tahun_perolehan, semester, tahun, lin
   document.getElementById('eh_tahun').value = tahun;
   document.getElementById('eh_link').value = link;
   new bootstrap.Modal(document.getElementById('modalEditHKI')).show();
+}
+
+// Edit Pengajaran
+function editPengajaran(id, jenis, nama, sks, jml, peran, semester, tahun, link) {
+  const form = document.getElementById('formEditPengajaran');
+  form.action = `/kinerja/edit-pengajaran/${id}/`;
+  document.getElementById('epg_jenis').value = jenis;
+  document.getElementById('epg_nama').value = nama;
+  document.getElementById('epg_sks').value = sks;
+  document.getElementById('epg_jml').value = jml;
+  document.getElementById('epg_peran').value = peran;
+  document.getElementById('epg_semester').value = semester;
+  document.getElementById('epg_tahun').value = tahun;
+  document.getElementById('epg_link').value = link;
+  new bootstrap.Modal(document.getElementById('modalEditPengajaran')).show();
+}
+
+// Edit Penghargaan
+function editPenghargaan(id, nama, lembaga, tingkat, tahunDapat, semester, tahun, link) {
+  const form = document.getElementById('formEditPenghargaan');
+  form.action = `/kinerja/edit-penghargaan/${id}/`;
+  document.getElementById('eph_nama').value = nama;
+  document.getElementById('eph_lembaga').value = lembaga;
+  document.getElementById('eph_tingkat').value = tingkat;
+  document.getElementById('eph_tahun_dapat').value = tahunDapat;
+  document.getElementById('eph_semester').value = semester;
+  document.getElementById('eph_tahun').value = tahun;
+  document.getElementById('eph_link').value = link;
+  new bootstrap.Modal(document.getElementById('modalEditPenghargaan')).show();
+}
+
+// Edit Kegiatan Penunjang
+function editPenunjang(id, jenis, nama, peran, penyelenggara, tingkat, mulai, selesai, semester, tahun, link) {
+  const form = document.getElementById('formEditPenunjang');
+  form.action = `/kinerja/edit-penunjang/${id}/`;
+  document.getElementById('epn_jenis').value = jenis;
+  document.getElementById('epn_nama').value = nama;
+  document.getElementById('epn_peran').value = peran;
+  document.getElementById('epn_penyelenggara').value = penyelenggara;
+  document.getElementById('epn_tingkat').value = tingkat;
+  document.getElementById('epn_mulai').value = mulai;
+  document.getElementById('epn_selesai').value = selesai;
+  document.getElementById('epn_semester').value = semester;
+  document.getElementById('epn_tahun').value = tahun;
+  document.getElementById('epn_link').value = link;
+  new bootstrap.Modal(document.getElementById('modalEditPenunjang')).show();
 }
 </script>
 {% endblock %}
