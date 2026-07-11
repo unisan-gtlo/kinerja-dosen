@@ -70,13 +70,7 @@
       <span class="badge bg-blue-lt ms-1">{{ pendidikan_list.count }}</span>
     </a>
   </li>
-  <li class="nav-item">
-    <a class="nav-link" data-bs-toggle="tab" href="#tab-sertifikat">
-      <span class="ti ti-certificate me-1"></span>Sertifikat
-      <span class="badge bg-blue-lt ms-1">{{ sertifikat_list.count }}</span>
-    </a>
-  </li>
-  
+  <!-- Sertifikat pindah ke halaman Kompetensi (profil:kompetensi_index) -->
 </ul>
 
 <div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
@@ -557,122 +551,6 @@
     </div>
   </div>
 
-  <!-- TAB SERTIFIKAT -->
-  <div class="tab-pane fade" id="tab-sertifikat">
-    {% if bisa_edit %}
-    <div class="card border-0 bg-light mb-4">
-      <div class="card-body">
-        <h6 class="fw-semibold mb-3">Tambah Sertifikat</h6>
-        <form method="post" action="{% url 'profil:tambah_sertifikat' %}" enctype="multipart/form-data">
-          {% csrf_token %}
-          {% if target_user != request.user %}
-          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
-          {% endif %}
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label class="form-label">Jenis *</label>
-              <select name="jenis_sertifikat" class="form-select" required>
-                <option value="">-- Pilih --</option>
-                <option value="Serdos">Sertifikat Dosen</option>
-                <option value="Kompetensi">Kompetensi</option>
-                <option value="Profesi">Profesi</option>
-                <option value="Internasional">Internasional</option>
-                <option value="Lainnya">Lainnya</option>
-              </select>
-            </div>
-            <div class="col-md-5">
-              <label class="form-label">Nama Sertifikat *</label>
-              <input type="text" name="nama_sertifikat" class="form-control" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">No. Sertifikat</label>
-              <input type="text" name="no_sertifikat" class="form-control">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Lembaga Penerbit</label>
-              <input type="text" name="lembaga_penerbit" class="form-control">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Tahun Terbit</label>
-              <input type="number" name="tahun_terbit" class="form-control" min="1990" max="2030">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Masa Berlaku</label>
-              <input type="text" name="masa_berlaku" class="form-control" placeholder="contoh: 2027">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Upload Sertifikat (max 5MB)</label>
-              <input type="file" name="file_sertifikat" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-            </div>
-            <div class="col-12">
-              <button type="submit" class="btn btn-primary">
-                <span class="ti ti-plus me-1"></span>Tambah
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-    {% endif %}
-
-    <div class="table-responsive">
-      <table class="table table-hover">
-        <thead class="table-light">
-          <tr>
-            <th>Jenis</th><th>Nama Sertifikat</th><th>No. Sertifikat</th>
-            <th>Lembaga</th><th>Tahun</th><th>File</th><th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for s in sertifikat_list %}
-          <tr>
-            <td><span class="badge bg-teal-lt text-teal">{{ s.jenis_sertifikat }}</span></td>
-            <td>{{ s.nama_sertifikat }}</td>
-            <td>{{ s.no_sertifikat|default:"-" }}</td>
-            <td>{{ s.lembaga_penerbit|default:"-" }}</td>
-            <td>{{ s.tahun_terbit|default:"-" }}</td>
-            <td>
-              {% if s.file_sertifikat %}
-              <a href="{{ s.file_sertifikat.url }}" target="_blank" class="btn btn-sm btn-outline-success">
-                <span class="ti ti-file"></span>
-              </a>
-              {% else %}-{% endif %}
-            </td>
-            <td>
-              {% if bisa_edit %}
-              <div class="d-flex gap-1">
-                <button class="btn btn-sm btn-outline-primary"
-                  onclick="editSertifikat(
-                    {{ s.id }},
-                    '{{ s.jenis_sertifikat }}',
-                    '{{ s.nama_sertifikat }}',
-                    '{{ s.no_sertifikat|default:'' }}',
-                    '{{ s.lembaga_penerbit|default:'' }}',
-                    '{{ s.tahun_terbit|default:'' }}',
-                    '{{ s.masa_berlaku|default:'' }}'
-                  )">
-                  <span class="ti ti-edit"></span>
-                </button>
-                <form method="post" action="{% url 'profil:hapus_sertifikat' s.id %}"
-                      onsubmit="return confirm('Hapus sertifikat ini?')">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-sm btn-outline-danger">
-                    <span class="ti ti-trash"></span>
-                  </button>
-                </form>
-              </div>
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
- 
 
 </div>
 {% endblock %}
@@ -694,17 +572,6 @@ function editPendidikan(id, jenjang, bidang, pt, masuk, lulus, no_ij) {
   document.getElementById('ep_lulus').value = lulus;
   document.getElementById('ep_ijazah_no').value = no_ij;
   new bootstrap.Modal(document.getElementById('modalEditPendidikan')).show();
-}
-
-function editSertifikat(id, jenis, nama, no, lembaga, tahun, berlaku) {
-  document.getElementById('formEditSertifikat').action = `/profil/edit-sertifikat/${id}/`;
-  document.getElementById('es_jenis').value = jenis;
-  document.getElementById('es_nama').value = nama;
-  document.getElementById('es_no').value = no;
-  document.getElementById('es_lembaga').value = lembaga;
-  document.getElementById('es_tahun').value = tahun;
-  document.getElementById('es_berlaku').value = berlaku;
-  new bootstrap.Modal(document.getElementById('modalEditSertifikat')).show();
 }
 </script>
 <!-- Modal Edit Pendidikan -->
@@ -766,60 +633,4 @@ function editSertifikat(id, jenis, nama, no, lembaga, tahun, berlaku) {
   </div>
 </div>
 
-<!-- Modal Edit Sertifikat -->
-<div class="modal fade" id="modalEditSertifikat" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <form method="post" action="" id="formEditSertifikat" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div class="modal-header">
-          <h5 class="modal-title">Edit Sertifikat</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Jenis *</label>
-              <select name="jenis_sertifikat" id="es_jenis" class="form-select" required>
-                <option value="Serdos">Sertifikat Dosen</option>
-                <option value="Kompetensi">Kompetensi</option>
-                <option value="Profesi">Profesi</option>
-                <option value="Internasional">Internasional</option>
-                <option value="Lainnya">Lainnya</option>
-              </select>
-            </div>
-            <div class="col-md-8">
-              <label class="form-label">Nama Sertifikat *</label>
-              <input type="text" name="nama_sertifikat" id="es_nama" class="form-control" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">No. Sertifikat</label>
-              <input type="text" name="no_sertifikat" id="es_no" class="form-control">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Lembaga Penerbit</label>
-              <input type="text" name="lembaga_penerbit" id="es_lembaga" class="form-control">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Tahun Terbit</label>
-              <input type="number" name="tahun_terbit" id="es_tahun" class="form-control">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Masa Berlaku</label>
-              <input type="text" name="masa_berlaku" id="es_berlaku" class="form-control">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Upload Sertifikat Baru</label>
-              <input type="file" name="file_sertifikat" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-          <button type="submit" class="btn btn-primary">Simpan</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
 {% endblock %}

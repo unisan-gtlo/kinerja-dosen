@@ -1435,9 +1435,9 @@ def export_excel_statistik_profil(request):
         gb = count_jabfung('Guru Besar')
 
         # Sertifikasi dosen
-        from profil.models import Sertifikat
-        serdos = Sertifikat.objects.filter(
-            user__in=dosen_qs, jenis_sertifikat='Serdos'
+        from profil.models import Sertifikasi
+        serdos = Sertifikasi.objects.filter(
+            user__in=dosen_qs, jenis_sertifikasi='serdos'
         ).values('user').distinct().count()
 
         # Status kepegawaian

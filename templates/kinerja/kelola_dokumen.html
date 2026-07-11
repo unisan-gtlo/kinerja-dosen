@@ -24,7 +24,7 @@
           {{ pemilik.get_full_name }}
         </small>
       </div>
-      <a href="{% if jenis_kinerja == 'bkd' %}{% url 'kinerja:bkd_index' %}{% else %}{% url 'kinerja:index' %}{% endif %}"
+      <a href="{% if jenis_kinerja == 'bkd' %}{% url 'kinerja:bkd_index' %}{% elif jenis_kinerja == 'diklat' %}{% url 'profil:kualifikasi_index' %}{% elif jenis_kinerja == 'sertifikasi' or jenis_kinerja == 'tes' %}{% url 'profil:kompetensi_index' %}{% else %}{% url 'kinerja:index' %}{% endif %}"
          class="btn btn-sm btn-outline-secondary">
         <span class="ti ti-arrow-left me-1"></span>Kembali
       </a>

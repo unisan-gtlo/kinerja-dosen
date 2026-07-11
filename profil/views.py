@@ -8,7 +8,7 @@ from simda_dosen.models import (
     AgamaPublik, JabatanFungsionalPublik,
 )
 from simda_dosen.utils import get_simda_dosen_or_none
-from .models import Sertifikat, DokumenLain, Diklat
+from .models import DokumenLain, Diklat, Sertifikasi, TesKompetensi
 
 def cek_status_input():
     try:
@@ -35,7 +35,6 @@ def index(request):
         jabfung_list = RiwayatJabatanFungsional.objects.none()
         pendidikan_list = RiwayatPendidikanDosen.objects.none()
 
-    sertifikat_list = target_user.sertifikat_set.all().order_by('-tahun_terbit')
     dokumen_list = target_user.dokumen_set.all().order_by('-tgl_input')
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
@@ -46,7 +45,6 @@ def index(request):
         'profil': profil,
         'jabfung_list': jabfung_list,
         'pendidikan_list': pendidikan_list,
-        'sertifikat_list': sertifikat_list,
         'dokumen_list': dokumen_list,
         'tahun_list': tahun_list,
         'bisa_edit': bisa_edit,
@@ -200,44 +198,6 @@ def hapus_pendidikan(request, pend_id):
     return redirect('profil:index')
 
 @login_required
-def tambah_sertifikat(request):
-    if request.method != 'POST':
-        return redirect('profil:index')
-    if not cek_status_input():
-        messages.error(request, 'Input data sedang dikunci.')
-        return redirect('profil:index')
-
-    user = request.user
-    dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
-
-    sert = Sertifikat(
-        user=target_user,
-        jenis_sertifikat=request.POST.get('jenis_sertifikat', ''),
-        nama_sertifikat=request.POST.get('nama_sertifikat', '').strip(),
-        no_sertifikat=request.POST.get('no_sertifikat', '').strip(),
-        lembaga_penerbit=request.POST.get('lembaga_penerbit', '').strip(),
-        tahun_terbit=request.POST.get('tahun_terbit') or None,
-        masa_berlaku=request.POST.get('masa_berlaku', '').strip(),
-        updated_by=user.username
-    )
-    if 'file_sertifikat' in request.FILES:
-        sert.file_sertifikat = request.FILES['file_sertifikat']
-    sert.save()
-    messages.success(request, 'Sertifikat berhasil ditambahkan.')
-    return redirect('profil:index')
-
-@login_required
-def hapus_sertifikat(request, sert_id):
-    sert = get_object_or_404(Sertifikat, id=sert_id)
-    if request.user != sert.user and request.user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:index')
-    sert.delete()
-    messages.success(request, 'Sertifikat berhasil dihapus.')
-    return redirect('profil:index')
-
-@login_required
 def edit_jabfung(request, jabfung_id):
     jabfung = get_object_or_404(RiwayatJabatanFungsional, id=jabfung_id)
     if request.user.nidn != jabfung.dosen.nidn and request.user.role not in ['admin', 'operator']:
@@ -280,25 +240,6 @@ def edit_pendidikan(request, pend_id):
     return redirect('profil:index')
 
 
-@login_required
-def edit_sertifikat(request, sert_id):
-    sert = get_object_or_404(Sertifikat, id=sert_id)
-    if request.user != sert.user and request.user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:index')
-    if request.method == 'POST':
-        sert.jenis_sertifikat = request.POST.get('jenis_sertifikat', sert.jenis_sertifikat)
-        sert.nama_sertifikat = request.POST.get('nama_sertifikat', '').strip()
-        sert.no_sertifikat = request.POST.get('no_sertifikat', '').strip()
-        sert.lembaga_penerbit = request.POST.get('lembaga_penerbit', '').strip()
-        sert.tahun_terbit = request.POST.get('tahun_terbit') or None
-        sert.masa_berlaku = request.POST.get('masa_berlaku', '').strip()
-        sert.updated_by = request.user.username
-        if 'file_sertifikat' in request.FILES:
-            sert.file_sertifikat = request.FILES['file_sertifikat']
-        sert.save()
-        messages.success(request, 'Sertifikat berhasil diupdate.')
-    return redirect('profil:index')
 
 
 # ============================================================
@@ -407,3 +348,172 @@ def edit_diklat(request, id):
         obj.save()
         messages.success(request, 'Data diklat berhasil diupdate.')
     return redirect('profil:kualifikasi_index')
+
+
+# ============================================================
+# KOMPETENSI (Sertifikasi & Tes)
+# ============================================================
+
+@login_required
+def kompetensi_index(request):
+    user = request.user
+    target_user = user
+
+    dosen_id = request.GET.get('dosen_id')
+    if dosen_id and user.role in ['admin', 'kaprodi', 'sekprodi', 'operator', 'dekan', 'wadek', 'rektorat', 'biro']:
+        target_user = get_object_or_404(User, id=dosen_id)
+
+    tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
+    input_terbuka = cek_status_input()
+    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_validasi = user.role in Sertifikasi.ROLE_BOLEH_VALIDASI
+
+    context = {
+        'target_user': target_user,
+        'tahun_list': tahun_list,
+        'bisa_edit': bisa_edit,
+        'bisa_validasi': bisa_validasi,
+        'input_terbuka': input_terbuka,
+        'sertifikasi_list': target_user.sertifikasi_set.all(),
+        'tes_list': target_user.tes_set.all(),
+    }
+    return render(request, 'profil/kompetensi.html', context)
+
+
+@login_required
+def tambah_sertifikasi(request):
+    if request.method != 'POST':
+        return redirect('profil:kompetensi_index')
+    if not cek_status_input():
+        messages.error(request, 'Input data sedang dikunci.')
+        return redirect('profil:kompetensi_index')
+
+    user = request.user
+    dosen_id = request.POST.get('dosen_id')
+    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+
+    jenis = request.POST.get('jenis_sertifikasi', '')
+    Sertifikasi.objects.create(
+        user=target_user,
+        kode_prodi=target_user.kode_prodi or '',
+        kode_fakultas=target_user.kode_fakultas or '',
+        jenis_sertifikasi=jenis,
+        bidang_studi=request.POST.get('bidang_studi', '').strip(),
+        lembaga_sertifikasi=request.POST.get('lembaga_sertifikasi', '').strip(),
+        no_registrasi_pendidik=request.POST.get('no_registrasi_pendidik', '').strip(),
+        no_peserta=request.POST.get('no_peserta', '').strip(),
+        no_sk_sertifikasi=request.POST.get('no_sk_sertifikasi', '').strip(),
+        tahun_sertifikasi=request.POST.get('tahun_sertifikasi') or None,
+        tmt_sertifikasi=request.POST.get('tmt_sertifikasi') or None,
+        tst_sertifikasi=request.POST.get('tst_sertifikasi') or None,
+        # Serdos butuh validasi kaprodi/dekan; Kompetensi/Profesi langsung aktif.
+        status_validasi='menunggu' if jenis == 'serdos' else 'disetujui',
+        semester=request.POST.get('semester', ''),
+        tahun_akademik=request.POST.get('tahun_akademik', ''),
+        updated_by=user.username,
+    )
+    messages.success(request, 'Data sertifikasi berhasil ditambahkan.')
+    return redirect('profil:kompetensi_index')
+
+
+@login_required
+def hapus_sertifikasi(request, id):
+    obj = get_object_or_404(Sertifikasi, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:kompetensi_index')
+    obj.delete()
+    messages.success(request, 'Data sertifikasi berhasil dihapus.')
+    return redirect('profil:kompetensi_index')
+
+
+@login_required
+def edit_sertifikasi(request, id):
+    obj = get_object_or_404(Sertifikasi, id=id)
+    is_owner = request.user == obj.user
+    is_admin = request.user.role in ['admin', 'operator']
+    if not is_owner and not is_admin:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:kompetensi_index')
+    if request.method == 'POST':
+        obj.jenis_sertifikasi = request.POST.get('jenis_sertifikasi', obj.jenis_sertifikasi)
+        obj.bidang_studi = request.POST.get('bidang_studi', '').strip()
+        obj.lembaga_sertifikasi = request.POST.get('lembaga_sertifikasi', '').strip()
+        obj.no_registrasi_pendidik = request.POST.get('no_registrasi_pendidik', '').strip()
+        obj.no_peserta = request.POST.get('no_peserta', '').strip()
+        obj.no_sk_sertifikasi = request.POST.get('no_sk_sertifikasi', '').strip()
+        obj.tahun_sertifikasi = request.POST.get('tahun_sertifikasi') or obj.tahun_sertifikasi
+        obj.tmt_sertifikasi = request.POST.get('tmt_sertifikasi') or None
+        obj.tst_sertifikasi = request.POST.get('tst_sertifikasi') or None
+        obj.semester = request.POST.get('semester', '')
+        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
+        obj.updated_by = request.user.username
+        # Cuma role tertentu yang boleh validasi Sertifikasi Dosen (Serdos) --
+        # dosen pemilik tidak bisa menyetujui sertifikasinya sendiri.
+        if request.user.role in Sertifikasi.ROLE_BOLEH_VALIDASI:
+            obj.status_validasi = request.POST.get('status_validasi', obj.status_validasi)
+        obj.save()
+        messages.success(request, 'Data sertifikasi berhasil diupdate.')
+    return redirect('profil:kompetensi_index')
+
+
+@login_required
+def tambah_tes(request):
+    if request.method != 'POST':
+        return redirect('profil:kompetensi_index')
+    if not cek_status_input():
+        messages.error(request, 'Input data sedang dikunci.')
+        return redirect('profil:kompetensi_index')
+
+    user = request.user
+    dosen_id = request.POST.get('dosen_id')
+    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+
+    TesKompetensi.objects.create(
+        user=target_user,
+        kode_prodi=target_user.kode_prodi or '',
+        kode_fakultas=target_user.kode_fakultas or '',
+        jenis_tes=request.POST.get('jenis_tes', ''),
+        nama_tes=request.POST.get('nama_tes', '').strip(),
+        penyelenggara=request.POST.get('penyelenggara', '').strip(),
+        tanggal_tes=request.POST.get('tanggal_tes') or None,
+        tahun=request.POST.get('tahun') or None,
+        skor_tes=request.POST.get('skor_tes') or None,
+        semester=request.POST.get('semester', ''),
+        tahun_akademik=request.POST.get('tahun_akademik', ''),
+        updated_by=user.username,
+    )
+    messages.success(request, 'Data tes berhasil ditambahkan.')
+    return redirect('profil:kompetensi_index')
+
+
+@login_required
+def hapus_tes(request, id):
+    obj = get_object_or_404(TesKompetensi, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:kompetensi_index')
+    obj.delete()
+    messages.success(request, 'Data tes berhasil dihapus.')
+    return redirect('profil:kompetensi_index')
+
+
+@login_required
+def edit_tes(request, id):
+    obj = get_object_or_404(TesKompetensi, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:kompetensi_index')
+    if request.method == 'POST':
+        obj.jenis_tes = request.POST.get('jenis_tes', obj.jenis_tes)
+        obj.nama_tes = request.POST.get('nama_tes', '').strip()
+        obj.penyelenggara = request.POST.get('penyelenggara', '').strip()
+        obj.tanggal_tes = request.POST.get('tanggal_tes') or obj.tanggal_tes
+        obj.tahun = request.POST.get('tahun') or obj.tahun
+        obj.skor_tes = request.POST.get('skor_tes') or obj.skor_tes
+        obj.semester = request.POST.get('semester', '')
+        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
+        obj.updated_by = request.user.username
+        obj.save()
+        messages.success(request, 'Data tes berhasil diupdate.')
+    return redirect('profil:kompetensi_index')

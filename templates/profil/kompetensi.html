@@ -1,0 +1,579 @@
+{% extends 'base.html' %}
+{% block title %}Kompetensi — SIKD{% endblock %}
+{% block page_title %}
+  Kompetensi
+  {% if target_user != request.user %}
+  <small class="text-muted fs-5">— {{ target_user.get_full_name|default:target_user.username }}</small>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if not input_terbuka %}
+<div class="alert alert-warning">
+  <span class="ti ti-lock me-1"></span>
+  Input data sedang <strong>dikunci</strong> oleh admin.
+</div>
+{% endif %}
+
+<ul class="nav nav-tabs mb-0" id="kompetensiTab">
+  <li class="nav-item">
+    <a class="nav-link active" data-bs-toggle="tab" href="#tab-sertifikasi">
+      <span class="ti ti-certificate me-1"></span>Sertifikasi
+      <span class="badge bg-blue-lt ms-1">{{ sertifikasi_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-tes">
+      <span class="ti ti-report-analytics me-1"></span>Tes
+      <span class="badge bg-blue-lt ms-1">{{ tes_list.count }}</span>
+    </a>
+  </li>
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
+
+  <!-- TAB SERTIFIKASI -->
+  <div class="tab-pane fade show active" id="tab-sertifikasi">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-1">Tambah Sertifikasi</h6>
+        <p class="text-muted small mb-3">
+          Sertifikasi Dosen (Serdos) perlu divalidasi Kaprodi/Dekan sebelum aktif.
+          Sertifikasi Kompetensi/Profesi langsung tersimpan tanpa validasi.
+        </p>
+        <form method="post" action="{% url 'profil:tambah_sertifikasi' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Jenis Sertifikasi *</label>
+              <select name="jenis_sertifikasi" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="serdos">Sertifikasi Dosen</option>
+                <option value="kompetensi">Sertifikasi Kompetensi</option>
+                <option value="profesi">Sertifikasi Profesi</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Bidang Studi *</label>
+              <input type="text" name="bidang_studi" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Lembaga Sertifikasi</label>
+              <input type="text" name="lembaga_sertifikasi" class="form-control"
+                     placeholder="Untuk Kompetensi/Profesi">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nomor Registrasi Pendidik</label>
+              <input type="text" name="no_registrasi_pendidik" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nomor Peserta</label>
+              <input type="text" name="no_peserta" class="form-control" placeholder="Untuk Serdos">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nomor SK Sertifikasi *</label>
+              <input type="text" name="no_sk_sertifikasi" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Sertifikasi *</label>
+              <input type="number" name="tahun_sertifikasi" class="form-control" required min="1970" max="2035">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">TMT Sertifikasi</label>
+              <input type="date" name="tmt_sertifikasi" class="form-control" placeholder="Untuk Kompetensi/Profesi">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">TST Sertifikasi</label>
+              <input type="date" name="tst_sertifikasi" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+              <small class="text-muted ms-2">Dokumen bukti diunggah setelah data tersimpan lewat tombol Dokumen.</small>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Jenis</th><th>Bidang Studi</th><th>No. SK</th>
+            <th>Tahun</th><th>Status</th><th>Dokumen</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sertifikasi_list %}
+          <tr>
+            <td><span class="badge bg-teal-lt text-teal">{{ s.get_jenis_sertifikasi_display }}</span></td>
+            <td>{{ s.bidang_studi }}</td>
+            <td>{{ s.no_sk_sertifikasi }}</td>
+            <td>{{ s.tahun_sertifikasi }}</td>
+            <td>
+              {% if s.status_validasi == 'disetujui' %}
+              <span class="badge bg-success-lt text-success">Disetujui</span>
+              {% elif s.status_validasi == 'ditolak' %}
+              <span class="badge bg-danger-lt text-danger">Ditolak</span>
+              {% else %}
+              <span class="badge bg-warning-lt text-warning">Menunggu Validasi</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{% url 'kinerja:kelola_dokumen' 'sertifikasi' s.id %}"
+                 class="btn btn-sm btn-outline-primary">
+                <span class="ti ti-files me-1"></span>Dokumen
+              </a>
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-info"
+                  onclick="infoSertifikasi(
+                    '{{ s.get_jenis_sertifikasi_display }}','{{ s.bidang_studi|escapejs }}',
+                    '{{ s.lembaga_sertifikasi|default:'-'|escapejs }}',
+                    '{{ s.no_registrasi_pendidik|default:'-' }}','{{ s.no_peserta|default:'-' }}',
+                    '{{ s.no_sk_sertifikasi }}','{{ s.tahun_sertifikasi }}',
+                    '{{ s.tmt_sertifikasi|date:'d/m/Y'|default:'-' }}',
+                    '{{ s.tst_sertifikasi|date:'d/m/Y'|default:'-' }}',
+                    '{{ s.get_status_validasi_display }}'
+                  )">
+                  <span class="ti ti-info-circle"></span>
+                </button>
+                {% if bisa_edit %}
+                <button class="btn btn-sm btn-outline-primary"
+                  onclick="editSertifikasi(
+                    {{ s.id }},'{{ s.jenis_sertifikasi }}','{{ s.bidang_studi|escapejs }}',
+                    '{{ s.lembaga_sertifikasi|default:''|escapejs }}',
+                    '{{ s.no_registrasi_pendidik|default:'' }}','{{ s.no_peserta|default:'' }}',
+                    '{{ s.no_sk_sertifikasi|escapejs }}','{{ s.tahun_sertifikasi }}',
+                    '{{ s.tmt_sertifikasi|date:'Y-m-d'|default:'' }}',
+                    '{{ s.tst_sertifikasi|date:'Y-m-d'|default:'' }}',
+                    '{{ s.semester|default:'' }}','{{ s.tahun_akademik|default:'' }}',
+                    '{{ s.status_validasi }}'
+                  )">
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'profil:hapus_sertifikasi' s.id %}"
+                      onsubmit="return confirm('Hapus data sertifikasi ini?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <span class="ti ti-trash"></span>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data sertifikasi</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB TES -->
+  <div class="tab-pane fade" id="tab-tes">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Tes</h6>
+        <form method="post" action="{% url 'profil:tambah_tes' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Jenis Tes *</label>
+              <select name="jenis_tes" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="ielts">IELTS (maks 9.00)</option>
+                <option value="toefl_ibt">TOEFL iBT (maks 120.00)</option>
+                <option value="toefl_itp">TOEFL ITP (maks 677.00)</option>
+                <option value="toeic">TOEIC (maks 990.00)</option>
+                <option value="tkbi">TKBI</option>
+                <option value="tkda">TKDA</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Nama Tes *</label>
+              <input type="text" name="nama_tes" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Penyelenggara *</label>
+              <input type="text" name="penyelenggara" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Tes *</label>
+              <input type="date" name="tanggal_tes" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun *</label>
+              <input type="number" name="tahun" class="form-control" required min="1970" max="2035">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Skor Tes *</label>
+              <input type="number" step="0.01" name="skor_tes" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+              <small class="text-muted ms-2">Dokumen bukti diunggah setelah data tersimpan lewat tombol Dokumen.</small>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Jenis</th><th>Nama Tes</th><th>Penyelenggara</th>
+            <th>Skor</th><th>Tahun</th><th>Dokumen</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in tes_list %}
+          <tr>
+            <td><span class="badge bg-purple-lt text-purple">{{ t.get_jenis_tes_display }}</span></td>
+            <td>{{ t.nama_tes }}</td>
+            <td>{{ t.penyelenggara }}</td>
+            <td>{{ t.skor_tes }}</td>
+            <td>{{ t.tahun }}</td>
+            <td>
+              <a href="{% url 'kinerja:kelola_dokumen' 'tes' t.id %}"
+                 class="btn btn-sm btn-outline-primary">
+                <span class="ti ti-files me-1"></span>Dokumen
+              </a>
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary"
+                  onclick="editTes(
+                    {{ t.id }},'{{ t.jenis_tes }}','{{ t.nama_tes|escapejs }}',
+                    '{{ t.penyelenggara|escapejs }}','{{ t.tanggal_tes|date:'Y-m-d' }}',
+                    '{{ t.tahun }}','{{ t.skor_tes }}',
+                    '{{ t.semester|default:'' }}','{{ t.tahun_akademik|default:'' }}'
+                  )">
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'profil:hapus_tes' t.id %}"
+                      onsubmit="return confirm('Hapus data tes ini?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <span class="ti ti-trash"></span>
+                  </button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data tes</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL INFO SERTIFIKASI -->
+<div class="modal fade" id="modalInfoSertifikasi" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail Sertifikasi</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <table class="table table-sm">
+          <tr><th style="width:220px">Jenis Sertifikasi</th><td id="is_jenis"></td></tr>
+          <tr><th>Bidang Studi</th><td id="is_bidang"></td></tr>
+          <tr><th>Lembaga Sertifikasi</th><td id="is_lembaga"></td></tr>
+          <tr><th>Nomor Registrasi Pendidik</th><td id="is_nrp"></td></tr>
+          <tr><th>Nomor Peserta</th><td id="is_peserta"></td></tr>
+          <tr><th>Nomor SK Sertifikasi</th><td id="is_sk"></td></tr>
+          <tr><th>Tahun Sertifikasi</th><td id="is_tahun"></td></tr>
+          <tr><th>TMT Sertifikasi</th><td id="is_tmt"></td></tr>
+          <tr><th>TST Sertifikasi</th><td id="is_tst"></td></tr>
+          <tr><th>Status Validasi</th><td id="is_status"></td></tr>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT SERTIFIKASI -->
+<div class="modal fade" id="modalEditSertifikasi" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{% url 'profil:edit_sertifikasi' 0 %}" id="formEditSertifikasi">
+        {% csrf_token %}
+        {% if target_user != request.user %}
+        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+        {% endif %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Sertifikasi</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Jenis Sertifikasi *</label>
+              <select name="jenis_sertifikasi" id="es_jenis" class="form-select" required>
+                <option value="serdos">Sertifikasi Dosen</option>
+                <option value="kompetensi">Sertifikasi Kompetensi</option>
+                <option value="profesi">Sertifikasi Profesi</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Bidang Studi *</label>
+              <input type="text" name="bidang_studi" id="es_bidang" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Lembaga Sertifikasi</label>
+              <input type="text" name="lembaga_sertifikasi" id="es_lembaga" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nomor Registrasi Pendidik</label>
+              <input type="text" name="no_registrasi_pendidik" id="es_nrp" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nomor Peserta</label>
+              <input type="text" name="no_peserta" id="es_peserta" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nomor SK Sertifikasi *</label>
+              <input type="text" name="no_sk_sertifikasi" id="es_sk" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Sertifikasi *</label>
+              <input type="number" name="tahun_sertifikasi" id="es_tahun" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">TMT Sertifikasi</label>
+              <input type="date" name="tmt_sertifikasi" id="es_tmt" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">TST Sertifikasi</label>
+              <input type="date" name="tst_sertifikasi" id="es_tst" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" id="es_semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" id="es_tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% if bisa_validasi %}
+            <div class="col-md-4">
+              <label class="form-label">Status Validasi</label>
+              <select name="status_validasi" id="es_status" class="form-select">
+                <option value="menunggu">Menunggu Validasi</option>
+                <option value="disetujui">Disetujui</option>
+                <option value="ditolak">Ditolak</option>
+              </select>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT TES -->
+<div class="modal fade" id="modalEditTes" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{% url 'profil:edit_tes' 0 %}" id="formEditTes">
+        {% csrf_token %}
+        {% if target_user != request.user %}
+        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+        {% endif %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Tes</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jenis Tes *</label>
+              <select name="jenis_tes" id="et_jenis" class="form-select" required>
+                <option value="ielts">IELTS</option>
+                <option value="toefl_ibt">TOEFL iBT</option>
+                <option value="toefl_itp">TOEFL ITP</option>
+                <option value="toeic">TOEIC</option>
+                <option value="tkbi">TKBI</option>
+                <option value="tkda">TKDA</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Nama Tes *</label>
+              <input type="text" name="nama_tes" id="et_nama" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Penyelenggara *</label>
+              <input type="text" name="penyelenggara" id="et_penyelenggara" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Tes *</label>
+              <input type="date" name="tanggal_tes" id="et_tanggal" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun *</label>
+              <input type="number" name="tahun" id="et_tahun" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Skor Tes *</label>
+              <input type="number" step="0.01" name="skor_tes" id="et_skor" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Semester</label>
+              <select name="semester" id="et_semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option>
+                <option value="Genap">Genap</option>
+                <option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" id="et_tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}
+                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function infoSertifikasi(jenis, bidang, lembaga, nrp, peserta, sk, tahun, tmt, tst, status) {
+  document.getElementById('is_jenis').textContent = jenis;
+  document.getElementById('is_bidang').textContent = bidang;
+  document.getElementById('is_lembaga').textContent = lembaga;
+  document.getElementById('is_nrp').textContent = nrp;
+  document.getElementById('is_peserta').textContent = peserta;
+  document.getElementById('is_sk').textContent = sk;
+  document.getElementById('is_tahun').textContent = tahun;
+  document.getElementById('is_tmt').textContent = tmt;
+  document.getElementById('is_tst').textContent = tst;
+  document.getElementById('is_status').textContent = status;
+  new bootstrap.Modal(document.getElementById('modalInfoSertifikasi')).show();
+}
+
+function editSertifikasi(id, jenis, bidang, lembaga, nrp, peserta, sk, tahun, tmt, tst, semester, tahunAkademik, status) {
+  const form = document.getElementById('formEditSertifikasi');
+  form.action = `/profil/edit-sertifikasi/${id}/`;
+  document.getElementById('es_jenis').value = jenis;
+  document.getElementById('es_bidang').value = bidang;
+  document.getElementById('es_lembaga').value = lembaga;
+  document.getElementById('es_nrp').value = nrp;
+  document.getElementById('es_peserta').value = peserta;
+  document.getElementById('es_sk').value = sk;
+  document.getElementById('es_tahun').value = tahun;
+  document.getElementById('es_tmt').value = tmt;
+  document.getElementById('es_tst').value = tst;
+  document.getElementById('es_semester').value = semester;
+  document.getElementById('es_tahun_akademik').value = tahunAkademik;
+  const statusEl = document.getElementById('es_status');
+  if (statusEl) { statusEl.value = status; }
+  new bootstrap.Modal(document.getElementById('modalEditSertifikasi')).show();
+}
+
+function editTes(id, jenis, nama, penyelenggara, tanggal, tahun, skor, semester, tahunAkademik) {
+  const form = document.getElementById('formEditTes');
+  form.action = `/profil/edit-tes/${id}/`;
+  document.getElementById('et_jenis').value = jenis;
+  document.getElementById('et_nama').value = nama;
+  document.getElementById('et_penyelenggara').value = penyelenggara;
+  document.getElementById('et_tanggal').value = tanggal;
+  document.getElementById('et_tahun').value = tahun;
+  document.getElementById('et_skor').value = skor;
+  document.getElementById('et_semester').value = semester;
+  document.getElementById('et_tahun_akademik').value = tahunAkademik;
+  new bootstrap.Modal(document.getElementById('modalEditTes')).show();
+}
+</script>
+{% endblock %}

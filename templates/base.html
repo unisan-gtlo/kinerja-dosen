@@ -189,7 +189,7 @@
             <div class="nav-section">Data Dosen</div>
           </li>
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.app_name == 'profil' and request.resolver_match.url_name != 'kualifikasi_index' %}active{% endif %}"
+            <a class="nav-link {% if request.resolver_match.app_name == 'profil' and request.resolver_match.url_name != 'kualifikasi_index' and request.resolver_match.url_name != 'kompetensi_index' %}active{% endif %}"
                href="{% url 'profil:index' %}">
               <span class="nav-link-icon"><span class="ti ti-user"></span></span>
               <span class="nav-link-title">Profil Dosen</span>
@@ -200,6 +200,13 @@
                href="{% url 'profil:kualifikasi_index' %}">
               <span class="nav-link-icon"><span class="ti ti-school"></span></span>
               <span class="nav-link-title">Kualifikasi</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'kompetensi_index' %}active{% endif %}"
+               href="{% url 'profil:kompetensi_index' %}">
+              <span class="nav-link-icon"><span class="ti ti-award"></span></span>
+              <span class="nav-link-title">Kompetensi</span>
             </a>
           </li>
           <li class="nav-item">

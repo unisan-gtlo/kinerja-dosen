@@ -55,40 +55,127 @@ def upload_transkrip(instance, filename):
     return f'pendidikan/{instance.user.username}/transkrip_{instance.jenjang}{ext}'
 
 
-class Sertifikat(models.Model):
+# Model Sertifikat lama diganti Sertifikasi (di bawah, mengikuti spek SISTER:
+# Kompetensi.docx) -- tapi upload_sertifikat TIDAK dihapus karena migration
+# lama (0001/0002) merujuknya by-reference.
+
+class Sertifikasi(models.Model):
+    """Kategori Kompetensi > Sertifikasi. Field & alur mengikuti SISTER
+    (Kompetensi.docx): Sertifikasi Dosen (Serdos) butuh validasi kaprodi/dekan,
+    Sertifikasi Kompetensi/Profesi langsung aktif tanpa validasi."""
+    JENIS_SERTIFIKASI = [
+        ('serdos', 'Sertifikasi Dosen'),
+        ('kompetensi', 'Sertifikasi Kompetensi'),
+        ('profesi', 'Sertifikasi Profesi'),
+    ]
+    STATUS_VALIDASI = [
+        ('menunggu', 'Menunggu Validasi'),
+        ('disetujui', 'Disetujui'),
+        ('ditolak', 'Ditolak'),
+    ]
+
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='sertifikat_set'
+        User, on_delete=models.CASCADE, related_name='sertifikasi_set'
     )
-    jenis_sertifikat = models.CharField(
-        max_length=20,
-        choices=[
-            ('Serdos', 'Sertifikat Dosen'),
-            ('Kompetensi', 'Kompetensi'),
-            ('Profesi', 'Profesi'),
-            ('Internasional', 'Internasional'),
-            ('Lainnya', 'Lainnya')
-        ]
+    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
+    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
+    jenis_sertifikasi = models.CharField(max_length=15, choices=JENIS_SERTIFIKASI)
+    bidang_studi = models.CharField(max_length=150)
+    lembaga_sertifikasi = models.CharField(
+        max_length=150, blank=True, null=True,
+        help_text='Diisi untuk Sertifikasi Kompetensi/Profesi'
     )
-    nama_sertifikat = models.CharField(max_length=200)
-    no_sertifikat = models.CharField(max_length=100, blank=True, null=True)
-    lembaga_penerbit = models.CharField(max_length=100, blank=True, null=True)
-    tahun_terbit = models.IntegerField(blank=True, null=True)
-    masa_berlaku = models.CharField(max_length=20, blank=True, null=True)
-    file_sertifikat = models.FileField(
-        upload_to=upload_sertifikat,
-        validators=[validate_file],
+    no_registrasi_pendidik = models.CharField(max_length=50, blank=True, null=True)
+    no_peserta = models.CharField(
+        max_length=50, blank=True, null=True,
+        help_text='Diisi untuk Sertifikasi Dosen (Serdos)'
+    )
+    no_sk_sertifikasi = models.CharField(max_length=100)
+    tahun_sertifikasi = models.IntegerField()
+    tmt_sertifikasi = models.DateField(
+        blank=True, null=True, verbose_name='TMT Sertifikasi',
+        help_text='Terhitung Mulai Tanggal -- diisi untuk Kompetensi/Profesi'
+    )
+    tst_sertifikasi = models.DateField(
+        blank=True, null=True, verbose_name='TST Sertifikasi',
+        help_text='Tanggal Selesai Tugas -- diisi untuk Kompetensi/Profesi'
+    )
+    status_validasi = models.CharField(
+        max_length=15, choices=STATUS_VALIDASI, default='menunggu'
+    )
+    semester = models.CharField(
+        max_length=10,
+        choices=[('Ganjil', 'Ganjil'), ('Genap', 'Genap'), ('Keduanya', 'Keduanya')],
         blank=True, null=True
     )
+    tahun_akademik = models.CharField(max_length=10, blank=True, null=True)
+    tgl_input = models.DateTimeField(auto_now_add=True)
+    updated_by = models.CharField(max_length=50, blank=True, null=True)
+
+    # Serdos butuh validasi kaprodi/dekan/rektorat -- dosen pemilik tidak
+    # bisa validasi sertifikasinya sendiri. Sama pola dengan RiwayatBKD.
+    ROLE_BOLEH_VALIDASI = ['admin', 'kaprodi', 'sekprodi', 'dekan', 'wadek', 'rektorat']
+
+    class Meta:
+        verbose_name = 'Sertifikasi'
+        verbose_name_plural = 'Sertifikasi'
+        ordering = ['-tahun_sertifikasi']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.get_jenis_sertifikasi_display()} ({self.bidang_studi})"
+
+    @property
+    def periode(self):
+        if self.semester:
+            return f"{self.semester} {self.tahun_akademik}"
+        return str(self.tahun_sertifikasi)
+
+
+class TesKompetensi(models.Model):
+    """Kategori Kompetensi > Tes (IELTS/TOEFL/TOEIC/TKBI/TKDA dll)."""
+    JENIS_TES = [
+        ('ielts', 'IELTS'),
+        ('toefl_ibt', 'TOEFL iBT'),
+        ('toefl_itp', 'TOEFL ITP'),
+        ('toeic', 'TOEIC'),
+        ('tkbi', 'TKBI'),
+        ('tkda', 'TKDA'),
+        ('lainnya', 'Lainnya'),
+    ]
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='tes_set'
+    )
+    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
+    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
+    jenis_tes = models.CharField(max_length=15, choices=JENIS_TES)
+    nama_tes = models.CharField(max_length=150)
+    penyelenggara = models.CharField(max_length=150)
+    tanggal_tes = models.DateField()
+    tahun = models.IntegerField()
+    skor_tes = models.DecimalField(max_digits=7, decimal_places=2)
+    semester = models.CharField(
+        max_length=10,
+        choices=[('Ganjil', 'Ganjil'), ('Genap', 'Genap'), ('Keduanya', 'Keduanya')],
+        blank=True, null=True
+    )
+    tahun_akademik = models.CharField(max_length=10, blank=True, null=True)
     tgl_input = models.DateTimeField(auto_now_add=True)
     updated_by = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
-        verbose_name = 'Sertifikat'
-        verbose_name_plural = 'Sertifikat'
-        ordering = ['-tahun_terbit']
+        verbose_name = 'Tes Kompetensi'
+        verbose_name_plural = 'Tes Kompetensi'
+        ordering = ['-tahun']
 
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.nama_sertifikat}"
+        return f"{self.user.get_full_name()} - {self.get_jenis_tes_display()} ({self.skor_tes})"
+
+    @property
+    def periode(self):
+        if self.semester:
+            return f"{self.semester} {self.tahun_akademik}"
+        return str(self.tahun)
 
 
 def upload_diklat(instance, filename):
