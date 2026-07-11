@@ -84,6 +84,10 @@ else:
             'PASSWORD': config('DB_PASSWORD', default=''),
             'HOST': config('DB_HOST', default='localhost'),
             'PORT': config('DB_PORT', default='5432'),
+            # Tanpa ini, Django buka+tutup koneksi TCP & autentikasi Postgres
+            # dari nol di SETIAP request -- 600 detik = pool koneksi dipakai
+            # ulang antar request selama masih hidup.
+            'CONN_MAX_AGE': 600,
         }
     }
 
@@ -93,6 +97,7 @@ else:
 # simda_dosen (model unmanaged) lewat DATABASE_ROUTERS di bawah.
 DATABASES['simda'] = {
     'ENGINE': 'django.db.backends.postgresql',
+    'CONN_MAX_AGE': 600,
     'NAME': config('SIMDA_DB_NAME', default='unisan_db'),
     'USER': config('SIMDA_DB_USER', default='sikd_rw'),
     'PASSWORD': config('SIMDA_DB_PASSWORD', default=''),

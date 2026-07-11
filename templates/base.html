@@ -166,8 +166,15 @@
         height: 26px;
         border-radius: 50%;
         background: #1e3a5f;
+        flex-shrink: 0;
       }
-      .form-section-title .ti-badge .ti { color: #fff !important; font-size: 14px; }
+      .form-section-title .ti-badge .ti {
+        color: #fff !important;
+        font-size: 14px;
+        line-height: 1;
+        display: block;
+        transform: translateX(-1px);
+      }
 
       /* Field read-only (diverifikasi admin / tidak bisa diedit dosen) */
       .form-control[readonly], .form-select:disabled, .field-readonly {
