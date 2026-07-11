@@ -133,28 +133,41 @@
       .btn-outline-light .ti { color: #ffffff !important; }
 
       /* Pengelompokan form jadi section card -- dipakai di semua form
-         Profil/Kualifikasi/Kompetensi/Data Kinerja supaya konsisten */
+         Profil/Kualifikasi/Kompetensi/Data Kinerja supaya konsisten.
+         Aksen satu warna (biru navy brand) di garis kiri + latar judul. */
       .form-section {
         background: #fff;
         border: 1px solid #e6e8ec;
+        border-left: 4px solid #1e3a5f;
         border-radius: 10px;
-        padding: 20px 22px;
+        padding: 0 22px 20px;
         margin-bottom: 20px;
+        overflow: hidden;
       }
       .form-section-title {
         display: flex;
         align-items: center;
-        gap: 8px;
-        font-size: 14px;
+        gap: 10px;
+        font-size: 13px;
         font-weight: 700;
         color: #1e3a5f !important;
         text-transform: uppercase;
-        letter-spacing: 0.4px;
-        padding-bottom: 10px;
-        margin-bottom: 18px;
-        border-bottom: 2px solid #eef2f7;
+        letter-spacing: 0.5px;
+        padding: 14px 0 14px 0;
+        margin: 0 -22px 20px;
+        background: linear-gradient(90deg, #eef4fb 0%, #f7f9fc 100%);
+        padding-left: 22px;
       }
-      .form-section-title .ti { color: #1976d2 !important; font-size: 17px; }
+      .form-section-title .ti-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #1e3a5f;
+      }
+      .form-section-title .ti-badge .ti { color: #fff !important; font-size: 14px; }
 
       /* Field read-only (diverifikasi admin / tidak bisa diedit dosen) */
       .form-control[readonly], .form-select:disabled, .field-readonly {
@@ -181,19 +194,26 @@
       .card.border-0.bg-light {
         background: #fff !important;
         border: 1px solid #e6e8ec !important;
+        border-left: 4px solid #1976d2 !important;
         border-radius: 10px !important;
+        overflow: hidden;
+      }
+      .card.border-0.bg-light .card-body {
+        padding-top: 0 !important;
       }
       .card.border-0.bg-light .card-body > h6.fw-semibold:first-of-type {
-        font-size: 14px;
+        font-size: 13px;
         text-transform: uppercase;
-        letter-spacing: 0.4px;
-        padding-bottom: 10px;
-        margin-bottom: 18px !important;
-        border-bottom: 2px solid #eef2f7;
+        letter-spacing: 0.5px;
+        padding: 14px 0;
+        margin: 0 -1.25rem 20px !important;
+        padding-left: 1.25rem;
+        background: linear-gradient(90deg, #eaf2fc 0%, #f7f9fc 100%);
       }
       .tab-pane .table-responsive {
         background: #fff;
         border: 1px solid #e6e8ec;
+        border-top: 3px solid #1e3a5f;
         border-radius: 10px;
         padding: 6px;
       }
