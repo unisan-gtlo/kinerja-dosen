@@ -131,6 +131,80 @@
       .btn-outline-secondary:hover .ti { color: #ffffff !important; }
       .btn-outline-info .ti { color: #0dcaf0 !important; }
       .btn-outline-light .ti { color: #ffffff !important; }
+
+      /* Pengelompokan form jadi section card -- dipakai di semua form
+         Profil/Kualifikasi/Kompetensi/Data Kinerja supaya konsisten */
+      .form-section {
+        background: #fff;
+        border: 1px solid #e6e8ec;
+        border-radius: 10px;
+        padding: 20px 22px;
+        margin-bottom: 20px;
+      }
+      .form-section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e3a5f !important;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        padding-bottom: 10px;
+        margin-bottom: 18px;
+        border-bottom: 2px solid #eef2f7;
+      }
+      .form-section-title .ti { color: #1976d2 !important; font-size: 17px; }
+
+      /* Field read-only (diverifikasi admin / tidak bisa diedit dosen) */
+      .form-control[readonly], .form-select:disabled, .field-readonly {
+        background-color: #f4f6f9 !important;
+        color: #6c757d !important;
+        cursor: not-allowed;
+      }
+      .form-label .badge-readonly {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0;
+        color: #94a0b3 !important;
+        background: #eef1f5;
+        border-radius: 4px;
+        padding: 1px 6px;
+        margin-left: 4px;
+      }
+
+      /* Upgrade otomatis kartu "Tambah X" (card.border-0.bg-light) dan tabel
+         data di semua halaman Profil/Kualifikasi/Kompetensi/Data Kinerja
+         supaya konsisten dengan .form-section, tanpa perlu ubah tiap
+         template satu-satu. */
+      .card.border-0.bg-light {
+        background: #fff !important;
+        border: 1px solid #e6e8ec !important;
+        border-radius: 10px !important;
+      }
+      .card.border-0.bg-light .card-body > h6.fw-semibold:first-of-type {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        padding-bottom: 10px;
+        margin-bottom: 18px !important;
+        border-bottom: 2px solid #eef2f7;
+      }
+      .tab-pane .table-responsive {
+        background: #fff;
+        border: 1px solid #e6e8ec;
+        border-radius: 10px;
+        padding: 6px;
+      }
+      .tab-pane .table thead.table-light th {
+        background: #f8f9fb !important;
+        border-bottom: 2px solid #eef2f7 !important;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: #6c7a8f !important;
+      }
   </style>
   {% block extra_css %}{% endblock %}
 </head>

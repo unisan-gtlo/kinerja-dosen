@@ -82,220 +82,234 @@
       {% if target_user != request.user %}
       <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
       {% endif %}
-      <div class="row g-3">
-
-        <!-- Foto -->
-        <div class="col-md-2 text-center">
-          {% if profil and profil.foto %}
-          <img src="{{ profil.foto.url }}" class="rounded-circle mb-2"
-               style="width:80px;height:80px;object-fit:cover">
-          {% else %}
-          <div class="bg-blue-lt rounded-circle d-flex align-items-center justify-content-center mb-2 mx-auto"
-               style="width:80px;height:80px;font-size:28px">
-            <span class="ti ti-user text-blue"></span>
+      <!-- Identitas Diri -->
+      <div class="form-section">
+        <div class="form-section-title"><span class="ti ti-id-badge"></span>Identitas Diri</div>
+        <div class="row g-3">
+          <div class="col-md-2 text-center">
+            {% if profil and profil.foto %}
+            <img src="{{ profil.foto.url }}" class="rounded-circle mb-2"
+                 style="width:80px;height:80px;object-fit:cover">
+            {% else %}
+            <div class="bg-blue-lt rounded-circle d-flex align-items-center justify-content-center mb-2 mx-auto"
+                 style="width:80px;height:80px;font-size:28px">
+              <span class="ti ti-user text-blue"></span>
+            </div>
+            {% endif %}
+            {% if bisa_edit %}
+            <label class="form-label small text-muted">Foto</label>
+            <input type="file" name="foto" class="form-control form-control-sm" accept=".jpg,.jpeg,.png">
+            {% endif %}
           </div>
-          {% endif %}
-          {% if bisa_edit %}
-          <label class="form-label small text-muted">Foto</label>
-          <input type="file" name="foto" class="form-control form-control-sm" accept=".jpg,.jpeg,.png">
-          {% endif %}
-        </div>
-
-        <div class="col-md-10">
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label class="form-label fw-semibold">Gelar Depan</label>
-              <input type="text" name="gelar_depan" class="form-control" placeholder="Dr., Prof."
-                     value="{{ profil.gelar_depan|default:'' }}"
-                     {% if not bisa_edit %}readonly{% endif %}>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">Nama Lengkap (tanpa gelar)</label>
-              <input type="text" name="nama_lengkap" class="form-control" required
-                     value="{{ profil.nama_lengkap|default:'' }}"
-                     {% if not bisa_edit %}readonly{% endif %}>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label fw-semibold">Gelar Belakang</label>
-              <input type="text" name="gelar_belakang" class="form-control" placeholder="M.Si., Ph.D."
-                     value="{{ profil.gelar_belakang|default:'' }}"
-                     {% if not bisa_edit %}readonly{% endif %}>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">NUPTK</label>
-              <input type="text" name="nuptk" class="form-control"
-                     value="{{ profil.nuptk|default:'' }}"
-                     {% if not bisa_edit %}readonly{% endif %}>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">NIK</label>
-              <input type="text" name="nik" class="form-control"
-                     value="{{ profil.nik|default:'' }}"
-                     {% if not bisa_edit %}readonly{% endif %}>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">Email Pribadi</label>
-              <input type="email" name="email_pribadi" class="form-control"
-                     value="{{ profil.email_pribadi|default:'' }}"
-                     {% if not bisa_edit %}readonly{% endif %}>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-semibold">Tempat Lahir</label>
-              <input type="text" name="tempat_lahir" class="form-control"
-                     value="{{ profil.tempat_lahir|default:'' }}"
-                     {% if not bisa_edit %}readonly{% endif %}>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-semibold">Tanggal Lahir</label>
-              <input type="date" name="tgl_lahir" class="form-control"
-                     value="{{ profil.tgl_lahir|date:'Y-m-d'|default:'' }}"
-                     {% if not bisa_edit %}readonly{% endif %}>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-semibold">Jenis Kelamin</label>
-              <select name="jenis_kelamin" class="form-select"
-                      {% if not bisa_edit %}disabled{% endif %}>
-                <option value="">-- Pilih --</option>
-                <option value="L" {% if profil and profil.jenis_kelamin == 'L' %}selected{% endif %}>Laki-laki</option>
-                <option value="P" {% if profil and profil.jenis_kelamin == 'P' %}selected{% endif %}>Perempuan</option>
-              </select>
+          <div class="col-md-10">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label fw-semibold">Gelar Depan</label>
+                <input type="text" name="gelar_depan" class="form-control" placeholder="Dr., Prof."
+                       value="{{ profil.gelar_depan|default:'' }}"
+                       {% if not bisa_edit %}readonly{% endif %}>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Nama Lengkap (tanpa gelar)</label>
+                <input type="text" name="nama_lengkap" class="form-control" required
+                       value="{{ profil.nama_lengkap|default:'' }}"
+                       {% if not bisa_edit %}readonly{% endif %}>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label fw-semibold">Gelar Belakang</label>
+                <input type="text" name="gelar_belakang" class="form-control" placeholder="M.Si., Ph.D."
+                       value="{{ profil.gelar_belakang|default:'' }}"
+                       {% if not bisa_edit %}readonly{% endif %}>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">NUPTK</label>
+                <input type="text" name="nuptk" class="form-control"
+                       value="{{ profil.nuptk|default:'' }}"
+                       {% if not bisa_edit %}readonly{% endif %}>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">NIK</label>
+                <input type="text" name="nik" class="form-control"
+                       value="{{ profil.nik|default:'' }}"
+                       {% if not bisa_edit %}readonly{% endif %}>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Jenis Kelamin</label>
+                <select name="jenis_kelamin" class="form-select"
+                        {% if not bisa_edit %}disabled{% endif %}>
+                  <option value="">-- Pilih --</option>
+                  <option value="L" {% if profil and profil.jenis_kelamin == 'L' %}selected{% endif %}>Laki-laki</option>
+                  <option value="P" {% if profil and profil.jenis_kelamin == 'P' %}selected{% endif %}>Perempuan</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Tempat Lahir</label>
+                <input type="text" name="tempat_lahir" class="form-control"
+                       value="{{ profil.tempat_lahir|default:'' }}"
+                       {% if not bisa_edit %}readonly{% endif %}>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Tanggal Lahir</label>
+                <input type="date" name="tgl_lahir" class="form-control"
+                       value="{{ profil.tgl_lahir|date:'Y-m-d'|default:'' }}"
+                       {% if not bisa_edit %}readonly{% endif %}>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Agama</label>
+                <select name="agama_id" class="form-select" {% if not bisa_edit %}disabled{% endif %}>
+                  <option value="">-- Pilih --</option>
+                  {% for a in agama_list %}
+                  <option value="{{ a.id }}" {% if profil and profil.agama_id == a.id %}selected{% endif %}>{{ a.nama }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Status Pernikahan</label>
+                <select name="status_pernikahan" class="form-select" {% if not bisa_edit %}disabled{% endif %}>
+                  <option value="">-- Pilih --</option>
+                  <option value="Belum Menikah" {% if profil and profil.status_pernikahan == 'Belum Menikah' %}selected{% endif %}>Belum Menikah</option>
+                  <option value="Menikah" {% if profil and profil.status_pernikahan == 'Menikah' %}selected{% endif %}>Menikah</option>
+                  <option value="Duda" {% if profil and profil.status_pernikahan == 'Duda' %}selected{% endif %}>Duda</option>
+                  <option value="Janda" {% if profil and profil.status_pernikahan == 'Janda' %}selected{% endif %}>Janda</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="col-md-4">
-          <label class="form-label fw-semibold">Agama</label>
-          <select name="agama_id" class="form-select" {% if not bisa_edit %}disabled{% endif %}>
-            <option value="">-- Pilih --</option>
-            {% for a in agama_list %}
-            <option value="{{ a.id }}" {% if profil and profil.agama_id == a.id %}selected{% endif %}>{{ a.nama }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label fw-semibold">Status Pernikahan</label>
-          <select name="status_pernikahan" class="form-select" {% if not bisa_edit %}disabled{% endif %}>
-            <option value="">-- Pilih --</option>
-            <option value="Belum Menikah" {% if profil and profil.status_pernikahan == 'Belum Menikah' %}selected{% endif %}>Belum Menikah</option>
-            <option value="Menikah" {% if profil and profil.status_pernikahan == 'Menikah' %}selected{% endif %}>Menikah</option>
-            <option value="Duda" {% if profil and profil.status_pernikahan == 'Duda' %}selected{% endif %}>Duda</option>
-            <option value="Janda" {% if profil and profil.status_pernikahan == 'Janda' %}selected{% endif %}>Janda</option>
-          </select>
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label fw-semibold">Jabfung Aktif <small class="text-muted">(diverifikasi admin)</small></label>
-          <input type="text" class="form-control" readonly value="{{ profil.jabatan_fungsional_nama|default:'-' }}">
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label fw-semibold">Pendidikan Terakhir <small class="text-muted">(diverifikasi admin)</small></label>
-          <input type="text" class="form-control" readonly value="{{ profil.pendidikan_terakhir|default:'-' }}">
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label fw-semibold">No. HP</label>
-          <input type="text" name="no_hp" class="form-control"
-                 value="{{ profil.no_hp|default:'' }}"
-                 {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label fw-semibold">Kode Pos</label>
-          <input type="text" name="kode_pos" class="form-control"
-                 value="{{ profil.kode_pos|default:'' }}"
-                 {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-
-        <div class="col-12">
-          <label class="form-label fw-semibold">Alamat</label>
-          <textarea name="alamat_domisili" class="form-control" rows="2"
-                    {% if not bisa_edit %}readonly{% endif %}>{{ profil.alamat_domisili|default:'' }}</textarea>
-        </div>
-
-        <div class="col-12"><hr><p class="text-muted fw-semibold mb-2">Identitas Akademik & Riset</p></div>
-
-        <div class="col-md-3">
-          <label class="form-label fw-semibold">ID SINTA</label>
-          <input type="text" name="id_sinta" class="form-control"
-                 value="{{ profil.id_sinta|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label fw-semibold">Scopus Author ID</label>
-          <input type="text" name="id_scopus" class="form-control"
-                 value="{{ profil.id_scopus|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label fw-semibold">Google Scholar ID</label>
-          <input type="text" name="id_google_scholar" class="form-control"
-                 value="{{ profil.id_google_scholar|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label fw-semibold">ORCID</label>
-          <input type="text" name="orcid" class="form-control" placeholder="0000-0000-0000-0000"
-                 value="{{ profil.orcid|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label fw-semibold">ID Garuda</label>
-          <input type="text" name="id_garuda" class="form-control"
-                 value="{{ profil.id_garuda|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label fw-semibold">H-Index SINTA</label>
-          <input type="number" name="h_index_sinta" class="form-control"
-                 value="{{ profil.h_index_sinta|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label fw-semibold">H-Index Scopus</label>
-          <input type="number" name="h_index_scopus" class="form-control"
-                 value="{{ profil.h_index_scopus|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label fw-semibold">NIRA</label>
-          <input type="text" name="nira" class="form-control"
-                 value="{{ profil.nira|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-        <div class="col-12">
-          <label class="form-label fw-semibold">Minat Penelitian</label>
-          <textarea name="minat_penelitian" class="form-control" rows="2"
-                    {% if not bisa_edit %}readonly{% endif %}>{{ profil.minat_penelitian|default:'' }}</textarea>
-        </div>
-
-        <div class="col-12"><hr><p class="text-muted fw-semibold mb-2">Upload Dokumen Identitas</p></div>
-
-        <div class="col-md-4">
-          <label class="form-label fw-semibold">NPWP (Nomor)</label>
-          <input type="text" name="npwp" class="form-control"
-                 value="{{ profil.npwp|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
-        </div>
-
-        <div class="col-md-3">
-          <label class="form-label fw-semibold">KTP</label>
-          {% if profil and profil.file_ktp %}
-          <div class="mb-1">
-            <a href="{{ profil.file_ktp.url }}" target="_blank" class="btn btn-sm btn-outline-success">
-              <span class="ti ti-eye me-1"></span>Lihat KTP
-            </a>
+      <!-- Status Akademik (diverifikasi admin) -->
+      <div class="form-section">
+        <div class="form-section-title"><span class="ti ti-school"></span>Status Akademik</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Jabfung Aktif <span class="badge-readonly"><span class="ti ti-lock ti-xs"></span> diverifikasi admin</span></label>
+            <input type="text" class="form-control" readonly value="{{ profil.jabatan_fungsional_nama|default:'-' }}">
           </div>
-          {% endif %}
-          {% if bisa_edit %}
-          <input type="file" name="file_ktp" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-          {% endif %}
-        </div>
-
-        <div class="col-md-3">
-          <label class="form-label fw-semibold">File NPWP</label>
-          {% if profil and profil.file_npwp %}
-          <div class="mb-1">
-            <a href="{{ profil.file_npwp.url }}" target="_blank" class="btn btn-sm btn-outline-success">
-              <span class="ti ti-eye me-1"></span>Lihat NPWP
-            </a>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Pendidikan Terakhir <span class="badge-readonly"><span class="ti ti-lock ti-xs"></span> diverifikasi admin</span></label>
+            <input type="text" class="form-control" readonly value="{{ profil.pendidikan_terakhir|default:'-' }}">
           </div>
-          {% endif %}
-          {% if bisa_edit %}
-          <input type="file" name="file_npwp" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-          {% endif %}
+        </div>
+      </div>
+
+      <!-- Kontak & Alamat -->
+      <div class="form-section">
+        <div class="form-section-title"><span class="ti ti-phone"></span>Kontak & Alamat</div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Email Pribadi</label>
+            <input type="email" name="email_pribadi" class="form-control"
+                   value="{{ profil.email_pribadi|default:'' }}"
+                   {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">No. HP</label>
+            <input type="text" name="no_hp" class="form-control"
+                   value="{{ profil.no_hp|default:'' }}"
+                   {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Kode Pos</label>
+            <input type="text" name="kode_pos" class="form-control"
+                   value="{{ profil.kode_pos|default:'' }}"
+                   {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Alamat</label>
+            <textarea name="alamat_domisili" class="form-control" rows="2"
+                      {% if not bisa_edit %}readonly{% endif %}>{{ profil.alamat_domisili|default:'' }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Identitas Akademik & Riset -->
+      <div class="form-section">
+        <div class="form-section-title"><span class="ti ti-flask"></span>Identitas Akademik & Riset</div>
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">ID SINTA</label>
+            <input type="text" name="id_sinta" class="form-control"
+                   value="{{ profil.id_sinta|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Scopus Author ID</label>
+            <input type="text" name="id_scopus" class="form-control"
+                   value="{{ profil.id_scopus|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Google Scholar ID</label>
+            <input type="text" name="id_google_scholar" class="form-control"
+                   value="{{ profil.id_google_scholar|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">ORCID</label>
+            <input type="text" name="orcid" class="form-control" placeholder="0000-0000-0000-0000"
+                   value="{{ profil.orcid|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">ID Garuda</label>
+            <input type="text" name="id_garuda" class="form-control"
+                   value="{{ profil.id_garuda|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">H-Index SINTA</label>
+            <input type="number" name="h_index_sinta" class="form-control"
+                   value="{{ profil.h_index_sinta|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">H-Index Scopus</label>
+            <input type="number" name="h_index_scopus" class="form-control"
+                   value="{{ profil.h_index_scopus|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">NIRA</label>
+            <input type="text" name="nira" class="form-control"
+                   value="{{ profil.nira|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Minat Penelitian</label>
+            <textarea name="minat_penelitian" class="form-control" rows="2"
+                      {% if not bisa_edit %}readonly{% endif %}>{{ profil.minat_penelitian|default:'' }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dokumen Identitas -->
+      <div class="form-section">
+        <div class="form-section-title"><span class="ti ti-files"></span>Dokumen Identitas</div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">NPWP (Nomor)</label>
+            <input type="text" name="npwp" class="form-control"
+                   value="{{ profil.npwp|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">KTP</label>
+            {% if profil and profil.file_ktp %}
+            <div class="mb-1">
+              <a href="{{ profil.file_ktp.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-eye me-1"></span>Lihat KTP
+              </a>
+            </div>
+            {% endif %}
+            {% if bisa_edit %}
+            <input type="file" name="file_ktp" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            {% endif %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">File NPWP</label>
+            {% if profil and profil.file_npwp %}
+            <div class="mb-1">
+              <a href="{{ profil.file_npwp.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-eye me-1"></span>Lihat NPWP
+              </a>
+            </div>
+            {% endif %}
+            {% if bisa_edit %}
+            <input type="file" name="file_npwp" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            {% endif %}
+          </div>
         </div>
       </div>
 
