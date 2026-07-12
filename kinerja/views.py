@@ -527,10 +527,21 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
     else:
         pemilik = kinerja_obj.user
 
-    # Cek kepemilikan
-    if pemilik != user and user.role not in ['admin', 'operator']:
-        messages.error(request, 'Anda tidak memiliki akses.')
-        return redirect(_kembali_url(jenis_kinerja))
+    # bisa_kelola = boleh tambah/edit/hapus dokumen (pemilik asli/admin saja).
+    # Selain itu, dosen yang jadi Penulis Dosen (co-author) di Bahan Ajar
+    # boleh LIHAT saja -- lihat _is_co_penulis_bahan_ajar di bawah.
+    bisa_kelola = (pemilik == user or user.role in ['admin', 'operator'])
+
+    if not bisa_kelola:
+        boleh_lihat = False
+        if jenis_kinerja == 'bahan_ajar':
+            dosen = get_simda_dosen_or_none(user)
+            boleh_lihat = dosen and kinerja_obj.penulis_set.filter(
+                jenis_penulis='dosen', dosen_id=dosen.id
+            ).exists()
+        if not boleh_lihat:
+            messages.error(request, 'Anda tidak memiliki akses.')
+            return redirect(_kembali_url(jenis_kinerja))
 
     dokumen_list = DokumenKinerja.objects.filter(
         user=pemilik,
@@ -539,6 +550,10 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
     ).order_by('jenis_dokumen')
 
     if request.method == 'POST':
+        if not bisa_kelola:
+            messages.error(request, 'Anda tidak memiliki akses untuk mengubah dokumen ini.')
+            return redirect('kinerja:kelola_dokumen', jenis_kinerja=jenis_kinerja, kinerja_id=kinerja_id)
+
         aksi = request.POST.get('aksi')
 
         if aksi == 'tambah':
@@ -636,6 +651,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         'dokumen_list': dokumen_list,
         'jenis_dokumen_choices': DokumenKinerja.JENIS_DOKUMEN,
         'kembali_url': _kembali_url(jenis_kinerja),
+        'bisa_kelola': bisa_kelola,
     }
     return render(request, 'kinerja/kelola_dokumen.html', context)
 

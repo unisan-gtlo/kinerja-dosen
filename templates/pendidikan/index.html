@@ -477,7 +477,10 @@
         <tbody>
           {% for o in bahan_ajar_list %}
           <tr>
-            <td style="max-width:220px">{{ o.judul|truncatechars:50 }}</td>
+            <td style="max-width:220px">
+              {{ o.judul|truncatechars:50 }}
+              {% if o.co_penulis %}<br><span class="badge bg-orange-lt text-orange mt-1">Co-Penulis</span>{% endif %}
+            </td>
             <td><span class="badge bg-purple-lt text-purple">{{ o.get_jenis_bahan_ajar_display }}</span></td>
             <td>{{ o.tahun_terbit }}</td>
             <td>{{ o.penerbit|default:'-' }}</td>
@@ -485,7 +488,7 @@
             <td><a href="{% url 'kinerja:kelola_dokumen' 'bahan_ajar' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
             <td>
               <div class="d-flex gap-1">
-                {% if bisa_edit %}
+                {% if bisa_edit and not o.co_penulis %}
                 <button class="btn btn-sm btn-outline-primary" onclick="editBahanAjarFromBtn(this)"
                   data-obj='{"id":{{ o.id }},"jenis_bahan_ajar":"{{ o.jenis_bahan_ajar }}","judul":"{{ o.judul|escapejs }}","isbn":"{{ o.isbn|default:""|escapejs }}","penerbit":"{{ o.penerbit|default:""|escapejs }}","tahun_terbit":"{{ o.tahun_terbit }}","jumlah_halaman":"{{ o.jumlah_halaman|default:"" }}","semester":"{{ o.semester|default:"" }}","tahun_akademik":"{{ o.tahun_akademik|default:"" }}"}'>
                   <span class="ti ti-edit"></span>
@@ -493,6 +496,8 @@
                 <form method="post" action="{% url 'pendidikan:hapus_bahan_ajar' o.id %}" onsubmit="return confirm('Hapus data bahan ajar ini?')">
                   {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
                 </form>
+                {% elif o.co_penulis %}
+                <span class="text-muted small">Milik {{ o.user.get_full_name|default:o.user.username }}</span>
                 {% endif %}
               </div>
             </td>

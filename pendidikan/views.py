@@ -6,6 +6,7 @@ from django.db.models import Q
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import MataKuliahPublik, MahasiswaPublik, ProdiPublik, DataDosen
+from simda_dosen.utils import get_simda_dosen_or_none
 from kinerja.utils import attach_dokumen_count
 from .models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
@@ -65,6 +66,30 @@ def _attach_dokumen_count(page_obj, jenis_kinerja):
     return page_obj
 
 
+def _bahan_ajar_queryset(target_user):
+    """Bahan Ajar milik target_user sendiri, ditambah Bahan Ajar milik dosen
+    lain yang mencantumkan target_user sebagai Penulis Dosen (co-author) --
+    supaya karya bersama ikut terhitung kinerja semua dosen penulisnya.
+    Mahasiswa co-author sengaja tidak diberi perlakuan sama (tidak punya
+    akun kinerja di SIKD)."""
+    qs = BahanAjar.objects.filter(user=target_user)
+    dosen = get_simda_dosen_or_none(target_user)
+    if dosen:
+        qs = qs | BahanAjar.objects.filter(
+            penulis_set__jenis_penulis='dosen', penulis_set__dosen_id=dosen.id
+        )
+    return qs.select_related('user').distinct()
+
+
+def _attach_bahan_ajar_extras(page_obj, target_user):
+    """Tandai baris yang muncul karena co-authorship (bukan input sendiri)
+    supaya template bisa kasih badge & sembunyikan tombol Edit/Hapus --
+    hanya pemilik asli yang boleh ubah/hapus data intinya."""
+    for o in page_obj.object_list:
+        o.co_penulis = (o.user_id != target_user.id)
+    return page_obj
+
+
 @login_required
 def index(request):
     user = request.user
@@ -108,7 +133,10 @@ def index(request):
         'pengajaran_list': _attach_dokumen_count(_paginate(request, pengajaran_qs, 'page_peng', per_page), 'pengajaran'),
         'bimbingan_list': _attach_dokumen_count(_paginate(request, bimbingan_qs, 'page_bim', per_page), 'bimbingan_mahasiswa'),
         'pengujian_list': _attach_dokumen_count(_paginate(request, pengujian_qs, 'page_uji', per_page), 'pengujian_mahasiswa'),
-        'bahan_ajar_list': _attach_dokumen_count(_paginate(request, target_user.bahan_ajar_set.all(), 'page_ba', per_page), 'bahan_ajar'),
+        'bahan_ajar_list': _attach_dokumen_count(
+            _attach_bahan_ajar_extras(_paginate(request, _bahan_ajar_queryset(target_user), 'page_ba', per_page), target_user),
+            'bahan_ajar'
+        ),
         'pembinaan_mahasiswa_list': _attach_dokumen_count(_paginate(request, pembinaan_qs, 'page_pm', per_page), 'pembinaan_mahasiswa'),
         'orasi_ilmiah_list': _attach_dokumen_count(_paginate(request, target_user.orasi_ilmiah_set.all(), 'page_oi', per_page), 'orasi_ilmiah'),
         'tugas_tambahan_list': _attach_dokumen_count(_paginate(request, target_user.tugas_tambahan_set.all(), 'page_tt', per_page), 'tugas_tambahan'),
@@ -425,9 +453,16 @@ def kelola_penulis(request, bahan_ajar_id):
     user = request.user
     bisa_edit = (user == bahan_ajar.user or user.role in ['admin', 'operator']) and cek_status_input()
 
+    # Selain pemilik asli/admin, dosen yang jadi Penulis Dosen (co-author)
+    # di record ini boleh LIHAT saja (bisa_edit tetap False untuk mereka).
     if bahan_ajar.user != user and user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        dosen = get_simda_dosen_or_none(user)
+        is_co_penulis = dosen and bahan_ajar.penulis_set.filter(
+            jenis_penulis='dosen', dosen_id=dosen.id
+        ).exists()
+        if not is_co_penulis:
+            messages.error(request, 'Tidak memiliki akses.')
+            return redirect('pendidikan:index')
 
     if request.method == 'POST':
         aksi = request.POST.get('aksi')
