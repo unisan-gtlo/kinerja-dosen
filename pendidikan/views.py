@@ -2,10 +2,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Count
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import MataKuliahPublik, MahasiswaPublik, ProdiPublik, DataDosen
+from kinerja.models import DokumenKinerja
 from .models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
     PenulisBahanAjar, PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
@@ -57,6 +58,20 @@ def _paginate(request, qs, page_param, per_page):
     return paginator.get_page(request.GET.get(page_param, 1))
 
 
+def _attach_dokumen_count(page_obj, jenis_kinerja):
+    """Nempelin .jumlah_dokumen ke tiap objek di halaman ini saja (bukan
+    seluruh data) supaya query tetap ringan biar berapa pun banyaknya
+    data lama yang menumpuk."""
+    ids = [o.id for o in page_obj.object_list]
+    counts = dict(
+        DokumenKinerja.objects.filter(jenis_kinerja=jenis_kinerja, kinerja_id__in=ids)
+        .values('kinerja_id').annotate(n=Count('id')).values_list('kinerja_id', 'n')
+    )
+    for o in page_obj.object_list:
+        o.jumlah_dokumen = counts.get(o.id, 0)
+    return page_obj
+
+
 @login_required
 def index(request):
     user = request.user
@@ -97,13 +112,13 @@ def index(request):
         'periode_bim': periode_bim,
         'periode_uji': periode_uji,
         'periode_pm': periode_pm,
-        'pengajaran_list': _paginate(request, pengajaran_qs, 'page_peng', per_page),
-        'bimbingan_list': _paginate(request, bimbingan_qs, 'page_bim', per_page),
-        'pengujian_list': _paginate(request, pengujian_qs, 'page_uji', per_page),
-        'bahan_ajar_list': _paginate(request, target_user.bahan_ajar_set.all(), 'page_ba', per_page),
-        'pembinaan_mahasiswa_list': _paginate(request, pembinaan_qs, 'page_pm', per_page),
-        'orasi_ilmiah_list': _paginate(request, target_user.orasi_ilmiah_set.all(), 'page_oi', per_page),
-        'tugas_tambahan_list': _paginate(request, target_user.tugas_tambahan_set.all(), 'page_tt', per_page),
+        'pengajaran_list': _attach_dokumen_count(_paginate(request, pengajaran_qs, 'page_peng', per_page), 'pengajaran'),
+        'bimbingan_list': _attach_dokumen_count(_paginate(request, bimbingan_qs, 'page_bim', per_page), 'bimbingan_mahasiswa'),
+        'pengujian_list': _attach_dokumen_count(_paginate(request, pengujian_qs, 'page_uji', per_page), 'pengujian_mahasiswa'),
+        'bahan_ajar_list': _attach_dokumen_count(_paginate(request, target_user.bahan_ajar_set.all(), 'page_ba', per_page), 'bahan_ajar'),
+        'pembinaan_mahasiswa_list': _attach_dokumen_count(_paginate(request, pembinaan_qs, 'page_pm', per_page), 'pembinaan_mahasiswa'),
+        'orasi_ilmiah_list': _attach_dokumen_count(_paginate(request, target_user.orasi_ilmiah_set.all(), 'page_oi', per_page), 'orasi_ilmiah'),
+        'tugas_tambahan_list': _attach_dokumen_count(_paginate(request, target_user.tugas_tambahan_set.all(), 'page_tt', per_page), 'tugas_tambahan'),
     }
     return render(request, 'pendidikan/index.html', context)
 

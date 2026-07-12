@@ -138,7 +138,7 @@
             <td>{{ o.sks_total|default:'-' }}</td>
             <td>{{ o.jumlah_mahasiswa }}</td>
             <td>{{ o.periode }}</td>
-            <td><a href="{% url 'kinerja:kelola_dokumen' 'pengajaran' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'pengajaran' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
             <td>
               <div class="d-flex gap-1">
                 <button class="btn btn-sm btn-outline-info" onclick="infoPengajaranFromBtn(this)" data-obj='{"kode_mk":"{{ o.kode_mk|escapejs }}","nama_mk":"{{ o.nama_mk|escapejs }}","jenis_mk":"{{ o.jenis_mk|default:""|escapejs }}","sks_total":"{{ o.sks_total|default:"-" }}","nama_kelas":"{{ o.nama_kelas|default:""|escapejs }}","prodi_mengajar_kode":"{{ o.prodi_mengajar_kode|escapejs }}","jumlah_pertemuan":"{{ o.jumlah_pertemuan|default:"-" }}","jumlah_mahasiswa":"{{ o.jumlah_mahasiswa }}","no_sk_penugasan":"{{ o.no_sk_penugasan|default:"-"|escapejs }}","tanggal_sk_penugasan":"{{ o.tanggal_sk_penugasan|date:'d/m/Y'|default:"-" }}"}'>
@@ -262,7 +262,7 @@
             <td style="max-width:220px">{{ o.judul_bimbingan|truncatechars:50 }}</td>
             <td>{{ o.get_kategori_display }}</td>
             <td>{{ o.periode }}</td>
-            <td><a href="{% url 'kinerja:kelola_dokumen' 'bimbingan_mahasiswa' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'bimbingan_mahasiswa' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
             <td>
               <div class="d-flex gap-1">
                 <button class="btn btn-sm btn-outline-info" onclick="infoBimbinganFromBtn(this)"
@@ -378,7 +378,7 @@
             <td style="max-width:220px">{{ o.judul_pengujian|truncatechars:50 }}</td>
             <td>{{ o.get_kategori_display }}</td>
             <td>{{ o.periode }}</td>
-            <td><a href="{% url 'kinerja:kelola_dokumen' 'pengujian_mahasiswa' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'pengujian_mahasiswa' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
             <td>
               <div class="d-flex gap-1">
                 <button class="btn btn-sm btn-outline-info" onclick="infoPengujianFromBtn(this)"
@@ -482,7 +482,7 @@
             <td>{{ o.tahun_terbit }}</td>
             <td>{{ o.penerbit|default:'-' }}</td>
             <td><a href="{% url 'pendidikan:kelola_penulis' o.id %}" class="btn btn-sm btn-outline-secondary"><span class="ti ti-users me-1"></span>Penulis ({{ o.penulis_set.count }})</a></td>
-            <td><a href="{% url 'kinerja:kelola_dokumen' 'bahan_ajar' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'bahan_ajar' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
             <td>
               <div class="d-flex gap-1">
                 {% if bisa_edit %}
@@ -585,7 +585,7 @@
             <td>{{ o.get_jenis_kegiatan_display }}</td>
             <td>{{ o.get_tingkat_display|default:'-' }}</td>
             <td>{{ o.tahun }}</td>
-            <td><a href="{% url 'kinerja:kelola_dokumen' 'pembinaan_mahasiswa' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'pembinaan_mahasiswa' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
             <td>
               <div class="d-flex gap-1">
                 {% if bisa_edit %}
@@ -673,7 +673,7 @@
             <td>{{ o.penyelenggara|default:'-' }}</td>
             <td>{{ o.get_tingkat_display|default:'-' }}</td>
             <td>{{ o.tanggal|date:'d/m/Y' }}</td>
-            <td><a href="{% url 'kinerja:kelola_dokumen' 'orasi_ilmiah' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'orasi_ilmiah' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
             <td>
               <div class="d-flex gap-1">
                 {% if bisa_edit %}
@@ -763,7 +763,7 @@
             <td>{{ o.no_sk|default:'-' }}</td>
             <td>{{ o.tanggal_mulai|date:'d/m/Y' }}</td>
             <td>{% if o.masih_menjabat %}<span class="badge bg-green-lt">Masih Menjabat</span>{% else %}{{ o.tanggal_selesai|date:'d/m/Y' }}{% endif %}</td>
-            <td><a href="{% url 'kinerja:kelola_dokumen' 'tugas_tambahan' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'tugas_tambahan' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
             <td>
               <div class="d-flex gap-1">
                 {% if bisa_edit %}

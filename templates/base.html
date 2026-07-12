@@ -21,9 +21,15 @@
     .user-prodi { color: rgba(255,255,255,0.45) !important; font-size: 10px; }
 
     /* Tab navigasi */
-    .nav-tabs .nav-link { color: #1e3a5f !important; font-weight: 500; }
-    .nav-tabs .nav-link:hover { color: #1565c0 !important; }
-    .nav-tabs .nav-link.active { color: #1e3a5f !important; font-weight: 600; }
+    .nav-tabs .nav-link { color: #1e3a5f !important; font-weight: 500; border-bottom: 3px solid transparent; }
+    .nav-tabs .nav-link:hover { color: #1565c0 !important; background-color: #f1f5fb !important; }
+    .nav-tabs .nav-link.active {
+      color: #1e3a5f !important;
+      font-weight: 700;
+      background-color: #e8f0fe !important;
+      border-bottom: 3px solid #1e3a5f !important;
+    }
+    .nav-tabs .nav-link.active .badge { background-color: #1e3a5f !important; color: #fff !important; }
     .nav-tabs .nav-link .badge { background-color: #dbeafe !important; color: #1e3a5f !important; }
 
     /* Tombol */
