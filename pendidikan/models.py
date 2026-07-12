@@ -233,6 +233,7 @@ class PenulisBahanAjar(models.Model):
 
 class PembinaanMahasiswa(models.Model):
     JENIS_KEGIATAN = [
+        ('penasehat_akademik', 'Penasehat Akademik'),
         ('pembina_ukm', 'Pembina UKM'),
         ('pembina_ormawa', 'Pembina Ormawa'),
         ('pembina_kompetisi', 'Pembina Kompetisi Mahasiswa'),

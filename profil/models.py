@@ -186,6 +186,8 @@ def upload_diklat(instance, filename):
 class Diklat(models.Model):
     """Kategori Kualifikasi > Diklat, field mengikuti form SISTER (Menu Diklat.docx)."""
     JENIS_DIKLAT = [
+        ('aa', 'AA (Applied Approach)'),
+        ('pekerti', 'Pekerti'),
         ('pelatihan_profesional', 'Pelatihan Profesional'),
         ('lemhanas', 'Lemhanas'),
         ('diklat_prajabatan', 'Diklat Prajabatan'),
