@@ -19,7 +19,7 @@
   <li class="nav-item">
     <a class="nav-link active" data-bs-toggle="tab" href="#tab-diklat">
       <span class="ti ti-certificate me-1"></span>Diklat
-      <span class="badge bg-blue-lt ms-1">{{ diklat_list.count }}</span>
+      <span class="badge bg-blue-lt ms-1">{{ diklat_list|length }}</span>
     </a>
   </li>
 </ul>
@@ -157,7 +157,7 @@
             <td>
               <a href="{% url 'kinerja:kelola_dokumen' 'diklat' d.id %}"
                  class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen
+                <span class="ti ti-files me-1"></span>Dokumen ({{ d.jumlah_dokumen }})
               </a>
             </td>
             <td>

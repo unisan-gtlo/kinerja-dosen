@@ -19,13 +19,13 @@
   <li class="nav-item">
     <a class="nav-link active" data-bs-toggle="tab" href="#tab-sertifikasi">
       <span class="ti ti-certificate me-1"></span>Sertifikasi
-      <span class="badge bg-blue-lt ms-1">{{ sertifikasi_list.count }}</span>
+      <span class="badge bg-blue-lt ms-1">{{ sertifikasi_list|length }}</span>
     </a>
   </li>
   <li class="nav-item">
     <a class="nav-link" data-bs-toggle="tab" href="#tab-tes">
       <span class="ti ti-report-analytics me-1"></span>Tes
-      <span class="badge bg-blue-lt ms-1">{{ tes_list.count }}</span>
+      <span class="badge bg-blue-lt ms-1">{{ tes_list|length }}</span>
     </a>
   </li>
 </ul>
@@ -147,7 +147,7 @@
             <td>
               <a href="{% url 'kinerja:kelola_dokumen' 'sertifikasi' s.id %}"
                  class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen
+                <span class="ti ti-files me-1"></span>Dokumen ({{ s.jumlah_dokumen }})
               </a>
             </td>
             <td>
@@ -291,7 +291,7 @@
             <td>
               <a href="{% url 'kinerja:kelola_dokumen' 'tes' t.id %}"
                  class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen
+                <span class="ti ti-files me-1"></span>Dokumen ({{ t.jumlah_dokumen }})
               </a>
             </td>
             <td>

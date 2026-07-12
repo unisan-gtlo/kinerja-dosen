@@ -8,6 +8,7 @@ from simda_dosen.models import (
     AgamaPublik, JabatanFungsionalPublik,
 )
 from simda_dosen.utils import get_simda_dosen_or_none
+from kinerja.utils import attach_dokumen_count
 from .models import DokumenLain, Diklat, Sertifikasi, TesKompetensi
 
 def cek_status_input():
@@ -266,7 +267,7 @@ def kualifikasi_index(request):
         'tahun_list': tahun_list,
         'bisa_edit': bisa_edit,
         'input_terbuka': input_terbuka,
-        'diklat_list': diklat_list,
+        'diklat_list': attach_dokumen_count(diklat_list, 'diklat'),
     }
     return render(request, 'profil/kualifikasi.html', context)
 
@@ -374,8 +375,8 @@ def kompetensi_index(request):
         'bisa_edit': bisa_edit,
         'bisa_validasi': bisa_validasi,
         'input_terbuka': input_terbuka,
-        'sertifikasi_list': target_user.sertifikasi_set.all(),
-        'tes_list': target_user.tes_set.all(),
+        'sertifikasi_list': attach_dokumen_count(target_user.sertifikasi_set.all(), 'sertifikasi'),
+        'tes_list': attach_dokumen_count(target_user.tes_set.all(), 'tes'),
     }
     return render(request, 'profil/kompetensi.html', context)
 

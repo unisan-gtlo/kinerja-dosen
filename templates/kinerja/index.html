@@ -77,37 +77,37 @@
   <li class="nav-item">
     <a class="nav-link active" data-bs-toggle="tab" href="#tab-penelitian">
       <span class="ti ti-microscope me-1"></span>Penelitian
-      <span class="badge bg-blue-lt ms-1">{{ penelitian_list.count }}</span>
+      <span class="badge bg-blue-lt ms-1">{{ penelitian_list|length }}</span>
     </a>
   </li>
   <li class="nav-item">
     <a class="nav-link" data-bs-toggle="tab" href="#tab-publikasi">
       <span class="ti ti-book me-1"></span>Publikasi
-      <span class="badge bg-blue-lt ms-1">{{ publikasi_list.count }}</span>
+      <span class="badge bg-blue-lt ms-1">{{ publikasi_list|length }}</span>
     </a>
   </li>
   <li class="nav-item">
     <a class="nav-link" data-bs-toggle="tab" href="#tab-pkm">
       <span class="ti ti-hearts me-1"></span>PKM
-      <span class="badge bg-blue-lt ms-1">{{ pkm_list.count }}</span>
+      <span class="badge bg-blue-lt ms-1">{{ pkm_list|length }}</span>
     </a>
   </li>
   <li class="nav-item">
     <a class="nav-link" data-bs-toggle="tab" href="#tab-hki">
       <span class="ti ti-shield-check me-1"></span>HKI
-      <span class="badge bg-blue-lt ms-1">{{ hki_list.count }}</span>
+      <span class="badge bg-blue-lt ms-1">{{ hki_list|length }}</span>
     </a>
   </li>
   <li class="nav-item">
     <a class="nav-link" data-bs-toggle="tab" href="#tab-penghargaan">
       <span class="ti ti-award me-1"></span>Penghargaan
-      <span class="badge bg-blue-lt ms-1">{{ penghargaan_list.count }}</span>
+      <span class="badge bg-blue-lt ms-1">{{ penghargaan_list|length }}</span>
     </a>
   </li>
   <li class="nav-item">
     <a class="nav-link" data-bs-toggle="tab" href="#tab-penunjang">
       <span class="ti ti-puzzle me-1"></span>Kegiatan Penunjang
-      <span class="badge bg-blue-lt ms-1">{{ penunjang_list.count }}</span>
+      <span class="badge bg-blue-lt ms-1">{{ penunjang_list|length }}</span>
     </a>
   </li>
 </ul>
@@ -223,7 +223,7 @@
             <td>
               <a href="{% url 'kinerja:kelola_dokumen' 'penelitian' p.id %}"
                  class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen
+                <span class="ti ti-files me-1"></span>Dokumen ({{ p.jumlah_dokumen }})
               </a>
             </td>
             <td>
@@ -366,7 +366,7 @@
             <td>
               <a href="{% url 'kinerja:kelola_dokumen' 'publikasi' p.id %}"
                  class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen
+                <span class="ti ti-files me-1"></span>Dokumen ({{ p.jumlah_dokumen }})
               </a>
             </td>
             <td>
@@ -509,7 +509,7 @@
             <td>
               <a href="{% url 'kinerja:kelola_dokumen' 'pkm' p.id %}"
                  class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen
+                <span class="ti ti-files me-1"></span>Dokumen ({{ p.jumlah_dokumen }})
               </a>
             </td>
             <td>
@@ -641,7 +641,7 @@
             <td>
               <a href="{% url 'kinerja:kelola_dokumen' 'hki' h.id %}"
                  class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen
+                <span class="ti ti-files me-1"></span>Dokumen ({{ h.jumlah_dokumen }})
               </a>
             </td>
             <td>
@@ -769,7 +769,7 @@
             <td>
               <a href="{% url 'kinerja:kelola_dokumen' 'penghargaan' p.id %}"
                  class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen
+                <span class="ti ti-files me-1"></span>Dokumen ({{ p.jumlah_dokumen }})
               </a>
             </td>
             <td>
@@ -919,7 +919,7 @@
             <td>
               <a href="{% url 'kinerja:kelola_dokumen' 'penunjang' k.id %}"
                  class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen
+                <span class="ti ti-files me-1"></span>Dokumen ({{ k.jumlah_dokumen }})
               </a>
             </td>
             <td>

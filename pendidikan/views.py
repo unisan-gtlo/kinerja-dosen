@@ -2,11 +2,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q, Count
+from django.db.models import Q
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import MataKuliahPublik, MahasiswaPublik, ProdiPublik, DataDosen
-from kinerja.models import DokumenKinerja
+from kinerja.utils import attach_dokumen_count
 from .models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
     PenulisBahanAjar, PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
@@ -59,16 +59,9 @@ def _paginate(request, qs, page_param, per_page):
 
 
 def _attach_dokumen_count(page_obj, jenis_kinerja):
-    """Nempelin .jumlah_dokumen ke tiap objek di halaman ini saja (bukan
-    seluruh data) supaya query tetap ringan biar berapa pun banyaknya
-    data lama yang menumpuk."""
-    ids = [o.id for o in page_obj.object_list]
-    counts = dict(
-        DokumenKinerja.objects.filter(jenis_kinerja=jenis_kinerja, kinerja_id__in=ids)
-        .values('kinerja_id').annotate(n=Count('id')).values_list('kinerja_id', 'n')
-    )
-    for o in page_obj.object_list:
-        o.jumlah_dokumen = counts.get(o.id, 0)
+    """Nempelin .jumlah_dokumen ke objek di halaman ini saja (bukan seluruh
+    data) supaya query tetap ringan biar berapa pun banyaknya data lama."""
+    attach_dokumen_count(page_obj.object_list, jenis_kinerja)
     return page_obj
 
 

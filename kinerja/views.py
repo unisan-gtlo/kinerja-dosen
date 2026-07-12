@@ -11,6 +11,7 @@ from pendidikan.models import (
     PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
 )
 from .models import Penelitian, Publikasi, PKM, HKI, Penghargaan, KegiatanPenunjang, DokumenKinerja
+from .utils import attach_dokumen_count
 
 def cek_status_input():
     try:
@@ -66,12 +67,12 @@ def index(request):
         'input_terbuka': input_terbuka,
         'filter_tahun': filter_tahun,
         'filter_semester': filter_semester,
-        'penelitian_list': penelitian_list,
-        'publikasi_list': publikasi_list,
-        'pkm_list': pkm_list,
-        'hki_list': hki_list,
-        'penghargaan_list': penghargaan_list,
-        'penunjang_list': penunjang_list,
+        'penelitian_list': attach_dokumen_count(penelitian_list, 'penelitian'),
+        'publikasi_list': attach_dokumen_count(publikasi_list, 'publikasi'),
+        'pkm_list': attach_dokumen_count(pkm_list, 'pkm'),
+        'hki_list': attach_dokumen_count(hki_list, 'hki'),
+        'penghargaan_list': attach_dokumen_count(penghargaan_list, 'penghargaan'),
+        'penunjang_list': attach_dokumen_count(penunjang_list, 'penunjang'),
     }
     return render(request, 'kinerja/index.html', context)
 
@@ -108,7 +109,7 @@ def bkd_index(request):
         'input_terbuka': input_terbuka,
         'filter_tahun': filter_tahun,
         'filter_semester': filter_semester,
-        'bkd_list': bkd_list,
+        'bkd_list': attach_dokumen_count(bkd_list, 'bkd'),
     }
     return render(request, 'kinerja/bkd.html', context)
 
