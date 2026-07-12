@@ -15,21 +15,31 @@
 </div>
 {% endif %}
 
+<div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+  <label class="form-label mb-0 small text-muted">Tampilkan</label>
+  <select class="form-select form-select-sm" style="width:auto" onchange="changePerPage(this.value)">
+    {% for n in per_page_choices %}
+    <option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }}</option>
+    {% endfor %}
+  </select>
+  <span class="small text-muted">data/halaman</span>
+</div>
+
 <ul class="nav nav-tabs mb-0 flex-nowrap overflow-auto" id="pendidikanTab">
   <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-pengajaran">
-    <span class="ti ti-school me-1"></span>Pengajaran <span class="badge bg-blue-lt ms-1">{{ pengajaran_list.count }}</span></a></li>
+    <span class="ti ti-school me-1"></span>Pengajaran <span class="badge bg-blue-lt ms-1">{{ pengajaran_list.paginator.count }}</span></a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-bimbingan">
-    <span class="ti ti-users me-1"></span>Bimbingan Mahasiswa <span class="badge bg-blue-lt ms-1">{{ bimbingan_list.count }}</span></a></li>
+    <span class="ti ti-users me-1"></span>Bimbingan Mahasiswa <span class="badge bg-blue-lt ms-1">{{ bimbingan_list.paginator.count }}</span></a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-pengujian">
-    <span class="ti ti-clipboard-check me-1"></span>Pengujian Mahasiswa <span class="badge bg-blue-lt ms-1">{{ pengujian_list.count }}</span></a></li>
+    <span class="ti ti-clipboard-check me-1"></span>Pengujian Mahasiswa <span class="badge bg-blue-lt ms-1">{{ pengujian_list.paginator.count }}</span></a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-bahan-ajar">
-    <span class="ti ti-book me-1"></span>Bahan Ajar <span class="badge bg-blue-lt ms-1">{{ bahan_ajar_list.count }}</span></a></li>
+    <span class="ti ti-book me-1"></span>Bahan Ajar <span class="badge bg-blue-lt ms-1">{{ bahan_ajar_list.paginator.count }}</span></a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-pembinaan">
-    <span class="ti ti-flag me-1"></span>Pembinaan Mahasiswa <span class="badge bg-blue-lt ms-1">{{ pembinaan_mahasiswa_list.count }}</span></a></li>
+    <span class="ti ti-flag me-1"></span>Pembinaan Mahasiswa <span class="badge bg-blue-lt ms-1">{{ pembinaan_mahasiswa_list.paginator.count }}</span></a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-orasi">
-    <span class="ti ti-microphone me-1"></span>Orasi Ilmiah <span class="badge bg-blue-lt ms-1">{{ orasi_ilmiah_list.count }}</span></a></li>
+    <span class="ti ti-microphone me-1"></span>Orasi Ilmiah <span class="badge bg-blue-lt ms-1">{{ orasi_ilmiah_list.paginator.count }}</span></a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-tugas">
-    <span class="ti ti-briefcase me-1"></span>Tugas Tambahan <span class="badge bg-blue-lt ms-1">{{ tugas_tambahan_list.count }}</span></a></li>
+    <span class="ti ti-briefcase me-1"></span>Tugas Tambahan <span class="badge bg-blue-lt ms-1">{{ tugas_tambahan_list.paginator.count }}</span></a></li>
 </ul>
 
 <div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
@@ -38,6 +48,15 @@
   <!-- TAB PENGAJARAN -->
   <!-- ============================================================ -->
   <div class="tab-pane fade show active" id="tab-pengajaran">
+    <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+      <label class="form-label mb-0 small text-muted">Periode</label>
+      <select class="form-select form-select-sm" style="width:auto" onchange="changePeriode('periode_peng', this.value, 'page_peng')">
+        <option value="">-- Semua Periode --</option>
+        {% for val, label in periode_choices %}
+        <option value="{{ val }}" {% if val == periode_peng %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
     {% if bisa_edit %}
     <div class="card border-0 bg-light mb-4">
       <div class="card-body">
@@ -143,12 +162,22 @@
         </tbody>
       </table>
     </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=pengajaran_list page_param='page_peng' %}
   </div>
 
   <!-- ============================================================ -->
   <!-- TAB BIMBINGAN MAHASISWA -->
   <!-- ============================================================ -->
   <div class="tab-pane fade" id="tab-bimbingan">
+    <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+      <label class="form-label mb-0 small text-muted">Periode</label>
+      <select class="form-select form-select-sm" style="width:auto" onchange="changePeriode('periode_bim', this.value, 'page_bim')">
+        <option value="">-- Semua Periode --</option>
+        {% for val, label in periode_choices %}
+        <option value="{{ val }}" {% if val == periode_bim %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
     {% if bisa_edit %}
     <div class="card border-0 bg-light mb-4">
       <div class="card-body">
@@ -258,12 +287,22 @@
         </tbody>
       </table>
     </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=bimbingan_list page_param='page_bim' %}
   </div>
 
   <!-- ============================================================ -->
   <!-- TAB PENGUJIAN MAHASISWA -->
   <!-- ============================================================ -->
   <div class="tab-pane fade" id="tab-pengujian">
+    <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+      <label class="form-label mb-0 small text-muted">Periode</label>
+      <select class="form-select form-select-sm" style="width:auto" onchange="changePeriode('periode_uji', this.value, 'page_uji')">
+        <option value="">-- Semua Periode --</option>
+        {% for val, label in periode_choices %}
+        <option value="{{ val }}" {% if val == periode_uji %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
     {% if bisa_edit %}
     <div class="card border-0 bg-light mb-4">
       <div class="card-body">
@@ -364,6 +403,7 @@
         </tbody>
       </table>
     </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=pengujian_list page_param='page_uji' %}
   </div>
 
   <!-- ============================================================ -->
@@ -463,12 +503,22 @@
         </tbody>
       </table>
     </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=bahan_ajar_list page_param='page_ba' %}
   </div>
 
   <!-- ============================================================ -->
   <!-- TAB PEMBINAAN MAHASISWA -->
   <!-- ============================================================ -->
   <div class="tab-pane fade" id="tab-pembinaan">
+    <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+      <label class="form-label mb-0 small text-muted">Periode</label>
+      <select class="form-select form-select-sm" style="width:auto" onchange="changePeriode('periode_pm', this.value, 'page_pm')">
+        <option value="">-- Semua Periode --</option>
+        {% for val, label in periode_choices %}
+        <option value="{{ val }}" {% if val == periode_pm %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
     {% if bisa_edit %}
     <div class="card border-0 bg-light mb-4">
       <div class="card-body">
@@ -556,6 +606,7 @@
         </tbody>
       </table>
     </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=pembinaan_mahasiswa_list page_param='page_pm' %}
   </div>
 
   <!-- ============================================================ -->
@@ -643,6 +694,7 @@
         </tbody>
       </table>
     </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=orasi_ilmiah_list page_param='page_oi' %}
   </div>
 
   <!-- ============================================================ -->
@@ -732,6 +784,7 @@
         </tbody>
       </table>
     </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=tugas_tambahan_list page_param='page_tt' %}
   </div>
 
 </div>
@@ -1079,6 +1132,46 @@
 
 {% block extra_js %}
 <script>
+// ============================================================
+// Pagination, filter Periode, dan jumlah data per halaman -- semua
+// navigasi lewat perubahan query string (preserve semua param lain
+// termasuk hash tab yang sedang aktif) supaya tab yang dibuka tidak
+// balik ke Pengajaran tiap kali pindah halaman/filter.
+// ============================================================
+function goToPage(pageParam, pageNum) {
+  const url = new URL(window.location.href);
+  url.searchParams.set(pageParam, pageNum);
+  window.location.href = url.toString();
+}
+
+function changePeriode(periodeParam, value, pageParam) {
+  const url = new URL(window.location.href);
+  if (value) { url.searchParams.set(periodeParam, value); } else { url.searchParams.delete(periodeParam); }
+  url.searchParams.delete(pageParam);
+  window.location.href = url.toString();
+}
+
+function changePerPage(value) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('per_page', value);
+  ['page_peng', 'page_bim', 'page_uji', 'page_ba', 'page_pm', 'page_oi', 'page_tt'].forEach(p => url.searchParams.delete(p));
+  window.location.href = url.toString();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Aktifkan kembali tab yang sedang dibuka (dari hash URL) setelah reload
+  // akibat pindah halaman/filter/per_page.
+  if (window.location.hash) {
+    const trigger = document.querySelector(`[data-bs-toggle="tab"][href="${window.location.hash}"]`);
+    if (trigger) new bootstrap.Tab(trigger).show();
+  }
+  document.querySelectorAll('[data-bs-toggle="tab"]').forEach(el => {
+    el.addEventListener('shown.bs.tab', (e) => {
+      history.replaceState(null, '', e.target.getAttribute('href'));
+    });
+  });
+});
+
 // ============================================================
 // Search-as-you-type generik untuk Mata Kuliah & Mahasiswa
 // (dipakai di form Tambah & modal Edit, lihat pemanggilan wireSearch di bawah)

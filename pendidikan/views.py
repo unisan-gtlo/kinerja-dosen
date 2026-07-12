@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db.models import Q
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import MataKuliahPublik, MahasiswaPublik, ProdiPublik, DataDosen
@@ -8,6 +10,9 @@ from .models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
     PenulisBahanAjar, PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
 )
+
+PER_PAGE_CHOICES = [10, 20, 50, 100]
+DEFAULT_PER_PAGE = 20
 
 
 def cek_status_input():
@@ -27,6 +32,31 @@ def _target_user(request, from_post=False):
     return user
 
 
+def _periode_choices(tahun_list):
+    """Dropdown Periode gabungan Tahun Akademik + Semester (mis. "2025/2026
+    Genap"), mengikuti tampilan filter Periode di SISTER BKD. Value-nya
+    "{tahun_akademik}|{semester}" supaya gampang dipecah lagi saat filter."""
+    choices = []
+    for t in tahun_list:
+        choices.append((f'{t.tahun_akademik}|Ganjil', f'{t.tahun_akademik} Ganjil'))
+        choices.append((f'{t.tahun_akademik}|Genap', f'{t.tahun_akademik} Genap'))
+    return choices
+
+
+def _apply_periode(qs, periode_value):
+    if not periode_value or '|' not in periode_value:
+        return qs
+    tahun, semester = periode_value.split('|', 1)
+    # Record dengan semester='Keduanya' dianggap berlaku di kedua semester
+    # tahun akademik itu, jadi tetap ikut match periode manapun yang dipilih.
+    return qs.filter(tahun_akademik=tahun).filter(Q(semester=semester) | Q(semester='Keduanya'))
+
+
+def _paginate(request, qs, page_param, per_page):
+    paginator = Paginator(qs, per_page)
+    return paginator.get_page(request.GET.get(page_param, 1))
+
+
 @login_required
 def index(request):
     user = request.user
@@ -36,34 +66,44 @@ def index(request):
     input_terbuka = cek_status_input()
     bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
 
-    filter_tahun = request.GET.get('tahun', '')
-    filter_semester = request.GET.get('semester', '')
+    try:
+        per_page = int(request.GET.get('per_page', DEFAULT_PER_PAGE))
+    except (TypeError, ValueError):
+        per_page = DEFAULT_PER_PAGE
+    if per_page not in PER_PAGE_CHOICES:
+        per_page = DEFAULT_PER_PAGE
 
-    lists = {
-        'pengajaran_list': target_user.pengajaran_set.all(),
-        'bimbingan_list': target_user.bimbingan_set.all(),
-        'pengujian_list': target_user.pengujian_set.all(),
-        'bahan_ajar_list': target_user.bahan_ajar_set.all(),
-        'pembinaan_mahasiswa_list': target_user.pembinaan_mahasiswa_set.all(),
-        'orasi_ilmiah_list': target_user.orasi_ilmiah_set.all(),
-        'tugas_tambahan_list': target_user.tugas_tambahan_set.all(),
-    }
-    if filter_tahun:
-        for key in lists:
-            lists[key] = lists[key].filter(tahun_akademik=filter_tahun)
-    if filter_semester:
-        for key in lists:
-            lists[key] = lists[key].filter(semester=filter_semester)
+    periode_choices = _periode_choices(tahun_list)
+    periode_peng = request.GET.get('periode_peng', '')
+    periode_bim = request.GET.get('periode_bim', '')
+    periode_uji = request.GET.get('periode_uji', '')
+    periode_pm = request.GET.get('periode_pm', '')
+
+    pengajaran_qs = _apply_periode(target_user.pengajaran_set.all(), periode_peng)
+    bimbingan_qs = _apply_periode(target_user.bimbingan_set.all(), periode_bim)
+    pengujian_qs = _apply_periode(target_user.pengujian_set.all(), periode_uji)
+    pembinaan_qs = _apply_periode(target_user.pembinaan_mahasiswa_set.all(), periode_pm)
 
     context = {
         'target_user': target_user,
         'tahun_list': tahun_list,
         'bisa_edit': bisa_edit,
         'input_terbuka': input_terbuka,
-        'filter_tahun': filter_tahun,
-        'filter_semester': filter_semester,
         'prodi_list': ProdiPublik.objects.using('simda').all(),
-        **lists,
+        'per_page': per_page,
+        'per_page_choices': PER_PAGE_CHOICES,
+        'periode_choices': periode_choices,
+        'periode_peng': periode_peng,
+        'periode_bim': periode_bim,
+        'periode_uji': periode_uji,
+        'periode_pm': periode_pm,
+        'pengajaran_list': _paginate(request, pengajaran_qs, 'page_peng', per_page),
+        'bimbingan_list': _paginate(request, bimbingan_qs, 'page_bim', per_page),
+        'pengujian_list': _paginate(request, pengujian_qs, 'page_uji', per_page),
+        'bahan_ajar_list': _paginate(request, target_user.bahan_ajar_set.all(), 'page_ba', per_page),
+        'pembinaan_mahasiswa_list': _paginate(request, pembinaan_qs, 'page_pm', per_page),
+        'orasi_ilmiah_list': _paginate(request, target_user.orasi_ilmiah_set.all(), 'page_oi', per_page),
+        'tugas_tambahan_list': _paginate(request, target_user.tugas_tambahan_set.all(), 'page_tt', per_page),
     }
     return render(request, 'pendidikan/index.html', context)
 
