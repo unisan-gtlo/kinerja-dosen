@@ -3,10 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
-from simda_dosen.models import MataKuliahPublik, MahasiswaPublik, ProdiPublik
+from simda_dosen.models import MataKuliahPublik, MahasiswaPublik, ProdiPublik, DataDosen
 from .models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
-    PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
+    PenulisBahanAjar, PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
 )
 
 
@@ -365,6 +365,100 @@ def hapus_bahan_ajar(request, id):
     obj.delete()
     messages.success(request, 'Data bahan ajar berhasil dihapus.')
     return redirect('pendidikan:index')
+
+
+# ============================================================
+# PENULIS BAHAN AJAR (satu Bahan Ajar bisa punya banyak penulis)
+# ============================================================
+
+@login_required
+def kelola_penulis(request, bahan_ajar_id):
+    bahan_ajar = get_object_or_404(BahanAjar, id=bahan_ajar_id)
+    user = request.user
+    bisa_edit = (user == bahan_ajar.user or user.role in ['admin', 'operator']) and cek_status_input()
+
+    if bahan_ajar.user != user and user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('pendidikan:index')
+
+    if request.method == 'POST':
+        aksi = request.POST.get('aksi')
+
+        if aksi == 'tambah':
+            if not bisa_edit:
+                messages.error(request, 'Input data sedang dikunci.')
+                return redirect('pendidikan:kelola_penulis', bahan_ajar_id=bahan_ajar_id)
+
+            jenis_penulis = request.POST.get('jenis_penulis', '')
+            penulis = PenulisBahanAjar(
+                bahan_ajar=bahan_ajar,
+                jenis_penulis=jenis_penulis,
+                urutan=request.POST.get('urutan') or 1,
+                afiliasi=request.POST.get('afiliasi', '').strip(),
+                peran=request.POST.get('peran', 'penulis'),
+                updated_by=user.username,
+            )
+            if jenis_penulis == 'dosen':
+                dosen_id = request.POST.get('dosen_id')
+                dosen = get_object_or_404(DataDosen.objects.using('simda'), id=dosen_id) if dosen_id else None
+                if not dosen:
+                    messages.error(request, 'Nama dosen wajib dipilih.')
+                    return redirect('pendidikan:kelola_penulis', bahan_ajar_id=bahan_ajar_id)
+                penulis.dosen_id = dosen.id
+                penulis.nama = dosen.nama_lengkap_gelar
+                penulis.nidn_nim = dosen.nidn
+                penulis.afiliasi = penulis.afiliasi or 'Universitas Ichsan Gorontalo'
+            elif jenis_penulis == 'mahasiswa':
+                mhs_id = request.POST.get('mahasiswa_id')
+                mhs = get_object_or_404(MahasiswaPublik.objects.using('simda'), id=mhs_id) if mhs_id else None
+                if not mhs:
+                    messages.error(request, 'Nama mahasiswa wajib dipilih.')
+                    return redirect('pendidikan:kelola_penulis', bahan_ajar_id=bahan_ajar_id)
+                penulis.mahasiswa_id = mhs.id
+                penulis.nama = mhs.nama_lengkap
+                penulis.nidn_nim = mhs.nim
+                penulis.afiliasi = penulis.afiliasi or 'Universitas Ichsan Gorontalo'
+            else:
+                nama = request.POST.get('nama', '').strip()
+                if not nama:
+                    messages.error(request, 'Nama penulis wajib diisi.')
+                    return redirect('pendidikan:kelola_penulis', bahan_ajar_id=bahan_ajar_id)
+                penulis.nama = nama
+
+            penulis.save()
+            messages.success(request, f'Penulis "{penulis.nama}" berhasil ditambahkan.')
+
+        elif aksi == 'edit':
+            if not bisa_edit:
+                messages.error(request, 'Input data sedang dikunci.')
+                return redirect('pendidikan:kelola_penulis', bahan_ajar_id=bahan_ajar_id)
+            penulis = get_object_or_404(PenulisBahanAjar, id=request.POST.get('penulis_id'), bahan_ajar=bahan_ajar)
+            penulis.urutan = request.POST.get('urutan') or penulis.urutan
+            penulis.afiliasi = request.POST.get('afiliasi', '').strip()
+            penulis.peran = request.POST.get('peran', penulis.peran)
+            if penulis.jenis_penulis == 'lain':
+                penulis.nama = request.POST.get('nama', '').strip() or penulis.nama
+            penulis.updated_by = user.username
+            penulis.save()
+            messages.success(request, 'Data penulis berhasil diupdate.')
+
+        elif aksi == 'hapus':
+            penulis = get_object_or_404(PenulisBahanAjar, id=request.POST.get('penulis_id'), bahan_ajar=bahan_ajar)
+            if bisa_edit:
+                nama = penulis.nama
+                penulis.delete()
+                messages.success(request, f'Penulis "{nama}" berhasil dihapus.')
+            else:
+                messages.error(request, 'Tidak memiliki akses.')
+
+        return redirect('pendidikan:kelola_penulis', bahan_ajar_id=bahan_ajar_id)
+
+    context = {
+        'bahan_ajar': bahan_ajar,
+        'bisa_edit': bisa_edit,
+        'penulis_list': bahan_ajar.penulis_set.all(),
+    }
+    return render(request, 'pendidikan/kelola_penulis.html', context)
 
 
 # ============================================================

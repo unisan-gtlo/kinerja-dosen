@@ -189,6 +189,48 @@ class BahanAjar(models.Model):
         return f"{self.semester} {self.tahun_akademik}" if self.semester else str(self.tahun_terbit)
 
 
+class PenulisBahanAjar(models.Model):
+    """Penulis Bahan Ajar bisa lebih dari satu (dosen/mahasiswa/lain), sesuai
+    form SISTER asli. dosen_id/mahasiswa_id merujuk ke simda_dosen.DataDosen/
+    MahasiswaPublik (dosen internal Unisan saja, dicari lewat AJAX) -- untuk
+    jenis_penulis='lain' nama diketik manual. Nama & NIDN/NIM disimpan sebagai
+    snapshot supaya riwayat tetap terbaca walau data rujukan berubah."""
+    JENIS_PENULIS = [
+        ('dosen', 'Dosen'),
+        ('mahasiswa', 'Mahasiswa'),
+        ('lain', 'Lainnya'),
+    ]
+    PERAN = [
+        ('penulis', 'Penulis'),
+        ('editor', 'Editor'),
+        ('penerjemah', 'Penerjemah'),
+        ('penemu_inventor', 'Penemu/Inventor'),
+    ]
+
+    bahan_ajar = models.ForeignKey(BahanAjar, on_delete=models.CASCADE, related_name='penulis_set')
+    jenis_penulis = models.CharField(max_length=10, choices=JENIS_PENULIS)
+
+    dosen_id = models.IntegerField(null=True, blank=True, help_text='id ke simda_dosen.DataDosen, diisi kalau jenis_penulis=dosen')
+    mahasiswa_id = models.IntegerField(null=True, blank=True, help_text='id ke simda_dosen.MahasiswaPublik, diisi kalau jenis_penulis=mahasiswa')
+
+    nama = models.CharField(max_length=150)
+    nidn_nim = models.CharField(max_length=20, blank=True, verbose_name='NIDN/NIM')
+    urutan = models.IntegerField(default=1)
+    afiliasi = models.CharField(max_length=200, blank=True)
+    peran = models.CharField(max_length=20, choices=PERAN, default='penulis')
+
+    tgl_input = models.DateTimeField(auto_now_add=True)
+    updated_by = models.CharField(max_length=50, blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Penulis Bahan Ajar'
+        verbose_name_plural = 'Penulis Bahan Ajar'
+        ordering = ['urutan']
+
+    def __str__(self):
+        return f"{self.bahan_ajar.judul[:40]} - {self.nama}"
+
+
 class PembinaanMahasiswa(models.Model):
     JENIS_KEGIATAN = [
         ('pembina_ukm', 'Pembina UKM'),

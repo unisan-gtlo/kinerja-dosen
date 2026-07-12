@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% block title %}Penulis Bahan Ajar — SIKD{% endblock %}
+{% block page_title %}Penulis Bahan Ajar{% endblock %}
+
+{% block content %}
+<!-- Info Bahan Ajar -->
+<div class="card border-0 shadow-sm mb-4" style="border-left: 4px solid #1e3a5f !important;">
+  <div class="card-body py-3">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="badge bg-blue-lt text-blue">{{ bahan_ajar.get_jenis_bahan_ajar_display }}</span>
+          {% if bahan_ajar.tahun_terbit %}<span class="badge bg-teal-lt text-teal">{{ bahan_ajar.tahun_terbit }}</span>{% endif %}
+        </div>
+        <h6 class="mb-1 fw-semibold">{{ bahan_ajar.judul }}</h6>
+        <small class="text-muted"><span class="ti ti-user me-1"></span>{{ bahan_ajar.user.get_full_name }}</small>
+      </div>
+      <a href="{% url 'pendidikan:index' %}" class="btn btn-sm btn-outline-secondary">
+        <span class="ti ti-arrow-left me-1"></span>Kembali
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Form Tambah Penulis -->
+  <div class="col-md-4">
+    {% if bisa_edit %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold"><span class="ti ti-plus me-1 text-primary"></span>Tambah Penulis</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" id="formTambahPenulis">
+          {% csrf_token %}
+          <input type="hidden" name="aksi" value="tambah">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Jenis Penulis *</label>
+            <select name="jenis_penulis" id="tp_jenis" class="form-select" required onchange="toggleJenisPenulis('tp')">
+              <option value="dosen">Dosen</option>
+              <option value="mahasiswa">Mahasiswa</option>
+              <option value="lain">Lainnya</option>
+            </select>
+          </div>
+
+          <div id="tp_blok_dosen" class="mb-3 position-relative">
+            <label class="form-label fw-semibold">Nama Dosen * <small class="text-muted">(min. 3 huruf)</small></label>
+            <input type="text" id="tp_dosen_q" class="form-control" placeholder="Cari nama/NIDN..." autocomplete="off">
+            <input type="hidden" name="dosen_id" id="tp_dosen_id">
+            <div id="tp_dosen_results" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index:20; max-height:220px; overflow-y:auto; background-color:#fff; border:1px solid rgba(0,0,0,.15); border-radius:.375rem;"></div>
+          </div>
+
+          <div id="tp_blok_mahasiswa" class="mb-3 position-relative d-none">
+            <label class="form-label fw-semibold">Nama Mahasiswa * <small class="text-muted">(min. 3 huruf)</small></label>
+            <input type="text" id="tp_mhs_q" class="form-control" placeholder="Cari nama/NIM..." autocomplete="off">
+            <input type="hidden" name="mahasiswa_id" id="tp_mhs_id">
+            <div id="tp_mhs_results" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index:20; max-height:220px; overflow-y:auto; background-color:#fff; border:1px solid rgba(0,0,0,.15); border-radius:.375rem;"></div>
+          </div>
+
+          <div id="tp_blok_lain" class="mb-3 d-none">
+            <label class="form-label fw-semibold">Nama *</label>
+            <input type="text" name="nama" class="form-control">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Peran *</label>
+            <select name="peran" class="form-select" required>
+              <option value="penulis">Penulis</option>
+              <option value="editor">Editor</option>
+              <option value="penerjemah">Penerjemah</option>
+              <option value="penemu_inventor">Penemu/Inventor</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Urutan *</label>
+            <input type="number" name="urutan" class="form-control" value="{{ penulis_list.count|add:1 }}" min="1" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Afiliasi</label>
+            <input type="text" name="afiliasi" class="form-control" placeholder="Universitas Ichsan Gorontalo">
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">
+            <span class="ti ti-plus me-1"></span>Tambah Penulis
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Daftar Penulis -->
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><span class="ti ti-users me-1 text-primary"></span>Daftar Penulis</h6>
+        <span class="badge bg-blue-lt text-blue">{{ penulis_list.count }} penulis</span>
+      </div>
+      <div class="card-body p-0">
+        {% if penulis_list %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Urutan</th><th>Jenis</th><th>Nama</th><th>NIDN/NIM</th>
+                <th>Afiliasi</th><th>Peran</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in penulis_list %}
+              <tr>
+                <td>{{ p.urutan }}</td>
+                <td><span class="badge bg-purple-lt text-purple">{{ p.get_jenis_penulis_display }}</span></td>
+                <td><strong style="font-size:13px">{{ p.nama }}</strong></td>
+                <td>{{ p.nidn_nim|default:'-' }}</td>
+                <td style="font-size:12px; max-width:150px">{{ p.afiliasi|default:'-' }}</td>
+                <td>{{ p.get_peran_display }}</td>
+                <td>
+                  {% if bisa_edit %}
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-primary" title="Edit"
+                      onclick="editPenulis({{ p.id }}, {{ p.urutan }}, '{{ p.afiliasi|default:''|escapejs }}', '{{ p.peran }}', '{{ p.jenis_penulis }}', '{{ p.nama|escapejs }}')">
+                      <span class="ti ti-edit"></span>
+                    </button>
+                    <form method="post" onsubmit="return confirm('Hapus penulis ini?')">
+                      {% csrf_token %}
+                      <input type="hidden" name="aksi" value="hapus">
+                      <input type="hidden" name="penulis_id" value="{{ p.id }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus">
+                        <span class="ti ti-trash"></span>
+                      </button>
+                    </form>
+                  </div>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <span class="ti ti-users" style="font-size:48px; opacity:0.3"></span>
+          <div class="mt-2 fw-semibold">Belum ada penulis</div>
+          <small>Tambahkan penulis menggunakan form di samping</small>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Penulis -->
+<div class="modal fade" id="modalEditPenulis" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="aksi" value="edit">
+        <input type="hidden" name="penulis_id" id="ep_id">
+        <div class="modal-header">
+          <h5 class="modal-title"><span class="ti ti-edit me-1"></span>Edit Penulis</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3" id="ep_blok_nama">
+            <label class="form-label fw-semibold">Nama *</label>
+            <input type="text" name="nama" id="ep_nama" class="form-control">
+            <small class="text-muted">Hanya bisa diubah untuk penulis jenis "Lainnya"</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Peran *</label>
+            <select name="peran" id="ep_peran" class="form-select" required>
+              <option value="penulis">Penulis</option>
+              <option value="editor">Editor</option>
+              <option value="penerjemah">Penerjemah</option>
+              <option value="penemu_inventor">Penemu/Inventor</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Urutan *</label>
+            <input type="number" name="urutan" id="ep_urutan" class="form-control" min="1" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Afiliasi</label>
+            <input type="text" name="afiliasi" id="ep_afiliasi" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary"><span class="ti ti-check me-1"></span>Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleJenisPenulis(prefix) {
+  const jenis = document.getElementById(prefix + '_jenis').value;
+  document.getElementById(prefix + '_blok_dosen').classList.toggle('d-none', jenis !== 'dosen');
+  document.getElementById(prefix + '_blok_mahasiswa').classList.toggle('d-none', jenis !== 'mahasiswa');
+  document.getElementById(prefix + '_blok_lain').classList.toggle('d-none', jenis !== 'lain');
+}
+
+function debounce(fn, delay) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+}
+
+function wireSimpleSearch(qId, idFieldId, resultsId, url, minChars) {
+  const doSearch = debounce((qEl, idEl, resultsEl) => {
+    const q = qEl.value.trim();
+    if (q.length < minChars) {
+      resultsEl.classList.add('d-none');
+      resultsEl.innerHTML = '';
+      return;
+    }
+    fetch(`${url}?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        resultsEl.innerHTML = '';
+        if (!data.results.length) {
+          resultsEl.classList.add('d-none');
+          return;
+        }
+        data.results.forEach(item => {
+          const a = document.createElement('a');
+          a.href = '#';
+          a.className = 'list-group-item list-group-item-action';
+          a.textContent = item.text;
+          a.onclick = (e) => {
+            e.preventDefault();
+            qEl.value = item.text;
+            idEl.value = item.id;
+            resultsEl.classList.add('d-none');
+          };
+          resultsEl.appendChild(a);
+        });
+        resultsEl.classList.remove('d-none');
+      });
+  }, 300);
+
+  document.addEventListener('input', (e) => {
+    if (e.target.id !== qId) return;
+    const idEl = document.getElementById(idFieldId);
+    const resultsEl = document.getElementById(resultsId);
+    idEl.value = '';
+    doSearch(e.target, idEl, resultsEl);
+  });
+
+  document.addEventListener('click', (e) => {
+    const resultsEl = document.getElementById(resultsId);
+    const qEl = document.getElementById(qId);
+    if (resultsEl && !resultsEl.contains(e.target) && e.target !== qEl) {
+      resultsEl.classList.add('d-none');
+    }
+  });
+}
+
+wireSimpleSearch('tp_dosen_q', 'tp_dosen_id', 'tp_dosen_results', "{% url 'simda_dosen:cari_dosen' %}", 3);
+wireSimpleSearch('tp_mhs_q', 'tp_mhs_id', 'tp_mhs_results', "{% url 'simda_dosen:cari_mahasiswa' %}", 3);
+
+function editPenulis(id, urutan, afiliasi, peran, jenis, nama) {
+  document.getElementById('ep_id').value = id;
+  document.getElementById('ep_urutan').value = urutan;
+  document.getElementById('ep_afiliasi').value = afiliasi;
+  document.getElementById('ep_peran').value = peran;
+  document.getElementById('ep_nama').value = nama;
+  document.getElementById('ep_nama').disabled = (jenis !== 'lain');
+  new bootstrap.Modal(document.getElementById('modalEditPenulis')).show();
+}
+</script>
+{% endblock %}

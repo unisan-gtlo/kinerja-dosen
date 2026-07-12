@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
-    PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
+    PenulisBahanAjar, PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
 )
 
 
@@ -31,6 +31,13 @@ class BahanAjarAdmin(admin.ModelAdmin):
     list_display = ['user', 'judul', 'jenis_bahan_ajar', 'tahun_terbit']
     list_filter = ['jenis_bahan_ajar', 'tahun_terbit']
     search_fields = ['user__username', 'judul']
+
+
+@admin.register(PenulisBahanAjar)
+class PenulisBahanAjarAdmin(admin.ModelAdmin):
+    list_display = ['bahan_ajar', 'jenis_penulis', 'nama', 'peran', 'urutan']
+    list_filter = ['jenis_penulis', 'peran']
+    search_fields = ['nama', 'bahan_ajar__judul']
 
 
 @admin.register(PembinaanMahasiswa)

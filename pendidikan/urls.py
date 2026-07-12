@@ -21,6 +21,7 @@ urlpatterns = [
     path('tambah-bahan-ajar/', views.tambah_bahan_ajar, name='tambah_bahan_ajar'),
     path('edit-bahan-ajar/<int:id>/', views.edit_bahan_ajar, name='edit_bahan_ajar'),
     path('hapus-bahan-ajar/<int:id>/', views.hapus_bahan_ajar, name='hapus_bahan_ajar'),
+    path('kelola-penulis/<int:bahan_ajar_id>/', views.kelola_penulis, name='kelola_penulis'),
 
     path('tambah-pembinaan-mahasiswa/', views.tambah_pembinaan_mahasiswa, name='tambah_pembinaan_mahasiswa'),
     path('edit-pembinaan-mahasiswa/<int:id>/', views.edit_pembinaan_mahasiswa, name='edit_pembinaan_mahasiswa'),
