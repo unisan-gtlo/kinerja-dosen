@@ -1,0 +1,581 @@
+{% extends 'base.html' %}
+{% block title %}Pelaks. Penelitian — SIKD{% endblock %}
+{% block page_title %}
+  Pelaks. Penelitian
+  {% if target_user != request.user %}
+  <small class="text-muted fs-5">— {{ target_user.get_full_name|default:target_user.username }}</small>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if not input_terbuka %}
+<div class="alert alert-warning">
+  <span class="ti ti-lock me-1"></span>
+  Input data sedang <strong>dikunci</strong> oleh admin.
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+  <label class="form-label mb-0 small text-muted">Tampilkan</label>
+  <select class="form-select form-select-sm" style="width:auto" onchange="changePerPage(this.value)">
+    {% for n in per_page_choices %}
+    <option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }}</option>
+    {% endfor %}
+  </select>
+  <span class="small text-muted">data/halaman</span>
+</div>
+
+<ul class="nav nav-tabs mb-0 flex-nowrap overflow-auto" id="penelitianTab">
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-penelitian">
+    <span class="ti ti-microscope me-1"></span>Penelitian <span class="badge bg-blue-lt ms-1">{{ penelitian_list.paginator.count }}</span></a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-publikasi">
+    <span class="ti ti-book me-1"></span>Publikasi Karya <span class="badge bg-blue-lt ms-1">{{ publikasi_list.paginator.count }}</span></a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-paten">
+    <span class="ti ti-certificate me-1"></span>Paten/HKI <span class="badge bg-blue-lt ms-1">{{ paten_list.paginator.count }}</span></a></li>
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
+
+  <!-- ============================================================ -->
+  <!-- TAB PENELITIAN -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade show active" id="tab-penelitian">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Penelitian</h6>
+        <form method="post" action="{% url 'penelitian:tambah_penelitian' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Kategori Pelaksanaan *</label>
+              <select name="kategori_pelaksanaan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="ketua">Sebagai Ketua</option>
+                <option value="anggota">Sebagai Anggota</option>
+                <option value="tidak_dipublikasikan">Hasil Penelitian Tidak Dipublikasikan</option>
+              </select>
+            </div>
+            <div class="col-md-9">
+              <label class="form-label">Judul Kegiatan *</label>
+              <textarea name="judul_kegiatan" class="form-control" rows="2" required></textarea>
+            </div>
+            <div class="col-md-3"><label class="form-label">Afiliasi</label><input type="text" name="afiliasi" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Kelompok Bidang</label><input type="text" name="kelompok_bidang" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Litabmas Sebelumnya</label><input type="text" name="litabmas_sebelumnya" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Jenis SKIM</label><input type="text" name="jenis_skim" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Lokasi Kegiatan</label><input type="text" name="lokasi_kegiatan" class="form-control"></div>
+            <div class="col-md-2"><label class="form-label">Tahun Usulan *</label><input type="number" name="tahun_usulan" class="form-control" required min="1970" max="2035"></div>
+            <div class="col-md-2"><label class="form-label">Tahun Kegiatan *</label><input type="text" name="tahun_kegiatan" class="form-control" placeholder="2025/2026" required></div>
+            <div class="col-md-2"><label class="form-label">Tahun Pelaksanaan *</label><input type="number" name="tahun_pelaksanaan" class="form-control" required min="1970" max="2035"></div>
+            <div class="col-md-2"><label class="form-label">Lama Kegiatan (Tahun) *</label><input type="number" name="lama_kegiatan_tahun" class="form-control" value="1" required min="1"></div>
+            <div class="col-md-2"><label class="form-label">Tahun Pelaksanaan Ke *</label><input type="number" name="tahun_pelaksanaan_ke" class="form-control" value="1" required min="1"></div>
+            <div class="col-md-4"><label class="form-label">Dana dari Dikti (Rp)</label><input type="number" step="0.01" name="dana_dikti" class="form-control" value="0"></div>
+            <div class="col-md-4"><label class="form-label">Dana dari Perguruan Tinggi (Rp)</label><input type="number" step="0.01" name="dana_pt" class="form-control" value="0"></div>
+            <div class="col-md-4"><label class="form-label">Dana dari Institusi Lain (Rp)</label><input type="number" step="0.01" name="dana_institusi_lain" class="form-control" value="0"></div>
+            <div class="col-md-4"><label class="form-label">In Kind</label><input type="text" name="in_kind" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">Nomor SK Penugasan</label><input type="text" name="no_sk_penugasan" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">Tanggal SK Penugasan</label><input type="date" name="tanggal_sk_penugasan" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Mitra Litabmas</label><input type="text" name="mitra_litabmas" class="form-control"></div>
+            <div class="col-md-3">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+              <small class="text-muted ms-2">Anggota kegiatan & dokumen pendukung ditambahkan setelah data tersimpan.</small>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light"><tr><th>Judul Kegiatan</th><th>Kategori</th><th>Tahun Kegiatan</th><th>Total Dana</th><th>Anggota</th><th>Dokumen</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {% for o in penelitian_list %}
+          <tr>
+            <td style="max-width:220px">
+              {{ o.judul_kegiatan|truncatechars:60 }}
+              {% if o.co_penulis %}<br><span class="badge bg-orange-lt text-orange mt-1">Co-Anggota</span>{% endif %}
+            </td>
+            <td><span class="badge bg-purple-lt text-purple">{{ o.get_kategori_pelaksanaan_display }}</span></td>
+            <td>{{ o.tahun_kegiatan }}</td>
+            <td>Rp {{ o.total_dana }}</td>
+            <td><a href="{% url 'penelitian:kelola_anggota_penelitian' o.id %}" class="btn btn-sm btn-outline-secondary"><span class="ti ti-users me-1"></span>Anggota ({{ o.anggota_set.count }})</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'penelitian' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
+            <td>
+              <div class="d-flex gap-1">
+                {% if bisa_edit and not o.co_penulis %}
+                <button class="btn btn-sm btn-outline-primary" onclick="editPenelitianFromBtn(this)"
+                  data-obj='{"id":{{ o.id }},"kategori_pelaksanaan":"{{ o.kategori_pelaksanaan }}","judul_kegiatan":"{{ o.judul_kegiatan|escapejs }}","afiliasi":"{{ o.afiliasi|default:""|escapejs }}","kelompok_bidang":"{{ o.kelompok_bidang|default:""|escapejs }}","litabmas_sebelumnya":"{{ o.litabmas_sebelumnya|default:""|escapejs }}","jenis_skim":"{{ o.jenis_skim|default:""|escapejs }}","lokasi_kegiatan":"{{ o.lokasi_kegiatan|default:""|escapejs }}","tahun_usulan":"{{ o.tahun_usulan }}","tahun_kegiatan":"{{ o.tahun_kegiatan|escapejs }}","tahun_pelaksanaan":"{{ o.tahun_pelaksanaan }}","lama_kegiatan_tahun":"{{ o.lama_kegiatan_tahun }}","tahun_pelaksanaan_ke":"{{ o.tahun_pelaksanaan_ke }}","dana_dikti":"{{ o.dana_dikti }}","dana_pt":"{{ o.dana_pt }}","dana_institusi_lain":"{{ o.dana_institusi_lain }}","in_kind":"{{ o.in_kind|default:""|escapejs }}","no_sk_penugasan":"{{ o.no_sk_penugasan|default:""|escapejs }}","tanggal_sk_penugasan":"{{ o.tanggal_sk_penugasan|date:'Y-m-d'|default:"" }}","mitra_litabmas":"{{ o.mitra_litabmas|default:""|escapejs }}","semester":"{{ o.semester|default:"" }}","tahun_akademik":"{{ o.tahun_akademik|default:"" }}"}'>
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'penelitian:hapus_penelitian' o.id %}" onsubmit="return confirm('Hapus data penelitian ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+                {% elif o.co_penulis %}
+                <span class="text-muted small">Milik {{ o.user.get_full_name|default:o.user.username }}</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data penelitian</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=penelitian_list page_param='page_pen' %}
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB PUBLIKASI KARYA -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade" id="tab-publikasi">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Publikasi Karya</h6>
+        <form method="post" action="{% url 'penelitian:tambah_publikasi' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jenis *</label>
+              <select name="jenis" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="jurnal_nasional">Jurnal Nasional</option>
+                <option value="jurnal_nasional_terakreditasi">Jurnal Nasional Terakreditasi</option>
+                <option value="artikel_ilmiah">Artikel Ilmiah</option>
+                <option value="makalah_ilmiah">Makalah Ilmiah</option>
+                <option value="tulisan_ilmiah">Tulisan Ilmiah</option>
+                <option value="prosiding_seminar_nasional">Prosiding Seminar Nasional</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-4"><label class="form-label">Kategori Capaian</label><input type="text" name="kategori_capaian" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">Aktivitas Litabmas</label><input type="text" name="aktivitas_litabmas" class="form-control"></div>
+            <div class="col-md-12"><label class="form-label">Judul Artikel *</label><textarea name="judul_artikel" class="form-control" rows="2" required></textarea></div>
+            <div class="col-md-6"><label class="form-label">Nama Seminar</label><input type="text" name="nama_seminar" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Tanggal Terbit *</label><input type="date" name="tanggal_terbit" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label">Bahasa</label><input type="text" name="bahasa" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Penerbit/Penyelenggara</label><input type="text" name="penerbit_penyelenggara" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Kota Penyelenggaraan</label><input type="text" name="kota_penyelenggaraan" class="form-control"></div>
+            <div class="col-md-3 form-check mt-4"><input type="checkbox" name="apakah_seminar" id="pub_seminar" class="form-check-input"><label class="form-check-label" for="pub_seminar">Apakah Seminar?</label></div>
+            <div class="col-md-3 form-check mt-4"><input type="checkbox" name="apakah_prosiding" id="pub_prosiding" class="form-check-input"><label class="form-check-label" for="pub_prosiding">Apakah Prosiding?</label></div>
+            <div class="col-md-3"><label class="form-label">ISBN</label><input type="text" name="isbn" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">ISSN</label><input type="text" name="issn" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">e-ISSN</label><input type="text" name="e_issn" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Tautan Eksternal</label><input type="url" name="tautan_eksternal" class="form-control" placeholder="https://..."></div>
+            <div class="col-md-12"><label class="form-label">Keterangan/Petunjuk Akses</label><textarea name="keterangan" class="form-control" rows="2"></textarea></div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+              <small class="text-muted ms-2">Penulis & dokumen pendukung ditambahkan setelah data tersimpan.</small>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light"><tr><th>Judul Artikel</th><th>Jenis</th><th>Tanggal Terbit</th><th>Penulis</th><th>Dokumen</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {% for o in publikasi_list %}
+          <tr>
+            <td style="max-width:220px">
+              {{ o.judul_artikel|truncatechars:60 }}
+              {% if o.co_penulis %}<br><span class="badge bg-orange-lt text-orange mt-1">Co-Penulis</span>{% endif %}
+            </td>
+            <td><span class="badge bg-purple-lt text-purple">{{ o.get_jenis_display }}</span></td>
+            <td>{{ o.tanggal_terbit|date:'d/m/Y' }}</td>
+            <td><a href="{% url 'penelitian:kelola_penulis_publikasi' o.id %}" class="btn btn-sm btn-outline-secondary"><span class="ti ti-users me-1"></span>Penulis ({{ o.penulis_set.count }})</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'publikasi' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
+            <td>
+              <div class="d-flex gap-1">
+                {% if bisa_edit and not o.co_penulis %}
+                <button class="btn btn-sm btn-outline-primary" onclick="editPublikasiFromBtn(this)"
+                  data-obj='{"id":{{ o.id }},"jenis":"{{ o.jenis }}","kategori_capaian":"{{ o.kategori_capaian|default:""|escapejs }}","aktivitas_litabmas":"{{ o.aktivitas_litabmas|default:""|escapejs }}","judul_artikel":"{{ o.judul_artikel|escapejs }}","nama_seminar":"{{ o.nama_seminar|default:""|escapejs }}","tanggal_terbit":"{{ o.tanggal_terbit|date:'Y-m-d' }}","penerbit_penyelenggara":"{{ o.penerbit_penyelenggara|default:""|escapejs }}","kota_penyelenggaraan":"{{ o.kota_penyelenggaraan|default:""|escapejs }}","apakah_seminar":{{ o.apakah_seminar|yesno:"true,false" }},"apakah_prosiding":{{ o.apakah_prosiding|yesno:"true,false" }},"bahasa":"{{ o.bahasa|default:""|escapejs }}","isbn":"{{ o.isbn|default:""|escapejs }}","issn":"{{ o.issn|default:""|escapejs }}","e_issn":"{{ o.e_issn|default:""|escapejs }}","tautan_eksternal":"{{ o.tautan_eksternal|default:""|escapejs }}","keterangan":"{{ o.keterangan|default:""|escapejs }}","semester":"{{ o.semester|default:"" }}","tahun_akademik":"{{ o.tahun_akademik|default:"" }}"}'>
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'penelitian:hapus_publikasi' o.id %}" onsubmit="return confirm('Hapus data publikasi ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+                {% elif o.co_penulis %}
+                <span class="text-muted small">Milik {{ o.user.get_full_name|default:o.user.username }}</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-3">Belum ada data publikasi karya</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=publikasi_list page_param='page_pub' %}
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB PATEN/HKI -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade" id="tab-paten">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Paten/HKI</h6>
+        <form method="post" action="{% url 'penelitian:tambah_paten' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jenis *</label>
+              <select name="jenis" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="paten_nasional">Paten Nasional</option>
+                <option value="paten_internasional">Paten Internasional</option>
+                <option value="hak_cipta_nasional">Hak Cipta Nasional</option>
+                <option value="hak_cipta_internasional">Hak Cipta Internasional</option>
+              </select>
+            </div>
+            <div class="col-md-4"><label class="form-label">Kategori Capaian</label><input type="text" name="kategori_capaian" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">Aktivitas Litabmas</label><input type="text" name="aktivitas_litabmas" class="form-control"></div>
+            <div class="col-md-12"><label class="form-label">Judul Karya/Kegiatan *</label><textarea name="judul_karya" class="form-control" rows="2" required></textarea></div>
+            <div class="col-md-3"><label class="form-label">Tanggal *</label><input type="date" name="tanggal" class="form-control" required></div>
+            <div class="col-md-5"><label class="form-label">Penyelenggara</label><input type="text" name="penyelenggara" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">Tautan Eksternal</label><input type="url" name="tautan_eksternal" class="form-control" placeholder="https://..."></div>
+            <div class="col-md-12"><label class="form-label">Keterangan/Petunjuk Akses</label><textarea name="keterangan" class="form-control" rows="2"></textarea></div>
+            <div class="col-md-2">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+              <small class="text-muted ms-2">Penulis & dokumen pendukung ditambahkan setelah data tersimpan.</small>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light"><tr><th>Judul Karya/Kegiatan</th><th>Jenis</th><th>Tanggal</th><th>Penulis</th><th>Dokumen</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {% for o in paten_list %}
+          <tr>
+            <td style="max-width:220px">
+              {{ o.judul_karya|truncatechars:60 }}
+              {% if o.co_penulis %}<br><span class="badge bg-orange-lt text-orange mt-1">Co-Penulis</span>{% endif %}
+            </td>
+            <td><span class="badge bg-purple-lt text-purple">{{ o.get_jenis_display }}</span></td>
+            <td>{{ o.tanggal|date:'d/m/Y' }}</td>
+            <td><a href="{% url 'penelitian:kelola_penulis_paten' o.id %}" class="btn btn-sm btn-outline-secondary"><span class="ti ti-users me-1"></span>Penulis ({{ o.penulis_set.count }})</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'hki' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
+            <td>
+              <div class="d-flex gap-1">
+                {% if bisa_edit and not o.co_penulis %}
+                <button class="btn btn-sm btn-outline-primary" onclick="editPatenFromBtn(this)"
+                  data-obj='{"id":{{ o.id }},"jenis":"{{ o.jenis }}","kategori_capaian":"{{ o.kategori_capaian|default:""|escapejs }}","aktivitas_litabmas":"{{ o.aktivitas_litabmas|default:""|escapejs }}","judul_karya":"{{ o.judul_karya|escapejs }}","tanggal":"{{ o.tanggal|date:'Y-m-d' }}","penyelenggara":"{{ o.penyelenggara|default:""|escapejs }}","tautan_eksternal":"{{ o.tautan_eksternal|default:""|escapejs }}","keterangan":"{{ o.keterangan|default:""|escapejs }}","semester":"{{ o.semester|default:"" }}","tahun_akademik":"{{ o.tahun_akademik|default:"" }}"}'>
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'penelitian:hapus_paten' o.id %}" onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+                {% elif o.co_penulis %}
+                <span class="text-muted small">Milik {{ o.user.get_full_name|default:o.user.username }}</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-3">Belum ada data Paten/HKI</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=paten_list page_param='page_pat' %}
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL EDIT PENELITIAN -->
+<!-- ============================================================ -->
+<div class="modal fade" id="modalEditPenelitian" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <form method="post" action="{% url 'penelitian:edit_penelitian' 0 %}" id="formEditPenelitian">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="modal-header"><h5 class="modal-title">Edit Penelitian</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Kategori Pelaksanaan *</label>
+            <select name="kategori_pelaksanaan" id="ed_pen_kategori" class="form-select" required>
+              <option value="ketua">Sebagai Ketua</option>
+              <option value="anggota">Sebagai Anggota</option>
+              <option value="tidak_dipublikasikan">Hasil Penelitian Tidak Dipublikasikan</option>
+            </select>
+          </div>
+          <div class="col-md-9"><label class="form-label">Judul Kegiatan *</label><textarea name="judul_kegiatan" id="ed_pen_judul" class="form-control" rows="2" required></textarea></div>
+          <div class="col-md-3"><label class="form-label">Afiliasi</label><input type="text" name="afiliasi" id="ed_pen_afiliasi" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Kelompok Bidang</label><input type="text" name="kelompok_bidang" id="ed_pen_bidang" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Litabmas Sebelumnya</label><input type="text" name="litabmas_sebelumnya" id="ed_pen_litabmas" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Jenis SKIM</label><input type="text" name="jenis_skim" id="ed_pen_skim" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Lokasi Kegiatan</label><input type="text" name="lokasi_kegiatan" id="ed_pen_lokasi" class="form-control"></div>
+          <div class="col-md-2"><label class="form-label">Tahun Usulan *</label><input type="number" name="tahun_usulan" id="ed_pen_usulan" class="form-control" required></div>
+          <div class="col-md-2"><label class="form-label">Tahun Kegiatan *</label><input type="text" name="tahun_kegiatan" id="ed_pen_thkeg" class="form-control" required></div>
+          <div class="col-md-2"><label class="form-label">Tahun Pelaksanaan *</label><input type="number" name="tahun_pelaksanaan" id="ed_pen_thlaks" class="form-control" required></div>
+          <div class="col-md-2"><label class="form-label">Lama Kegiatan (Tahun) *</label><input type="number" name="lama_kegiatan_tahun" id="ed_pen_lama" class="form-control" required></div>
+          <div class="col-md-2"><label class="form-label">Tahun Pelaksanaan Ke *</label><input type="number" name="tahun_pelaksanaan_ke" id="ed_pen_ke" class="form-control" required></div>
+          <div class="col-md-4"><label class="form-label">Dana dari Dikti (Rp)</label><input type="number" step="0.01" name="dana_dikti" id="ed_pen_dikti" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Dana dari Perguruan Tinggi (Rp)</label><input type="number" step="0.01" name="dana_pt" id="ed_pen_pt" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Dana dari Institusi Lain (Rp)</label><input type="number" step="0.01" name="dana_institusi_lain" id="ed_pen_lain" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">In Kind</label><input type="text" name="in_kind" id="ed_pen_inkind" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Nomor SK Penugasan</label><input type="text" name="no_sk_penugasan" id="ed_pen_sk" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Tanggal SK Penugasan</label><input type="date" name="tanggal_sk_penugasan" id="ed_pen_tgl_sk" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Mitra Litabmas</label><input type="text" name="mitra_litabmas" id="ed_pen_mitra" class="form-control"></div>
+          <div class="col-md-3">
+            <label class="form-label">Semester</label>
+            <select name="semester" id="ed_pen_semester" class="form-select"><option value="">-- Pilih --</option><option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tahun Akademik</label>
+            <select name="tahun_akademik" id="ed_pen_ta" class="form-select"><option value="">-- Pilih --</option>{% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}</select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+    </form>
+  </div></div>
+</div>
+
+<!-- MODAL EDIT PUBLIKASI -->
+<div class="modal fade" id="modalEditPublikasi" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <form method="post" action="{% url 'penelitian:edit_publikasi' 0 %}" id="formEditPublikasi">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="modal-header"><h5 class="modal-title">Edit Publikasi Karya</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Jenis *</label>
+            <select name="jenis" id="ed_pub_jenis" class="form-select" required>
+              <option value="jurnal_nasional">Jurnal Nasional</option>
+              <option value="jurnal_nasional_terakreditasi">Jurnal Nasional Terakreditasi</option>
+              <option value="artikel_ilmiah">Artikel Ilmiah</option>
+              <option value="makalah_ilmiah">Makalah Ilmiah</option>
+              <option value="tulisan_ilmiah">Tulisan Ilmiah</option>
+              <option value="prosiding_seminar_nasional">Prosiding Seminar Nasional</option>
+              <option value="lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="col-md-4"><label class="form-label">Kategori Capaian</label><input type="text" name="kategori_capaian" id="ed_pub_kategori" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Aktivitas Litabmas</label><input type="text" name="aktivitas_litabmas" id="ed_pub_aktivitas" class="form-control"></div>
+          <div class="col-md-12"><label class="form-label">Judul Artikel *</label><textarea name="judul_artikel" id="ed_pub_judul" class="form-control" rows="2" required></textarea></div>
+          <div class="col-md-6"><label class="form-label">Nama Seminar</label><input type="text" name="nama_seminar" id="ed_pub_seminar" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Tanggal Terbit *</label><input type="date" name="tanggal_terbit" id="ed_pub_tanggal" class="form-control" required></div>
+          <div class="col-md-3"><label class="form-label">Bahasa</label><input type="text" name="bahasa" id="ed_pub_bahasa" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Penerbit/Penyelenggara</label><input type="text" name="penerbit_penyelenggara" id="ed_pub_penerbit" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Kota Penyelenggaraan</label><input type="text" name="kota_penyelenggaraan" id="ed_pub_kota" class="form-control"></div>
+          <div class="col-md-3 form-check mt-4"><input type="checkbox" name="apakah_seminar" id="ed_pub_isseminar" class="form-check-input"><label class="form-check-label" for="ed_pub_isseminar">Apakah Seminar?</label></div>
+          <div class="col-md-3 form-check mt-4"><input type="checkbox" name="apakah_prosiding" id="ed_pub_isprosiding" class="form-check-input"><label class="form-check-label" for="ed_pub_isprosiding">Apakah Prosiding?</label></div>
+          <div class="col-md-3"><label class="form-label">ISBN</label><input type="text" name="isbn" id="ed_pub_isbn" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">ISSN</label><input type="text" name="issn" id="ed_pub_issn" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">e-ISSN</label><input type="text" name="e_issn" id="ed_pub_eissn" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Tautan Eksternal</label><input type="url" name="tautan_eksternal" id="ed_pub_tautan" class="form-control"></div>
+          <div class="col-md-12"><label class="form-label">Keterangan/Petunjuk Akses</label><textarea name="keterangan" id="ed_pub_ket" class="form-control" rows="2"></textarea></div>
+          <div class="col-md-2">
+            <label class="form-label">Semester</label>
+            <select name="semester" id="ed_pub_semester" class="form-select"><option value="">-- Pilih --</option><option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tahun Akademik</label>
+            <select name="tahun_akademik" id="ed_pub_ta" class="form-select"><option value="">-- Pilih --</option>{% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}</select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+    </form>
+  </div></div>
+</div>
+
+<!-- MODAL EDIT PATEN -->
+<div class="modal fade" id="modalEditPaten" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <form method="post" action="{% url 'penelitian:edit_paten' 0 %}" id="formEditPaten">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="modal-header"><h5 class="modal-title">Edit Paten/HKI</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Jenis *</label>
+            <select name="jenis" id="ed_pat_jenis" class="form-select" required>
+              <option value="paten_nasional">Paten Nasional</option>
+              <option value="paten_internasional">Paten Internasional</option>
+              <option value="hak_cipta_nasional">Hak Cipta Nasional</option>
+              <option value="hak_cipta_internasional">Hak Cipta Internasional</option>
+            </select>
+          </div>
+          <div class="col-md-4"><label class="form-label">Kategori Capaian</label><input type="text" name="kategori_capaian" id="ed_pat_kategori" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Aktivitas Litabmas</label><input type="text" name="aktivitas_litabmas" id="ed_pat_aktivitas" class="form-control"></div>
+          <div class="col-md-12"><label class="form-label">Judul Karya/Kegiatan *</label><textarea name="judul_karya" id="ed_pat_judul" class="form-control" rows="2" required></textarea></div>
+          <div class="col-md-3"><label class="form-label">Tanggal *</label><input type="date" name="tanggal" id="ed_pat_tanggal" class="form-control" required></div>
+          <div class="col-md-5"><label class="form-label">Penyelenggara</label><input type="text" name="penyelenggara" id="ed_pat_penyelenggara" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Tautan Eksternal</label><input type="url" name="tautan_eksternal" id="ed_pat_tautan" class="form-control"></div>
+          <div class="col-md-12"><label class="form-label">Keterangan/Petunjuk Akses</label><textarea name="keterangan" id="ed_pat_ket" class="form-control" rows="2"></textarea></div>
+          <div class="col-md-2">
+            <label class="form-label">Semester</label>
+            <select name="semester" id="ed_pat_semester" class="form-select"><option value="">-- Pilih --</option><option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tahun Akademik</label>
+            <select name="tahun_akademik" id="ed_pat_ta" class="form-select"><option value="">-- Pilih --</option>{% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}</select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+    </form>
+  </div></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function goToPage(pageParam, pageNum) {
+  const url = new URL(window.location.href);
+  url.searchParams.set(pageParam, pageNum);
+  window.location.href = url.toString();
+}
+
+function changePerPage(value) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('per_page', value);
+  ['page_pen', 'page_pub', 'page_pat'].forEach(p => url.searchParams.delete(p));
+  window.location.href = url.toString();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.location.hash) {
+    const trigger = document.querySelector(`[data-bs-toggle="tab"][href="${window.location.hash}"]`);
+    if (trigger) new bootstrap.Tab(trigger).show();
+  }
+  document.querySelectorAll('[data-bs-toggle="tab"]').forEach(el => {
+    el.addEventListener('shown.bs.tab', (e) => {
+      history.replaceState(null, '', e.target.getAttribute('href'));
+    });
+  });
+});
+
+function editPenelitianFromBtn(btn) {
+  const o = JSON.parse(btn.dataset.obj);
+  document.getElementById('formEditPenelitian').action = `/penelitian/edit-penelitian/${o.id}/`;
+  document.getElementById('ed_pen_kategori').value = o.kategori_pelaksanaan;
+  document.getElementById('ed_pen_judul').value = o.judul_kegiatan;
+  document.getElementById('ed_pen_afiliasi').value = o.afiliasi;
+  document.getElementById('ed_pen_bidang').value = o.kelompok_bidang;
+  document.getElementById('ed_pen_litabmas').value = o.litabmas_sebelumnya;
+  document.getElementById('ed_pen_skim').value = o.jenis_skim;
+  document.getElementById('ed_pen_lokasi').value = o.lokasi_kegiatan;
+  document.getElementById('ed_pen_usulan').value = o.tahun_usulan;
+  document.getElementById('ed_pen_thkeg').value = o.tahun_kegiatan;
+  document.getElementById('ed_pen_thlaks').value = o.tahun_pelaksanaan;
+  document.getElementById('ed_pen_lama').value = o.lama_kegiatan_tahun;
+  document.getElementById('ed_pen_ke').value = o.tahun_pelaksanaan_ke;
+  document.getElementById('ed_pen_dikti').value = o.dana_dikti;
+  document.getElementById('ed_pen_pt').value = o.dana_pt;
+  document.getElementById('ed_pen_lain').value = o.dana_institusi_lain;
+  document.getElementById('ed_pen_inkind').value = o.in_kind;
+  document.getElementById('ed_pen_sk').value = o.no_sk_penugasan;
+  document.getElementById('ed_pen_tgl_sk').value = o.tanggal_sk_penugasan;
+  document.getElementById('ed_pen_mitra').value = o.mitra_litabmas;
+  document.getElementById('ed_pen_semester').value = o.semester;
+  document.getElementById('ed_pen_ta').value = o.tahun_akademik;
+  new bootstrap.Modal(document.getElementById('modalEditPenelitian')).show();
+}
+
+function editPublikasiFromBtn(btn) {
+  const o = JSON.parse(btn.dataset.obj);
+  document.getElementById('formEditPublikasi').action = `/penelitian/edit-publikasi/${o.id}/`;
+  document.getElementById('ed_pub_jenis').value = o.jenis;
+  document.getElementById('ed_pub_kategori').value = o.kategori_capaian;
+  document.getElementById('ed_pub_aktivitas').value = o.aktivitas_litabmas;
+  document.getElementById('ed_pub_judul').value = o.judul_artikel;
+  document.getElementById('ed_pub_seminar').value = o.nama_seminar;
+  document.getElementById('ed_pub_tanggal').value = o.tanggal_terbit;
+  document.getElementById('ed_pub_bahasa').value = o.bahasa;
+  document.getElementById('ed_pub_penerbit').value = o.penerbit_penyelenggara;
+  document.getElementById('ed_pub_kota').value = o.kota_penyelenggaraan;
+  document.getElementById('ed_pub_isseminar').checked = o.apakah_seminar;
+  document.getElementById('ed_pub_isprosiding').checked = o.apakah_prosiding;
+  document.getElementById('ed_pub_isbn').value = o.isbn;
+  document.getElementById('ed_pub_issn').value = o.issn;
+  document.getElementById('ed_pub_eissn').value = o.e_issn;
+  document.getElementById('ed_pub_tautan').value = o.tautan_eksternal;
+  document.getElementById('ed_pub_ket').value = o.keterangan;
+  document.getElementById('ed_pub_semester').value = o.semester;
+  document.getElementById('ed_pub_ta').value = o.tahun_akademik;
+  new bootstrap.Modal(document.getElementById('modalEditPublikasi')).show();
+}
+
+function editPatenFromBtn(btn) {
+  const o = JSON.parse(btn.dataset.obj);
+  document.getElementById('formEditPaten').action = `/penelitian/edit-paten/${o.id}/`;
+  document.getElementById('ed_pat_jenis').value = o.jenis;
+  document.getElementById('ed_pat_kategori').value = o.kategori_capaian;
+  document.getElementById('ed_pat_aktivitas').value = o.aktivitas_litabmas;
+  document.getElementById('ed_pat_judul').value = o.judul_karya;
+  document.getElementById('ed_pat_tanggal').value = o.tanggal;
+  document.getElementById('ed_pat_penyelenggara').value = o.penyelenggara;
+  document.getElementById('ed_pat_tautan').value = o.tautan_eksternal;
+  document.getElementById('ed_pat_ket').value = o.keterangan;
+  document.getElementById('ed_pat_semester').value = o.semester;
+  document.getElementById('ed_pat_ta').value = o.tahun_akademik;
+  new bootstrap.Modal(document.getElementById('modalEditPaten')).show();
+}
+</script>
+{% endblock %}

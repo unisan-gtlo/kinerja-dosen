@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% block title %}Anggota Penelitian — SIKD{% endblock %}
+{% block page_title %}Anggota Kegiatan Penelitian{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm mb-4" style="border-left: 4px solid #1e3a5f !important;">
+  <div class="card-body py-3">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="badge bg-blue-lt text-blue">{{ penelitian.get_kategori_pelaksanaan_display }}</span>
+          {% if penelitian.tahun_kegiatan %}<span class="badge bg-teal-lt text-teal">{{ penelitian.tahun_kegiatan }}</span>{% endif %}
+        </div>
+        <h6 class="mb-1 fw-semibold">{{ penelitian.judul_kegiatan }}</h6>
+        <small class="text-muted"><span class="ti ti-user me-1"></span>{{ penelitian.user.get_full_name }}</small>
+      </div>
+      <a href="{% url 'penelitian:index' %}" class="btn btn-sm btn-outline-secondary">
+        <span class="ti ti-arrow-left me-1"></span>Kembali
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-4">
+    {% if bisa_edit %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 fw-semibold"><span class="ti ti-plus me-1 text-primary"></span>Tambah Anggota</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" id="formTambahAnggota">
+          {% csrf_token %}
+          <input type="hidden" name="aksi" value="tambah">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Jenis Anggota *</label>
+            <select name="jenis_anggota" id="ta_jenis" class="form-select" required onchange="toggleJenisAnggota('ta')">
+              <option value="dosen">Dosen</option>
+              <option value="mahasiswa">Mahasiswa</option>
+              <option value="kolaborator_eksternal">Kolaborator Eksternal</option>
+            </select>
+          </div>
+
+          <div id="ta_blok_dosen" class="mb-3 position-relative">
+            <label class="form-label fw-semibold">Nama Dosen * <small class="text-muted">(min. 3 huruf)</small></label>
+            <input type="text" id="ta_dosen_q" class="form-control" placeholder="Cari nama/NIDN..." autocomplete="off">
+            <input type="hidden" name="dosen_id" id="ta_dosen_id">
+            <div id="ta_dosen_results" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index:20; max-height:220px; overflow-y:auto; background-color:#fff; border:1px solid rgba(0,0,0,.15); border-radius:.375rem;"></div>
+          </div>
+
+          <div id="ta_blok_mahasiswa" class="mb-3 position-relative d-none">
+            <label class="form-label fw-semibold">Nama Mahasiswa * <small class="text-muted">(min. 3 huruf)</small></label>
+            <input type="text" id="ta_mhs_q" class="form-control" placeholder="Cari nama/NIM..." autocomplete="off">
+            <input type="hidden" name="mahasiswa_id" id="ta_mhs_id">
+            <div id="ta_mhs_results" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index:20; max-height:220px; overflow-y:auto; background-color:#fff; border:1px solid rgba(0,0,0,.15); border-radius:.375rem;"></div>
+          </div>
+
+          <div id="ta_blok_lain" class="d-none">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nama *</label>
+              <input type="text" name="nama" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Asal Institusi</label>
+              <input type="text" name="perguruan_tinggi_lain" class="form-control">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Peran *</label>
+            <select name="peran" class="form-select" required>
+              <option value="ketua">Ketua</option>
+              <option value="anggota" selected>Anggota</option>
+            </select>
+          </div>
+
+          <div class="mb-3 form-check">
+            <input type="checkbox" name="status_aktif" id="ta_aktif" class="form-check-input" checked>
+            <label class="form-check-label" for="ta_aktif">Status Aktif</label>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">
+            <span class="ti ti-plus me-1"></span>Tambah Anggota
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><span class="ti ti-users me-1 text-primary"></span>Daftar Anggota</h6>
+        <span class="badge bg-blue-lt text-blue">{{ anggota_list.count }} anggota</span>
+      </div>
+      <div class="card-body p-0">
+        {% if anggota_list %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Jenis</th><th>Nama</th><th>NIDN/NIM</th>
+                <th>Peran</th><th>Status</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for a in anggota_list %}
+              <tr>
+                <td><span class="badge bg-purple-lt text-purple">{{ a.get_jenis_anggota_display }}</span></td>
+                <td><strong style="font-size:13px">{{ a.nama }}</strong>{% if a.perguruan_tinggi %}<br><small class="text-muted">{{ a.perguruan_tinggi }}</small>{% endif %}</td>
+                <td>{{ a.nidn_nim|default:'-' }}</td>
+                <td>{{ a.get_peran_display }}</td>
+                <td>{% if a.status_aktif %}<span class="badge bg-green-lt">Aktif</span>{% else %}<span class="badge bg-secondary-lt">Tidak Aktif</span>{% endif %}</td>
+                <td>
+                  {% if bisa_edit %}
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-primary" title="Edit"
+                      onclick="editAnggota({{ a.id }}, '{{ a.peran }}', {{ a.status_aktif|yesno:'true,false' }}, '{{ a.jenis_anggota }}', '{{ a.nama|escapejs }}', '{{ a.perguruan_tinggi|default:''|escapejs }}')">
+                      <span class="ti ti-edit"></span>
+                    </button>
+                    <form method="post" onsubmit="return confirm('Hapus anggota ini?')">
+                      {% csrf_token %}
+                      <input type="hidden" name="aksi" value="hapus">
+                      <input type="hidden" name="anggota_id" value="{{ a.id }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus">
+                        <span class="ti ti-trash"></span>
+                      </button>
+                    </form>
+                  </div>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <span class="ti ti-users" style="font-size:48px; opacity:0.3"></span>
+          <div class="mt-2 fw-semibold">Belum ada anggota</div>
+          <small>Tambahkan anggota menggunakan form di samping</small>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Anggota -->
+<div class="modal fade" id="modalEditAnggota" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="aksi" value="edit">
+        <input type="hidden" name="anggota_id" id="ea_id">
+        <div class="modal-header">
+          <h5 class="modal-title"><span class="ti ti-edit me-1"></span>Edit Anggota</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3" id="ea_blok_nama">
+            <label class="form-label fw-semibold">Nama</label>
+            <input type="text" name="nama" id="ea_nama" class="form-control">
+            <small class="text-muted">Hanya bisa diubah untuk jenis "Kolaborator Eksternal"</small>
+          </div>
+          <div class="mb-3" id="ea_blok_pt">
+            <label class="form-label fw-semibold">Asal Institusi</label>
+            <input type="text" name="perguruan_tinggi_lain" id="ea_pt" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Peran *</label>
+            <select name="peran" id="ea_peran" class="form-select" required>
+              <option value="ketua">Ketua</option>
+              <option value="anggota">Anggota</option>
+            </select>
+          </div>
+          <div class="mb-3 form-check">
+            <input type="checkbox" name="status_aktif" id="ea_aktif" class="form-check-input">
+            <label class="form-check-label" for="ea_aktif">Status Aktif</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary"><span class="ti ti-check me-1"></span>Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleJenisAnggota(prefix) {
+  const jenis = document.getElementById(prefix + '_jenis').value;
+  document.getElementById(prefix + '_blok_dosen').classList.toggle('d-none', jenis !== 'dosen');
+  document.getElementById(prefix + '_blok_mahasiswa').classList.toggle('d-none', jenis !== 'mahasiswa');
+  document.getElementById(prefix + '_blok_lain').classList.toggle('d-none', jenis !== 'kolaborator_eksternal');
+}
+
+function debounce(fn, delay) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+}
+
+function wireSimpleSearch(qId, idFieldId, resultsId, url, minChars) {
+  const doSearch = debounce((qEl, idEl, resultsEl) => {
+    const q = qEl.value.trim();
+    if (q.length < minChars) {
+      resultsEl.classList.add('d-none');
+      resultsEl.innerHTML = '';
+      return;
+    }
+    fetch(`${url}?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        resultsEl.innerHTML = '';
+        if (!data.results.length) {
+          resultsEl.classList.add('d-none');
+          return;
+        }
+        data.results.forEach(item => {
+          const a = document.createElement('a');
+          a.href = '#';
+          a.className = 'list-group-item list-group-item-action';
+          a.textContent = item.text;
+          a.onclick = (e) => {
+            e.preventDefault();
+            qEl.value = item.text;
+            idEl.value = item.id;
+            resultsEl.classList.add('d-none');
+          };
+          resultsEl.appendChild(a);
+        });
+        resultsEl.classList.remove('d-none');
+      });
+  }, 300);
+
+  document.addEventListener('input', (e) => {
+    if (e.target.id !== qId) return;
+    const idEl = document.getElementById(idFieldId);
+    const resultsEl = document.getElementById(resultsId);
+    idEl.value = '';
+    doSearch(e.target, idEl, resultsEl);
+  });
+
+  document.addEventListener('click', (e) => {
+    const resultsEl = document.getElementById(resultsId);
+    const qEl = document.getElementById(qId);
+    if (resultsEl && !resultsEl.contains(e.target) && e.target !== qEl) {
+      resultsEl.classList.add('d-none');
+    }
+  });
+}
+
+wireSimpleSearch('ta_dosen_q', 'ta_dosen_id', 'ta_dosen_results', "{% url 'simda_dosen:cari_dosen' %}", 3);
+wireSimpleSearch('ta_mhs_q', 'ta_mhs_id', 'ta_mhs_results', "{% url 'simda_dosen:cari_mahasiswa' %}", 3);
+
+function editAnggota(id, peran, aktif, jenis, nama, pt) {
+  document.getElementById('ea_id').value = id;
+  document.getElementById('ea_peran').value = peran;
+  document.getElementById('ea_aktif').checked = aktif;
+  document.getElementById('ea_nama').value = nama;
+  document.getElementById('ea_pt').value = pt;
+  document.getElementById('ea_nama').disabled = (jenis !== 'kolaborator_eksternal');
+  document.getElementById('ea_pt').disabled = (jenis !== 'kolaborator_eksternal');
+  new bootstrap.Modal(document.getElementById('modalEditAnggota')).show();
+}
+</script>
+{% endblock %}

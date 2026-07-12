@@ -5,7 +5,8 @@ from accounts.models import User
 from master.models import Fakultas, Prodi, TahunAkademik, Pengaturan
 from simda_dosen.models import DataDosen, RiwayatBKD, JabatanFungsionalPublik
 from simda_dosen.utils import get_simda_dosen_or_none
-from kinerja.models import Penelitian, Publikasi, PKM, HKI
+from kinerja.models import PKM
+from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -257,8 +258,8 @@ def export_excel_penelitian(request):
     ws['A2'].font = Font(bold=True, size=12)
     ws['A2'].alignment = center
 
-    headers = ['No', 'Nama Dosen', 'NIDN', 'Prodi', 'Judul', 'Semester',
-               'Tahun Akademik', 'L/N/I', 'Sumber Dana', 'Pendanaan (Juta)', 'Jml Mahasiswa']
+    headers = ['No', 'Nama Dosen', 'NIDN', 'Prodi', 'Judul Kegiatan',
+               'Kategori Pelaksanaan', 'Semester', 'Tahun Akademik', 'Total Dana (Rp)']
     row_h = 4
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=row_h, column=col, value=h)
@@ -280,9 +281,8 @@ def export_excel_penelitian(request):
             row_data = [
                 no, dosen.get_full_name() or dosen.username,
                 dosen.nidn or '-', dosen.kode_prodi or '-',
-                p.judul, p.semester or '-', p.tahun_akademik,
-                p.get_ln_i_display() if p.ln_i else '-',
-                p.sumber or '-', float(p.pendanaan), p.jml_mahasiswa
+                p.judul_kegiatan, p.get_kategori_pelaksanaan_display(),
+                p.semester or '-', p.tahun_akademik or '-', float(p.total_dana)
             ]
             for col, value in enumerate(row_data, 1):
                 cell = ws.cell(row=row_num, column=col, value=value)
@@ -291,7 +291,7 @@ def export_excel_penelitian(request):
             row_num += 1
             no += 1
 
-    col_widths = [5, 25, 15, 8, 50, 10, 15, 8, 20, 15, 12]
+    col_widths = [5, 25, 15, 8, 50, 20, 10, 15, 15]
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
@@ -336,9 +336,9 @@ def export_excel_publikasi(request):
     ws['A2'].font = Font(bold=True, size=12)
     ws['A2'].alignment = center
 
-    headers = ['No', 'Nama Dosen', 'NIDN', 'Prodi', 'Judul',
-               'Jenis', 'Nama Jurnal', 'Volume', 'Nomor',
-               'Tahun Terbit', 'Semester', 'Tahun Akademik']
+    headers = ['No', 'Nama Dosen', 'NIDN', 'Prodi', 'Judul Artikel',
+               'Jenis', 'Penerbit/Penyelenggara',
+               'Tanggal Terbit', 'Semester', 'Tahun Akademik']
     row_h = 4
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=row_h, column=col, value=h)
@@ -360,10 +360,9 @@ def export_excel_publikasi(request):
             row_data = [
                 no, dosen.get_full_name() or dosen.username,
                 dosen.nidn or '-', dosen.kode_prodi or '-',
-                p.judul, p.jenis_publikasi,
-                p.nama_jurnal or '-', p.volume or '-',
-                p.nomor or '-', p.tahun_terbit or '-',
-                p.semester or '-', p.tahun_akademik
+                p.judul_artikel, p.get_jenis_display(),
+                p.penerbit_penyelenggara or '-', p.tanggal_terbit,
+                p.semester or '-', p.tahun_akademik or '-'
             ]
             for col, value in enumerate(row_data, 1):
                 cell = ws.cell(row=row_num, column=col, value=value)
@@ -372,7 +371,7 @@ def export_excel_publikasi(request):
             row_num += 1
             no += 1
 
-    col_widths = [5, 25, 15, 8, 50, 8, 30, 8, 8, 12, 10, 15]
+    col_widths = [5, 25, 15, 8, 50, 22, 30, 14, 10, 15]
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
@@ -662,8 +661,8 @@ def export_excel_hki(request):
 
     headers = [
         'No', 'Nama Dosen', 'NIDN', 'Prodi',
-        'Judul HKI', 'Jenis HKI', 'No. HKI',
-        'Tahun Perolehan', 'Semester', 'Tahun Akademik'
+        'Judul Karya/Kegiatan', 'Jenis', 'Penyelenggara',
+        'Tanggal', 'Semester', 'Tahun Akademik'
     ]
     row_h = 5
     for col, h in enumerate(headers, 1):
@@ -689,12 +688,12 @@ def export_excel_hki(request):
                 dosen.get_full_name() or dosen.username,
                 dosen.nidn or '-',
                 dosen.kode_prodi or '-',
-                h.judul,
-                h.jenis_hki,
-                h.no_hki or '-',
-                h.tahun_perolehan or '-',
+                h.judul_karya,
+                h.get_jenis_display(),
+                h.penyelenggara or '-',
+                h.tanggal,
                 h.semester or '-',
-                h.tahun_akademik,
+                h.tahun_akademik or '-',
             ]
             for col, value in enumerate(row_data, 1):
                 cell = ws.cell(row=row_num, column=col, value=value)
@@ -891,15 +890,15 @@ def export_pdf_dosen(request, dosen_id):
     elements.append(section_header('2. PENELITIAN'))
     elements.append(Spacer(1, 0.2*cm))
     if penelitian_qs.exists():
-        pen_data = [['No', 'Judul', 'Semester', 'Tahun', 'L/N/I', 'Dana (Juta)']]
+        pen_data = [['No', 'Judul Kegiatan', 'Semester', 'Tahun', 'Kategori', 'Total Dana']]
         for i, p in enumerate(penelitian_qs, 1):
             pen_data.append([
                 str(i),
-                Paragraph(p.judul[:80], small_style),
+                Paragraph(p.judul_kegiatan[:80], small_style),
                 p.semester or '-',
-                p.tahun_akademik,
-                p.get_ln_i_display() if p.ln_i else '-',
-                f'Rp {p.pendanaan}'
+                p.tahun_akademik or '-',
+                p.get_kategori_pelaksanaan_display(),
+                f'Rp {p.total_dana}'
             ])
         t = Table(pen_data, colWidths=[1*cm, 7*cm, 2*cm, 2.5*cm, 1.5*cm, 3*cm])
         t.setStyle(TableStyle([
@@ -924,14 +923,14 @@ def export_pdf_dosen(request, dosen_id):
     elements.append(section_header('3. PUBLIKASI'))
     elements.append(Spacer(1, 0.2*cm))
     if publikasi_qs.exists():
-        pub_data = [['No', 'Judul', 'Jenis', 'Jurnal', 'Tahun']]
+        pub_data = [['No', 'Judul Artikel', 'Jenis', 'Penerbit/Penyelenggara', 'Tanggal Terbit']]
         for i, p in enumerate(publikasi_qs, 1):
             pub_data.append([
                 str(i),
-                Paragraph(p.judul[:80], small_style),
-                p.jenis_publikasi,
-                Paragraph(p.nama_jurnal[:40] if p.nama_jurnal else '-', small_style),
-                str(p.tahun_terbit or '-')
+                Paragraph(p.judul_artikel[:80], small_style),
+                p.get_jenis_display(),
+                Paragraph(p.penerbit_penyelenggara[:40] if p.penerbit_penyelenggara else '-', small_style),
+                str(p.tanggal_terbit)
             ])
         t = Table(pub_data, colWidths=[1*cm, 7*cm, 2*cm, 4.5*cm, 2.5*cm])
         t.setStyle(TableStyle([
@@ -989,14 +988,14 @@ def export_pdf_dosen(request, dosen_id):
     elements.append(section_header('5. HAK KEKAYAAN INTELEKTUAL (HKI)'))
     elements.append(Spacer(1, 0.2*cm))
     if hki_qs.exists():
-        hki_data = [['No', 'Judul', 'Jenis', 'No. HKI', 'Tahun']]
+        hki_data = [['No', 'Judul Karya/Kegiatan', 'Jenis', 'Penyelenggara', 'Tanggal']]
         for i, h in enumerate(hki_qs, 1):
             hki_data.append([
                 str(i),
-                Paragraph(h.judul[:80], small_style),
-                h.jenis_hki,
-                h.no_hki or '-',
-                str(h.tahun_perolehan or '-')
+                Paragraph(h.judul_karya[:80], small_style),
+                h.get_jenis_display(),
+                h.penyelenggara or '-',
+                str(h.tanggal)
             ])
         t = Table(hki_data, colWidths=[1*cm, 7*cm, 3*cm, 3.5*cm, 2.5*cm])
         t.setStyle(TableStyle([
@@ -1099,7 +1098,8 @@ def export_excel_statistik_kinerja(request):
         tahun_range = []
 
     from master.models import Fakultas, Prodi
-    from kinerja.models import Penelitian, Publikasi, PKM, HKI
+    from kinerja.models import PKM
+    from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
 
     fakultas_list = Fakultas.objects.filter(status='aktif').order_by('kode_fakultas')
     prodi_list = Prodi.objects.filter(status='aktif').order_by(

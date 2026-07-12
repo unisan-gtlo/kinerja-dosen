@@ -472,26 +472,20 @@
           <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
           <td>{{ p.user.get_full_name|default:p.user.username }}</td>
           <td><span class="badge bg-teal-lt text-teal">{{ p.kode_prodi }}</span></td>
-          <td style="max-width:280px; font-size:12px">{{ p.judul|truncatechars:80 }}</td>
+          <td style="max-width:280px; font-size:12px">{{ p.judul_kegiatan|truncatechars:80 }}</td>
           <td><span class="badge bg-blue-lt text-blue">{{ p.semester|default:"-" }}</span></td>
-          <td>{{ p.tahun_akademik }}</td>
-          <td>{{ p.get_ln_i_display|default:"-" }}</td>
-          <td style="font-size:12px">{{ p.sumber|default:"-" }}</td>
-          <td>Rp {{ p.pendanaan }} Jt</td>
-          <td class="text-center">{{ p.jml_mahasiswa }}</td>
+          <td>{{ p.tahun_akademik|default:p.tahun_kegiatan }}</td>
+          <td>{{ p.get_kategori_pelaksanaan_display|default:"-" }}</td>
+          <td style="font-size:12px">{{ p.afiliasi|default:"-" }}</td>
+          <td>Rp {{ p.total_dana }}</td>
+          <td class="text-center">{{ p.anggota_set.count }}</td>
           <td>
             <div class="d-flex flex-column gap-1" style="min-width:120px">
-              {% if p.link_bukti %}
-              <a href="{{ p.link_bukti }}" target="_blank"
-                class="btn btn-xs btn-outline-info">
-                <span class="ti ti-link me-1"></span>Link
-              </a>
-              {% endif %}
               {% if p.dokumen_list %}
               <button class="btn btn-xs btn-outline-primary"
                 data-bs-toggle="modal" data-bs-target="#modalDokumen"
                 onclick="loadDokumen(
-                  '{{ p.judul|truncatechars:50|escapejs }}',
+                  '{{ p.judul_kegiatan|truncatechars:50|escapejs }}',
                   {{ p.dokumen_list|length }},
                   '#dok_penelitian_{{ p.id }}'
                 )">
@@ -564,16 +558,16 @@
           <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
           <td>{{ p.user.get_full_name|default:p.user.username }}</td>
           <td><span class="badge bg-teal-lt text-teal">{{ p.kode_prodi }}</span></td>
-          <td style="max-width:250px; font-size:12px">{{ p.judul|truncatechars:70 }}</td>
-          <td><span class="badge bg-purple-lt text-purple">{{ p.jenis_publikasi }}</span></td>
-          <td style="font-size:12px">{{ p.nama_jurnal|default:"-"|truncatechars:30 }}</td>
+          <td style="max-width:250px; font-size:12px">{{ p.judul_artikel|truncatechars:70 }}</td>
+          <td><span class="badge bg-purple-lt text-purple">{{ p.get_jenis_display }}</span></td>
+          <td style="font-size:12px">{{ p.penerbit_penyelenggara|default:"-"|truncatechars:30 }}</td>
           <td><span class="badge bg-blue-lt text-blue">{{ p.semester|default:"-" }}</span></td>
-          <td>{{ p.tahun_akademik }}</td>
-          <td>{{ p.tahun_terbit|default:"-" }}</td>
+          <td>{{ p.tahun_akademik|default:"-" }}</td>
+          <td>{{ p.tanggal_terbit|default:"-" }}</td>
           <td>
             <div class="d-flex flex-column gap-1" style="min-width:120px">
-              {% if p.link_bukti %}
-              <a href="{{ p.link_bukti }}" target="_blank"
+              {% if p.tautan_eksternal %}
+              <a href="{{ p.tautan_eksternal }}" target="_blank"
                 class="btn btn-xs btn-outline-info">
                 <span class="ti ti-link me-1"></span>Link
               </a>
@@ -582,7 +576,7 @@
               <button class="btn btn-xs btn-outline-primary"
                 data-bs-toggle="modal" data-bs-target="#modalDokumen"
                 onclick="loadDokumen(
-                  '{{ p.judul|truncatechars:50|escapejs }}',
+                  '{{ p.judul_artikel|truncatechars:50|escapejs }}',
                   {{ p.dokumen_list|length }},
                   '#dok_publikasi_{{ p.id }}'
                 )">
@@ -748,33 +742,33 @@
           <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
           <td>{{ h.user.get_full_name|default:h.user.username }}</td>
           <td><span class="badge bg-teal-lt text-teal">{{ h.kode_prodi }}</span></td>
-          <td style="max-width:250px; font-size:12px">{{ h.judul|truncatechars:70 }}</td>
-          <td><span class="badge bg-teal-lt text-teal">{{ h.jenis_hki }}</span></td>
-          <td>{{ h.no_hki|default:"-" }}</td>
-          <td class="text-center">{{ h.tahun_perolehan|default:"-" }}</td>
+          <td style="max-width:250px; font-size:12px">{{ h.judul_karya|truncatechars:70 }}</td>
+          <td><span class="badge bg-teal-lt text-teal">{{ h.get_jenis_display }}</span></td>
+          <td>{{ h.penyelenggara|default:"-" }}</td>
+          <td class="text-center">{{ h.tanggal|default:"-" }}</td>
           <td><span class="badge bg-blue-lt text-blue">{{ h.semester|default:"-" }}</span></td>
-          <td>{{ h.tahun_akademik }}</td>
+          <td>{{ h.tahun_akademik|default:"-" }}</td>
           <td>
             <div class="d-flex flex-column gap-1" style="min-width:120px">
-              {% if p.link_bukti %}
-              <a href="{{ p.link_bukti }}" target="_blank"
+              {% if h.tautan_eksternal %}
+              <a href="{{ h.tautan_eksternal }}" target="_blank"
                 class="btn btn-xs btn-outline-info">
                 <span class="ti ti-link me-1"></span>Link
               </a>
               {% endif %}
-              {% if p.dokumen_list %}
+              {% if h.dokumen_list %}
               <button class="btn btn-xs btn-outline-primary"
                 data-bs-toggle="modal" data-bs-target="#modalDokumen"
                 onclick="loadDokumen(
-                  '{{ p.judul|truncatechars:50|escapejs }}',
-                  {{ p.dokumen_list|length }},
-                  '#dok_penelitian_{{ p.id }}'
+                  '{{ h.judul_karya|truncatechars:50|escapejs }}',
+                  {{ h.dokumen_list|length }},
+                  '#dok_hki_{{ h.id }}'
                 )">
                 <span class="ti ti-files me-1"></span>
-                {{ p.dokumen_list|length }} Dokumen
+                {{ h.dokumen_list|length }} Dokumen
               </button>
               <!-- Hidden dokumen data -->
-              <div id="dok_penelitian_{{ p.id }}" class="d-none">
+              <div id="dok_hki_{{ h.id }}" class="d-none">
                 {% for dok in h.dokumen_list %}
                 <div class="dok-item"
                     data-jenis="{{ dok.get_jenis_dokumen_display }}"
@@ -786,7 +780,7 @@
                 {% endfor %}
               </div>
               {% else %}
-              {% if not p.link_bukti %}
+              {% if not h.tautan_eksternal %}
               <span class="text-muted small">-</span>
               {% endif %}
               {% endif %}

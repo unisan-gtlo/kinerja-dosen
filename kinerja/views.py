@@ -10,7 +10,8 @@ from pendidikan.models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
     PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
 )
-from .models import Penelitian, Publikasi, PKM, HKI, Penghargaan, KegiatanPenunjang, DokumenKinerja
+from penelitian.models import Penelitian, PublikasiKarya, PatenHki
+from .models import PKM, Penghargaan, KegiatanPenunjang, DokumenKinerja
 from .utils import attach_dokumen_count
 
 def cek_status_input():
@@ -37,26 +38,17 @@ def index(request):
     filter_tahun = request.GET.get('tahun', '')
     filter_semester = request.GET.get('semester', '')
 
-    penelitian_list = target_user.penelitian_set.all()
-    publikasi_list = target_user.publikasi_set.all()
     pkm_list = target_user.pkm_set.all()
-    hki_list = target_user.hki_set.all()
     penghargaan_list = target_user.penghargaan_set.all()
     penunjang_list = target_user.penunjang_set.all()
 
     if filter_tahun:
-        penelitian_list = penelitian_list.filter(tahun_akademik=filter_tahun)
-        publikasi_list = publikasi_list.filter(tahun_akademik=filter_tahun)
         pkm_list = pkm_list.filter(tahun_akademik=filter_tahun)
-        hki_list = hki_list.filter(tahun_akademik=filter_tahun)
         penghargaan_list = penghargaan_list.filter(tahun_akademik=filter_tahun)
         penunjang_list = penunjang_list.filter(tahun_akademik=filter_tahun)
 
     if filter_semester:
-        penelitian_list = penelitian_list.filter(semester=filter_semester)
-        publikasi_list = publikasi_list.filter(semester=filter_semester)
         pkm_list = pkm_list.filter(semester=filter_semester)
-        hki_list = hki_list.filter(semester=filter_semester)
         penghargaan_list = penghargaan_list.filter(semester=filter_semester)
         penunjang_list = penunjang_list.filter(semester=filter_semester)
 
@@ -67,10 +59,7 @@ def index(request):
         'input_terbuka': input_terbuka,
         'filter_tahun': filter_tahun,
         'filter_semester': filter_semester,
-        'penelitian_list': attach_dokumen_count(penelitian_list, 'penelitian'),
-        'publikasi_list': attach_dokumen_count(publikasi_list, 'publikasi'),
         'pkm_list': attach_dokumen_count(pkm_list, 'pkm'),
-        'hki_list': attach_dokumen_count(hki_list, 'hki'),
         'penghargaan_list': attach_dokumen_count(penghargaan_list, 'penghargaan'),
         'penunjang_list': attach_dokumen_count(penunjang_list, 'penunjang'),
     }
@@ -165,92 +154,6 @@ def hapus_bkd(request, bkd_id):
 
 
 @login_required
-def tambah_penelitian(request):
-    if request.method != 'POST':
-        return redirect('kinerja:index')
-    if not cek_status_input():
-        messages.error(request, 'Input data sedang dikunci.')
-        return redirect('kinerja:index')
-
-    user = request.user
-    dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
-
-    Penelitian.objects.create(
-        user=target_user,
-        kode_prodi=target_user.kode_prodi or '',
-        kode_fakultas=target_user.kode_fakultas or '',
-        judul=request.POST.get('judul', '').strip(),
-        jml_mahasiswa=request.POST.get('jml_mahasiswa', 0),
-        jenis_hibah=request.POST.get('jenis_hibah', '').strip(),
-        sumber=request.POST.get('sumber', '').strip(),
-        durasi=request.POST.get('durasi', 1),
-        ln_i=request.POST.get('ln_i', ''),
-        semester=request.POST.get('semester', ''),
-        tahun_akademik=request.POST.get('tahun_akademik', ''),
-        pendanaan=request.POST.get('pendanaan', 0) or 0,
-        link_bukti=request.POST.get('link_bukti', '').strip(),
-        updated_by=user.username
-    )
-    messages.success(request, 'Data penelitian berhasil ditambahkan.')
-    return redirect('kinerja:index')
-
-
-@login_required
-def hapus_penelitian(request, id):
-    obj = get_object_or_404(Penelitian, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:index')
-    obj.delete()
-    messages.success(request, 'Data penelitian berhasil dihapus.')
-    return redirect('kinerja:index')
-
-
-@login_required
-def tambah_publikasi(request):
-    if request.method != 'POST':
-        return redirect('kinerja:index')
-    if not cek_status_input():
-        messages.error(request, 'Input data sedang dikunci.')
-        return redirect('kinerja:index')
-
-    user = request.user
-    dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
-
-    Publikasi.objects.create(
-        user=target_user,
-        kode_prodi=target_user.kode_prodi or '',
-        kode_fakultas=target_user.kode_fakultas or '',
-        judul=request.POST.get('judul', '').strip(),
-        jenis_publikasi=request.POST.get('jenis_publikasi', ''),
-        nama_jurnal=request.POST.get('nama_jurnal', '').strip(),
-        volume=request.POST.get('volume', '').strip(),
-        nomor=request.POST.get('nomor', '').strip(),
-        halaman=request.POST.get('halaman', '').strip(),
-        tahun_terbit=request.POST.get('tahun_terbit') or None,
-        semester=request.POST.get('semester', ''),
-        tahun_akademik=request.POST.get('tahun_akademik', ''),
-        link_bukti=request.POST.get('link_bukti', '').strip(),
-        updated_by=user.username
-    )
-    messages.success(request, 'Data publikasi berhasil ditambahkan.')
-    return redirect('kinerja:index')
-
-
-@login_required
-def hapus_publikasi(request, id):
-    obj = get_object_or_404(Publikasi, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:index')
-    obj.delete()
-    messages.success(request, 'Data publikasi berhasil dihapus.')
-    return redirect('kinerja:index')
-
-
-@login_required
 def tambah_pkm(request):
     if request.method != 'POST':
         return redirect('kinerja:index')
@@ -290,46 +193,6 @@ def hapus_pkm(request, id):
         return redirect('kinerja:index')
     obj.delete()
     messages.success(request, 'Data PKM berhasil dihapus.')
-    return redirect('kinerja:index')
-
-
-@login_required
-def tambah_hki(request):
-    if request.method != 'POST':
-        return redirect('kinerja:index')
-    if not cek_status_input():
-        messages.error(request, 'Input data sedang dikunci.')
-        return redirect('kinerja:index')
-
-    user = request.user
-    dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
-
-    HKI.objects.create(
-        user=target_user,
-        kode_prodi=target_user.kode_prodi or '',
-        kode_fakultas=target_user.kode_fakultas or '',
-        judul=request.POST.get('judul', '').strip(),
-        jenis_hki=request.POST.get('jenis_hki', ''),
-        no_hki=request.POST.get('no_hki', '').strip(),
-        tahun_perolehan=request.POST.get('tahun_perolehan') or None,
-        semester=request.POST.get('semester', ''),
-        tahun_akademik=request.POST.get('tahun_akademik', ''),
-        link_bukti=request.POST.get('link_bukti', '').strip(),
-        updated_by=user.username
-    )
-    messages.success(request, 'Data HKI berhasil ditambahkan.')
-    return redirect('kinerja:index')
-
-
-@login_required
-def hapus_hki(request, id):
-    obj = get_object_or_404(HKI, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:index')
-    obj.delete()
-    messages.success(request, 'Data HKI berhasil dihapus.')
     return redirect('kinerja:index')
 
 
@@ -474,6 +337,7 @@ PENDIDIKAN_JENIS = {
     'pengajaran', 'bimbingan_mahasiswa', 'pengujian_mahasiswa', 'bahan_ajar',
     'pembinaan_mahasiswa', 'orasi_ilmiah', 'tugas_tambahan',
 }
+PENELITIAN_JENIS = {'penelitian', 'publikasi', 'hki'}
 
 
 def _kembali_url(jenis_kinerja):
@@ -481,6 +345,8 @@ def _kembali_url(jenis_kinerja):
         return 'kinerja:bkd_index'
     if jenis_kinerja in PENDIDIKAN_JENIS:
         return 'pendidikan:index'
+    if jenis_kinerja in PENELITIAN_JENIS:
+        return 'penelitian:index'
     if jenis_kinerja == 'diklat':
         return 'profil:kualifikasi_index'
     if jenis_kinerja in ('sertifikasi', 'tes'):
@@ -495,9 +361,9 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
     # Validasi akses dan ambil objek kinerja
     KINERJA_MAP = {
         'penelitian': Penelitian,
-        'publikasi': Publikasi,
+        'publikasi': PublikasiKarya,
         'pkm': PKM,
-        'hki': HKI,
+        'hki': PatenHki,
         'bkd': RiwayatBKD,
         'pengajaran': Pengajaran,
         'bimbingan_mahasiswa': BimbinganMahasiswa,
@@ -528,13 +394,23 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         pemilik = kinerja_obj.user
 
     # bisa_kelola = boleh tambah/edit/hapus dokumen (pemilik asli/admin saja).
-    # Selain itu, dosen yang jadi Penulis Dosen (co-author) di Bahan Ajar
-    # boleh LIHAT saja -- lihat _is_co_penulis_bahan_ajar di bawah.
+    # Selain itu, dosen yang jadi Penulis/Anggota Dosen (co-author) di Bahan
+    # Ajar/Penelitian/Publikasi Karya/Paten-HKI boleh LIHAT saja.
     bisa_kelola = (pemilik == user or user.role in ['admin', 'operator'])
 
     if not bisa_kelola:
         boleh_lihat = False
         if jenis_kinerja == 'bahan_ajar':
+            dosen = get_simda_dosen_or_none(user)
+            boleh_lihat = dosen and kinerja_obj.penulis_set.filter(
+                jenis_penulis='dosen', dosen_id=dosen.id
+            ).exists()
+        elif jenis_kinerja == 'penelitian':
+            dosen = get_simda_dosen_or_none(user)
+            boleh_lihat = dosen and kinerja_obj.anggota_set.filter(
+                jenis_anggota='dosen', dosen_id=dosen.id
+            ).exists()
+        elif jenis_kinerja in ('publikasi', 'hki'):
             dosen = get_simda_dosen_or_none(user)
             boleh_lihat = dosen and kinerja_obj.penulis_set.filter(
                 jenis_penulis='dosen', dosen_id=dosen.id
@@ -619,6 +495,12 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
     # Judul kinerja
     if hasattr(kinerja_obj, 'judul'):
         judul_kinerja = kinerja_obj.judul[:80]
+    elif hasattr(kinerja_obj, 'judul_kegiatan'):
+        judul_kinerja = kinerja_obj.judul_kegiatan[:80]
+    elif hasattr(kinerja_obj, 'judul_artikel'):
+        judul_kinerja = kinerja_obj.judul_artikel[:80]
+    elif hasattr(kinerja_obj, 'judul_karya'):
+        judul_kinerja = kinerja_obj.judul_karya[:80]
     elif hasattr(kinerja_obj, 'nama_mk'):
         judul_kinerja = kinerja_obj.nama_mk[:80]
     elif hasattr(kinerja_obj, 'judul_bimbingan'):
@@ -682,52 +564,6 @@ def edit_bkd(request, id):
 
 
 @login_required
-def edit_penelitian(request, id):
-    obj = get_object_or_404(Penelitian, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:index')
-    if request.method == 'POST':
-        obj.judul = request.POST.get('judul', '').strip()
-        obj.semester = request.POST.get('semester', '')
-        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
-        obj.jml_mahasiswa = request.POST.get('jml_mahasiswa', 0)
-        obj.ln_i = request.POST.get('ln_i', '')
-        obj.jenis_hibah = request.POST.get('jenis_hibah', '').strip()
-        obj.sumber = request.POST.get('sumber', '').strip()
-        obj.durasi = request.POST.get('durasi', 1)
-        obj.pendanaan = request.POST.get('pendanaan', 0) or 0
-        obj.link_bukti = request.POST.get('link_bukti', '').strip() or None
-        obj.updated_by = request.user.username
-        obj.save()
-        messages.success(request, 'Penelitian berhasil diupdate.')
-    return redirect('kinerja:index')
-
-
-@login_required
-def edit_publikasi(request, id):
-    obj = get_object_or_404(Publikasi, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:index')
-    if request.method == 'POST':
-        obj.judul = request.POST.get('judul', '').strip()
-        obj.jenis_publikasi = request.POST.get('jenis_publikasi', obj.jenis_publikasi)
-        obj.nama_jurnal = request.POST.get('nama_jurnal', '').strip()
-        obj.volume = request.POST.get('volume', '').strip()
-        obj.nomor = request.POST.get('nomor', '').strip()
-        obj.halaman = request.POST.get('halaman', '').strip()
-        obj.tahun_terbit = request.POST.get('tahun_terbit') or None
-        obj.semester = request.POST.get('semester', '')
-        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
-        obj.link_bukti = request.POST.get('link_bukti', '').strip() or None
-        obj.updated_by = request.user.username
-        obj.save()
-        messages.success(request, 'Publikasi berhasil diupdate.')
-    return redirect('kinerja:index')
-
-
-@login_required
 def edit_pkm(request, id):
     obj = get_object_or_404(PKM, id=id)
     if request.user != obj.user and request.user.role not in ['admin', 'operator']:
@@ -747,24 +583,4 @@ def edit_pkm(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'PKM berhasil diupdate.')
-    return redirect('kinerja:index')
-
-
-@login_required
-def edit_hki(request, id):
-    obj = get_object_or_404(HKI, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:index')
-    if request.method == 'POST':
-        obj.judul = request.POST.get('judul', '').strip()
-        obj.jenis_hki = request.POST.get('jenis_hki', obj.jenis_hki)
-        obj.no_hki = request.POST.get('no_hki', '').strip()
-        obj.tahun_perolehan = request.POST.get('tahun_perolehan') or None
-        obj.semester = request.POST.get('semester', '')
-        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
-        obj.link_bukti = request.POST.get('link_bukti', '').strip() or None
-        obj.updated_by = request.user.username
-        obj.save()
-        messages.success(request, 'HKI berhasil diupdate.')
     return redirect('kinerja:index')

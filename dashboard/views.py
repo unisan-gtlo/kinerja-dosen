@@ -4,7 +4,8 @@ from accounts.models import User
 from master.models import Fakultas, Prodi, TahunAkademik, Pengaturan
 from simda_dosen.models import DataDosen, RiwayatBKD, JabatanFungsionalPublik
 from simda_dosen.utils import get_simda_dosen_or_none
-from kinerja.models import Penelitian, Publikasi, PKM, HKI, DokumenKinerja
+from kinerja.models import PKM, DokumenKinerja
+from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
 
 
 def annotate_dokumen(qs, jenis):
