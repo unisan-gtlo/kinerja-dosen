@@ -1087,14 +1087,12 @@ function debounce(fn, delay) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
 }
 
+// Pakai event delegation (listener dipasang ke document, bukan ke elemen
+// input/select langsung) supaya kebal kalau elemen sempat diganti/dikloning
+// oleh script lain setelah halaman dimuat -- elemen dicari ulang tiap kali
+// event terjadi, bukan sekali di awal saat wireSearch() dipanggil.
 function wireSearch(prefix, url, minChars, onPick) {
-  const prodiEl = document.getElementById(prefix + '_prodi');
-  const qEl = document.getElementById(prefix + '_q');
-  const idEl = document.getElementById(prefix + '_id');
-  const resultsEl = document.getElementById(prefix + '_results');
-  if (!qEl || !idEl || !resultsEl) return;
-
-  const doSearch = debounce(() => {
+  const doSearch = debounce((qEl, idEl, resultsEl, prodiEl) => {
     const q = qEl.value.trim();
     const kodeProdi = prodiEl ? prodiEl.value : '';
     if (!kodeProdi || q.length < minChars) {
@@ -1128,12 +1126,29 @@ function wireSearch(prefix, url, minChars, onPick) {
       });
   }, 300);
 
-  qEl.addEventListener('input', () => { idEl.value = ''; doSearch(); });
-  if (prodiEl) prodiEl.addEventListener('change', () => {
+  document.addEventListener('input', (e) => {
+    if (e.target.id !== prefix + '_q') return;
+    const idEl = document.getElementById(prefix + '_id');
+    const resultsEl = document.getElementById(prefix + '_results');
+    const prodiEl = document.getElementById(prefix + '_prodi');
+    idEl.value = '';
+    doSearch(e.target, idEl, resultsEl, prodiEl);
+  });
+
+  document.addEventListener('change', (e) => {
+    if (e.target.id !== prefix + '_prodi') return;
+    const qEl = document.getElementById(prefix + '_q');
+    const idEl = document.getElementById(prefix + '_id');
+    const resultsEl = document.getElementById(prefix + '_results');
     qEl.value = ''; idEl.value = ''; resultsEl.classList.add('d-none');
   });
+
   document.addEventListener('click', (e) => {
-    if (!resultsEl.contains(e.target) && e.target !== qEl) resultsEl.classList.add('d-none');
+    const resultsEl = document.getElementById(prefix + '_results');
+    const qEl = document.getElementById(prefix + '_q');
+    if (resultsEl && !resultsEl.contains(e.target) && e.target !== qEl) {
+      resultsEl.classList.add('d-none');
+    }
   });
 }
 
