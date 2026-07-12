@@ -311,6 +311,13 @@
             </a>
           </li>
           <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.app_name == 'pendidikan' %}active{% endif %}"
+               href="{% url 'pendidikan:index' %}">
+              <span class="nav-link-icon"><span class="ti ti-chalkboard"></span></span>
+              <span class="nav-link-title">Pelaks. Pendidikan</span>
+            </a>
+          </li>
+          <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'kinerja' and request.resolver_match.url_name != 'bkd_index' %}active{% endif %}"
                href="{% url 'kinerja:index' %}">
               <span class="nav-link-icon"><span class="ti ti-chart-bar"></span></span>

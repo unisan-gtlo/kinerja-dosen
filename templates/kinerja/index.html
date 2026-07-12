@@ -75,13 +75,7 @@
 <!-- Tab Navigation -->
 <ul class="nav nav-tabs mb-0" id="kinerjaTab">
   <li class="nav-item">
-    <a class="nav-link active" data-bs-toggle="tab" href="#tab-pengajaran">
-      <span class="ti ti-chalkboard me-1"></span>Pengajaran
-      <span class="badge bg-blue-lt ms-1">{{ pengajaran_list.count }}</span>
-    </a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link" data-bs-toggle="tab" href="#tab-penelitian">
+    <a class="nav-link active" data-bs-toggle="tab" href="#tab-penelitian">
       <span class="ti ti-microscope me-1"></span>Penelitian
       <span class="badge bg-blue-lt ms-1">{{ penelitian_list.count }}</span>
     </a>
@@ -122,143 +116,10 @@
 
   <!-- BKD sekarang punya halaman & menu sendiri: "Laporan BKD" (kinerja:bkd_index) -->
 
-  <!-- TAB PENGAJARAN -->
-  <div class="tab-pane fade show active" id="tab-pengajaran">
-    {% if bisa_edit %}
-    <div class="card border-0 bg-light mb-4">
-      <div class="card-body">
-        <h6 class="fw-semibold mb-3">Tambah Kegiatan Pengajaran</h6>
-        <form method="post" action="{% url 'kinerja:tambah_pengajaran' %}">
-          {% csrf_token %}
-          {% if target_user != request.user %}
-          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
-          {% endif %}
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label class="form-label">Jenis Kegiatan *</label>
-              <select name="jenis_kegiatan" class="form-select" required>
-                <option value="">-- Pilih --</option>
-                <option value="mengajar">Mengajar Mata Kuliah</option>
-                <option value="membimbing_skripsi">Membimbing Skripsi/Tugas Akhir</option>
-                <option value="membimbing_tesis">Membimbing Tesis</option>
-                <option value="membimbing_disertasi">Membimbing Disertasi</option>
-                <option value="membimbing_pa">Pembimbing Akademik (PA)</option>
-                <option value="menguji">Menguji (Sidang/Komprehensif)</option>
-                <option value="lainnya">Lainnya</option>
-              </select>
-            </div>
-            <div class="col-md-5">
-              <label class="form-label">Nama Mata Kuliah / Mahasiswa / Ujian *</label>
-              <input type="text" name="nama_kegiatan" class="form-control" required>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">SKS <small class="text-muted">(mengajar)</small></label>
-              <input type="number" step="0.1" name="sks" class="form-control">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Jml Mhs <small class="text-muted">(bimbing/uji)</small></label>
-              <input type="number" name="jumlah_mahasiswa" class="form-control" value="0" min="0">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Peran</label>
-              <input type="text" name="peran" class="form-control" placeholder="Pembimbing 1, Ketua Penguji, dll">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Semester</label>
-              <select name="semester" class="form-select">
-                <option value="">-- Pilih --</option>
-                <option value="Ganjil">Ganjil</option>
-                <option value="Genap">Genap</option>
-                <option value="Keduanya">Keduanya</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Tahun Akademik *</label>
-              <select name="tahun_akademik" class="form-select" required>
-                <option value="">-- Pilih --</option>
-                {% for t in tahun_list %}
-                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Link Bukti</label>
-              <input type="url" name="link_bukti" class="form-control" placeholder="https://...">
-            </div>
-            <div class="col-12">
-              <button type="submit" class="btn btn-primary">
-                <span class="ti ti-plus me-1"></span>Tambah
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-    {% endif %}
-    <div class="table-responsive">
-      <table class="table table-hover">
-        <thead class="table-light">
-          <tr>
-            <th>Jenis</th><th>Nama Kegiatan</th><th>SKS</th><th>Jml Mhs</th>
-            <th>Peran</th><th>Periode</th><th>Bukti</th>
-            <th>Dokumen</th><th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for pg in pengajaran_list %}
-          <tr>
-            <td><span class="badge bg-orange-lt text-orange">{{ pg.get_jenis_kegiatan_display }}</span></td>
-            <td style="max-width:220px">{{ pg.nama_kegiatan|truncatechars:60 }}</td>
-            <td>{{ pg.sks|default:"-" }}</td>
-            <td>{{ pg.jumlah_mahasiswa|default:"-" }}</td>
-            <td>{{ pg.peran|default:"-" }}</td>
-            <td><span class="badge bg-blue-lt text-blue">{{ pg.periode }}</span></td>
-            <td>
-              {% if pg.link_bukti %}
-              <a href="{{ pg.link_bukti }}" target="_blank" class="btn btn-sm btn-outline-info">
-                <span class="ti ti-link"></span>
-              </a>
-              {% else %}-{% endif %}
-            </td>
-            <td>
-              <a href="{% url 'kinerja:kelola_dokumen' 'pengajaran' pg.id %}"
-                 class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen
-              </a>
-            </td>
-            <td>
-              {% if bisa_edit %}
-              <div class="d-flex gap-1">
-                <button class="btn btn-sm btn-outline-primary"
-                  onclick="editPengajaran(
-                    {{ pg.id }},'{{ pg.jenis_kegiatan }}','{{ pg.nama_kegiatan|escapejs }}',
-                    '{{ pg.sks|default:'' }}','{{ pg.jumlah_mahasiswa|default:0 }}',
-                    '{{ pg.peran|default:''|escapejs }}','{{ pg.semester|default:'' }}',
-                    '{{ pg.tahun_akademik }}','{{ pg.link_bukti|default:'' }}'
-                  )">
-                  <span class="ti ti-edit"></span>
-                </button>
-                <form method="post" action="{% url 'kinerja:hapus_pengajaran' pg.id %}"
-                      onsubmit="return confirm('Hapus data ini?')">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-sm btn-outline-danger">
-                    <span class="ti ti-trash"></span>
-                  </button>
-                </form>
-              </div>
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="9" class="text-center text-muted py-3">Belum ada data pengajaran</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
+  <!-- Pengajaran pindah ke menu "Pelaks. Pendidikan" (app pendidikan) -->
 
   <!-- TAB PENELITIAN -->
-  <div class="tab-pane fade" id="tab-penelitian">
+  <div class="tab-pane fade show active" id="tab-penelitian">
     {% if bisa_edit %}
     <div class="card border-0 bg-light mb-4">
       <div class="card-body">
@@ -1414,81 +1275,6 @@
   </div>
 </div>
 
-<!-- ===================== MODAL EDIT PENGAJARAN ===================== -->
-<div class="modal fade" id="modalEditPengajaran" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <form method="post" action="" id="formEditPengajaran">
-        {% csrf_token %}
-        {% if target_user != request.user %}
-        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
-        {% endif %}
-        <div class="modal-header">
-          <h5 class="modal-title">Edit Pengajaran</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Jenis Kegiatan *</label>
-              <select name="jenis_kegiatan" id="epg_jenis" class="form-select" required>
-                <option value="mengajar">Mengajar Mata Kuliah</option>
-                <option value="membimbing_skripsi">Membimbing Skripsi/Tugas Akhir</option>
-                <option value="membimbing_tesis">Membimbing Tesis</option>
-                <option value="membimbing_disertasi">Membimbing Disertasi</option>
-                <option value="membimbing_pa">Pembimbing Akademik (PA)</option>
-                <option value="menguji">Menguji (Sidang/Komprehensif)</option>
-                <option value="lainnya">Lainnya</option>
-              </select>
-            </div>
-            <div class="col-md-8">
-              <label class="form-label">Nama Mata Kuliah / Mahasiswa / Ujian *</label>
-              <input type="text" name="nama_kegiatan" id="epg_nama" class="form-control" required>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">SKS</label>
-              <input type="number" step="0.1" name="sks" id="epg_sks" class="form-control">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Jml Mhs</label>
-              <input type="number" name="jumlah_mahasiswa" id="epg_jml" class="form-control" min="0">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Peran</label>
-              <input type="text" name="peran" id="epg_peran" class="form-control">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Semester</label>
-              <select name="semester" id="epg_semester" class="form-select">
-                <option value="">-- Pilih --</option>
-                <option value="Ganjil">Ganjil</option>
-                <option value="Genap">Genap</option>
-                <option value="Keduanya">Keduanya</option>
-              </select>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Tahun Akademik *</label>
-              <select name="tahun_akademik" id="epg_tahun" class="form-select" required>
-                {% for t in tahun_list %}
-                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-12">
-              <label class="form-label">Link Bukti</label>
-              <input type="url" name="link_bukti" id="epg_link" class="form-control">
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-          <button type="submit" class="btn btn-primary">Simpan</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
 <!-- ===================== MODAL EDIT PENGHARGAAN ===================== -->
 <div class="modal fade" id="modalEditPenghargaan" tabindex="-1">
   <div class="modal-dialog modal-lg">
@@ -1721,21 +1507,6 @@ function editHKI(id, judul, jenis, no_hki, tahun_perolehan, semester, tahun, lin
   document.getElementById('eh_tahun').value = tahun;
   document.getElementById('eh_link').value = link;
   new bootstrap.Modal(document.getElementById('modalEditHKI')).show();
-}
-
-// Edit Pengajaran
-function editPengajaran(id, jenis, nama, sks, jml, peran, semester, tahun, link) {
-  const form = document.getElementById('formEditPengajaran');
-  form.action = `/kinerja/edit-pengajaran/${id}/`;
-  document.getElementById('epg_jenis').value = jenis;
-  document.getElementById('epg_nama').value = nama;
-  document.getElementById('epg_sks').value = sks;
-  document.getElementById('epg_jml').value = jml;
-  document.getElementById('epg_peran').value = peran;
-  document.getElementById('epg_semester').value = semester;
-  document.getElementById('epg_tahun').value = tahun;
-  document.getElementById('epg_link').value = link;
-  new bootstrap.Modal(document.getElementById('modalEditPengajaran')).show();
 }
 
 // Edit Penghargaan

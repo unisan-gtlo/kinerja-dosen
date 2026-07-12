@@ -196,54 +196,10 @@ class HKI(models.Model):
         return self.tahun_akademik
 
 
-class Pengajaran(models.Model):
-    JENIS_KEGIATAN = [
-        ('mengajar', 'Mengajar Mata Kuliah'),
-        ('membimbing_skripsi', 'Membimbing Skripsi/Tugas Akhir'),
-        ('membimbing_tesis', 'Membimbing Tesis'),
-        ('membimbing_disertasi', 'Membimbing Disertasi'),
-        ('membimbing_pa', 'Pembimbing Akademik (PA)'),
-        ('menguji', 'Menguji (Sidang/Komprehensif)'),
-        ('lainnya', 'Lainnya'),
-    ]
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='pengajaran_set'
-    )
-    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
-    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
-    jenis_kegiatan = models.CharField(max_length=25, choices=JENIS_KEGIATAN)
-    nama_kegiatan = models.CharField(
-        max_length=200,
-        help_text='Nama mata kuliah / nama mahasiswa dibimbing / jenis ujian'
-    )
-    sks = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True,
-                               help_text='Diisi untuk kegiatan Mengajar')
-    jumlah_mahasiswa = models.IntegerField(default=0,
-                                            help_text='Diisi untuk Membimbing/Menguji')
-    peran = models.CharField(max_length=100, blank=True, null=True,
-                              help_text='Contoh: Pembimbing 1, Ketua Penguji')
-    semester = models.CharField(
-        max_length=10, choices=SEMESTER_CHOICES,
-        blank=True, null=True
-    )
-    tahun_akademik = models.CharField(max_length=10)
-    link_bukti = models.URLField(blank=True, null=True)
-    tgl_input = models.DateTimeField(auto_now_add=True)
-    updated_by = models.CharField(max_length=50, blank=True, null=True)
-
-    class Meta:
-        verbose_name = 'Pengajaran'
-        verbose_name_plural = 'Pengajaran'
-        ordering = ['-tahun_akademik', 'semester']
-
-    def __str__(self):
-        return f"{self.user.get_full_name()} - {self.get_jenis_kegiatan_display()} - {self.nama_kegiatan[:50]}"
-
-    @property
-    def periode(self):
-        if self.semester:
-            return f"{self.semester} {self.tahun_akademik}"
-        return self.tahun_akademik
+# Pengajaran pindah ke app pendidikan (lihat pendidikan/models.py) --
+# dipecah jadi Pengajaran/Bimbingan Mahasiswa/Pengujian Mahasiswa mengikuti
+# field spesifik SISTER (Pengajaran.docx), bukan lagi 1 model generik.
+# upload_* lama tidak ada untuk model ini jadi tidak perlu dipertahankan.
 
 
 class Penghargaan(models.Model):
@@ -348,6 +304,12 @@ class DokumenKinerja(models.Model):
         ('hki', 'HKI'),
         ('bkd', 'BKD'),
         ('pengajaran', 'Pengajaran'),
+        ('bimbingan_mahasiswa', 'Bimbingan Mahasiswa'),
+        ('pengujian_mahasiswa', 'Pengujian Mahasiswa'),
+        ('bahan_ajar', 'Bahan Ajar'),
+        ('pembinaan_mahasiswa', 'Pembinaan Mahasiswa'),
+        ('orasi_ilmiah', 'Orasi Ilmiah'),
+        ('tugas_tambahan', 'Tugas Tambahan'),
         ('penghargaan', 'Penghargaan'),
         ('penunjang', 'Kegiatan Penunjang'),
         ('diklat', 'Diklat'),

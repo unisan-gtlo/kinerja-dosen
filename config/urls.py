@@ -9,7 +9,9 @@ urlpatterns = [
     path('master/', include('master.urls')),
     path('profil/', include('profil.urls')),
     path('kinerja/', include('kinerja.urls')),
+    path('pendidikan/', include('pendidikan.urls')),
     path('laporan/', include('laporan.urls')),
+    path('simda-dosen/', include('simda_dosen.urls')),
 ]
 
 # Protected media — hanya bisa diakses saat login

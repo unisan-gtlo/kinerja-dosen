@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'master',
     'profil',
     'kinerja',
+    'pendidikan',
     'dashboard',
     'laporan',
     'simda_dosen',

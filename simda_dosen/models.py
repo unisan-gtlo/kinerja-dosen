@@ -344,3 +344,54 @@ class TahunAkademikPublik(models.Model):
 
     def __str__(self):
         return self.label_lengkap or self.tahun_akademik
+
+
+class MataKuliahPublik(models.Model):
+    """Read-only, sumbernya master.mata_kuliah langsung (tabel mentah,
+    bukan view -- katalog MK tidak berisi data pribadi/sensitif). Dipakai
+    untuk dropdown+cari Mata Kuliah di form Pengajaran (app pendidikan),
+    difilter per kode_prodi dosen yang login."""
+    JENIS = [('Wajib', 'Wajib'), ('Pilihan', 'Pilihan'), ('KKN', 'KKN'),
+             ('Skripsi', 'Skripsi'), ('Tesis', 'Tesis'), ('Magang', 'Magang')]
+
+    kode_mk = models.CharField(max_length=20)
+    kode_mk_dikti = models.CharField(max_length=20, blank=True)
+    nama_mk = models.CharField(max_length=200)
+    kode_prodi = models.CharField(max_length=10, db_column='kode_prodi')
+    sks_total = models.IntegerField()
+    jenis_mk = models.CharField(max_length=20, choices=JENIS)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = 'master"."mata_kuliah'
+        verbose_name = 'Mata Kuliah (SIMDA)'
+        verbose_name_plural = 'Mata Kuliah (SIMDA)'
+        ordering = ['kode_prodi', 'kode_mk']
+
+    def __str__(self):
+        return f'{self.kode_mk} — {self.nama_mk} ({self.sks_total} SKS)'
+
+
+class MahasiswaPublik(models.Model):
+    """Read-only, sumbernya master.v_mahasiswa_publik (view SIMDA -- field
+    sensitif seperti NIK/alamat/data orang tua SENGAJA tidak disertakan,
+    lihat buat_view_mahasiswa_publik.sql di repo SIMDA). Dipakai untuk
+    dropdown+cari Nama Mahasiswa di form Bimbingan & Pengujian Mahasiswa
+    (app pendidikan), difilter per kode_prodi."""
+    nim = models.CharField(max_length=20)
+    nama_lengkap = models.CharField(max_length=150)
+    kode_prodi = models.CharField(max_length=10, db_column='kode_prodi')
+    angkatan = models.CharField(max_length=10)
+    semester_aktif = models.IntegerField()
+    status_mahasiswa = models.CharField(max_length=25)
+
+    class Meta:
+        managed = False
+        db_table = 'master"."v_mahasiswa_publik'
+        verbose_name = 'Mahasiswa (SIMDA)'
+        verbose_name_plural = 'Mahasiswa (SIMDA)'
+        ordering = ['kode_prodi', 'nama_lengkap']
+
+    def __str__(self):
+        return f'{self.nim} — {self.nama_lengkap}'

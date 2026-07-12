@@ -6,7 +6,11 @@ from accounts.models import User
 from simda_dosen.models import RiwayatBKD, TahunAkademikPublik
 from simda_dosen.utils import get_simda_dosen_or_none
 from profil.models import Diklat, Sertifikasi, TesKompetensi
-from .models import Penelitian, Publikasi, PKM, HKI, Pengajaran, Penghargaan, KegiatanPenunjang
+from pendidikan.models import (
+    Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
+    PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
+)
+from .models import Penelitian, Publikasi, PKM, HKI, Penghargaan, KegiatanPenunjang, DokumenKinerja
 
 def cek_status_input():
     try:
@@ -32,7 +36,6 @@ def index(request):
     filter_tahun = request.GET.get('tahun', '')
     filter_semester = request.GET.get('semester', '')
 
-    pengajaran_list = target_user.pengajaran_set.all()
     penelitian_list = target_user.penelitian_set.all()
     publikasi_list = target_user.publikasi_set.all()
     pkm_list = target_user.pkm_set.all()
@@ -41,7 +44,6 @@ def index(request):
     penunjang_list = target_user.penunjang_set.all()
 
     if filter_tahun:
-        pengajaran_list = pengajaran_list.filter(tahun_akademik=filter_tahun)
         penelitian_list = penelitian_list.filter(tahun_akademik=filter_tahun)
         publikasi_list = publikasi_list.filter(tahun_akademik=filter_tahun)
         pkm_list = pkm_list.filter(tahun_akademik=filter_tahun)
@@ -50,7 +52,6 @@ def index(request):
         penunjang_list = penunjang_list.filter(tahun_akademik=filter_tahun)
 
     if filter_semester:
-        pengajaran_list = pengajaran_list.filter(semester=filter_semester)
         penelitian_list = penelitian_list.filter(semester=filter_semester)
         publikasi_list = publikasi_list.filter(semester=filter_semester)
         pkm_list = pkm_list.filter(semester=filter_semester)
@@ -65,7 +66,6 @@ def index(request):
         'input_terbuka': input_terbuka,
         'filter_tahun': filter_tahun,
         'filter_semester': filter_semester,
-        'pengajaran_list': pengajaran_list,
         'penelitian_list': penelitian_list,
         'publikasi_list': publikasi_list,
         'pkm_list': pkm_list,
@@ -333,68 +333,6 @@ def hapus_hki(request, id):
 
 
 @login_required
-def tambah_pengajaran(request):
-    if request.method != 'POST':
-        return redirect('kinerja:index')
-    if not cek_status_input():
-        messages.error(request, 'Input data sedang dikunci.')
-        return redirect('kinerja:index')
-
-    user = request.user
-    dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
-
-    Pengajaran.objects.create(
-        user=target_user,
-        kode_prodi=target_user.kode_prodi or '',
-        kode_fakultas=target_user.kode_fakultas or '',
-        jenis_kegiatan=request.POST.get('jenis_kegiatan', ''),
-        nama_kegiatan=request.POST.get('nama_kegiatan', '').strip(),
-        sks=request.POST.get('sks') or None,
-        jumlah_mahasiswa=request.POST.get('jumlah_mahasiswa', 0) or 0,
-        peran=request.POST.get('peran', '').strip(),
-        semester=request.POST.get('semester', ''),
-        tahun_akademik=request.POST.get('tahun_akademik', ''),
-        link_bukti=request.POST.get('link_bukti', '').strip(),
-        updated_by=user.username
-    )
-    messages.success(request, 'Data pengajaran berhasil ditambahkan.')
-    return redirect('kinerja:index')
-
-
-@login_required
-def hapus_pengajaran(request, id):
-    obj = get_object_or_404(Pengajaran, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:index')
-    obj.delete()
-    messages.success(request, 'Data pengajaran berhasil dihapus.')
-    return redirect('kinerja:index')
-
-
-@login_required
-def edit_pengajaran(request, id):
-    obj = get_object_or_404(Pengajaran, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
-        messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:index')
-    if request.method == 'POST':
-        obj.jenis_kegiatan = request.POST.get('jenis_kegiatan', obj.jenis_kegiatan)
-        obj.nama_kegiatan = request.POST.get('nama_kegiatan', '').strip()
-        obj.sks = request.POST.get('sks') or None
-        obj.jumlah_mahasiswa = request.POST.get('jumlah_mahasiswa', 0) or 0
-        obj.peran = request.POST.get('peran', '').strip()
-        obj.semester = request.POST.get('semester', '')
-        obj.tahun_akademik = request.POST.get('tahun_akademik', obj.tahun_akademik)
-        obj.link_bukti = request.POST.get('link_bukti', '').strip() or None
-        obj.updated_by = request.user.username
-        obj.save()
-        messages.success(request, 'Data pengajaran berhasil diupdate.')
-    return redirect('kinerja:index')
-
-
-@login_required
 def tambah_penghargaan(request):
     if request.method != 'POST':
         return redirect('kinerja:index')
@@ -520,7 +458,6 @@ def edit_penunjang(request, id):
     return redirect('kinerja:index')
 
 
-from .models import Penelitian, Publikasi, PKM, HKI, Pengajaran, Penghargaan, KegiatanPenunjang, DokumenKinerja
 from django.core.exceptions import ValidationError
 import os
 
@@ -530,6 +467,24 @@ def validate_dokumen(file):
         raise ValidationError('Hanya PDF, JPG, PNG yang diizinkan.')
     if file.size > 5 * 1024 * 1024:
         raise ValidationError('Ukuran file maksimal 5MB.')
+
+
+PENDIDIKAN_JENIS = {
+    'pengajaran', 'bimbingan_mahasiswa', 'pengujian_mahasiswa', 'bahan_ajar',
+    'pembinaan_mahasiswa', 'orasi_ilmiah', 'tugas_tambahan',
+}
+
+
+def _kembali_url(jenis_kinerja):
+    if jenis_kinerja == 'bkd':
+        return 'kinerja:bkd_index'
+    if jenis_kinerja in PENDIDIKAN_JENIS:
+        return 'pendidikan:index'
+    if jenis_kinerja == 'diklat':
+        return 'profil:kualifikasi_index'
+    if jenis_kinerja in ('sertifikasi', 'tes'):
+        return 'profil:kompetensi_index'
+    return 'kinerja:index'
 
 
 @login_required
@@ -544,6 +499,12 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         'hki': HKI,
         'bkd': RiwayatBKD,
         'pengajaran': Pengajaran,
+        'bimbingan_mahasiswa': BimbinganMahasiswa,
+        'pengujian_mahasiswa': PengujianMahasiswa,
+        'bahan_ajar': BahanAjar,
+        'pembinaan_mahasiswa': PembinaanMahasiswa,
+        'orasi_ilmiah': OrasiIlmiah,
+        'tugas_tambahan': TugasTambahan,
         'penghargaan': Penghargaan,
         'penunjang': KegiatanPenunjang,
         'diklat': Diklat,
@@ -568,7 +529,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
     # Cek kepemilikan
     if pemilik != user and user.role not in ['admin', 'operator']:
         messages.error(request, 'Anda tidak memiliki akses.')
-        return redirect('kinerja:bkd_index' if jenis_kinerja == 'bkd' else 'kinerja:index')
+        return redirect(_kembali_url(jenis_kinerja))
 
     dokumen_list = DokumenKinerja.objects.filter(
         user=pemilik,
@@ -642,6 +603,16 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
     # Judul kinerja
     if hasattr(kinerja_obj, 'judul'):
         judul_kinerja = kinerja_obj.judul[:80]
+    elif hasattr(kinerja_obj, 'nama_mk'):
+        judul_kinerja = kinerja_obj.nama_mk[:80]
+    elif hasattr(kinerja_obj, 'judul_bimbingan'):
+        judul_kinerja = kinerja_obj.judul_bimbingan[:80]
+    elif hasattr(kinerja_obj, 'judul_pengujian'):
+        judul_kinerja = kinerja_obj.judul_pengujian[:80]
+    elif hasattr(kinerja_obj, 'judul_orasi'):
+        judul_kinerja = kinerja_obj.judul_orasi[:80]
+    elif hasattr(kinerja_obj, 'jabatan_tambahan'):
+        judul_kinerja = kinerja_obj.jabatan_tambahan[:80]
     elif hasattr(kinerja_obj, 'nama_kegiatan'):
         judul_kinerja = kinerja_obj.nama_kegiatan[:80]
     elif hasattr(kinerja_obj, 'nama_penghargaan'):
@@ -663,6 +634,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         'judul_kinerja': judul_kinerja,
         'dokumen_list': dokumen_list,
         'jenis_dokumen_choices': DokumenKinerja.JENIS_DOKUMEN,
+        'kembali_url': _kembali_url(jenis_kinerja),
     }
     return render(request, 'kinerja/kelola_dokumen.html', context)
 

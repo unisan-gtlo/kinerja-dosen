@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Penelitian, Publikasi, PKM, HKI, Pengajaran, Penghargaan, KegiatanPenunjang, DokumenKinerja
+from .models import Penelitian, Publikasi, PKM, HKI, Penghargaan, KegiatanPenunjang, DokumenKinerja
 @admin.register(Penelitian)
 class PenelitianAdmin(admin.ModelAdmin):
     list_display = ['user', 'judul', 'tahun_akademik', 'jenis_hibah', 'pendanaan']
@@ -26,12 +26,6 @@ class HKIAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'judul']
 
 
-
-@admin.register(Pengajaran)
-class PengajaranAdmin(admin.ModelAdmin):
-    list_display = ['user', 'jenis_kegiatan', 'nama_kegiatan', 'tahun_akademik']
-    list_filter = ['jenis_kegiatan', 'tahun_akademik']
-    search_fields = ['user__username', 'nama_kegiatan']
 
 @admin.register(Penghargaan)
 class PenghargaanAdmin(admin.ModelAdmin):
