@@ -1091,7 +1091,11 @@ function debounce(fn, delay) {
 // input/select langsung) supaya kebal kalau elemen sempat diganti/dikloning
 // oleh script lain setelah halaman dimuat -- elemen dicari ulang tiap kali
 // event terjadi, bukan sekali di awal saat wireSearch() dipanggil.
-function wireSearch(prefix, url, minChars, onPick) {
+//
+// ID elemen dikirim eksplisit (bukan ditebak dari satu prefix) karena pola
+// penamaannya tidak seragam: field pencarian pakai infix "_mk_"/"_mhs_"
+// (mis. peng_mk_q) sedangkan dropdown Prodi tidak (mis. peng_prodi).
+function wireSearch(qId, idFieldId, resultsId, prodiId, url, minChars, onPick) {
   const doSearch = debounce((qEl, idEl, resultsEl, prodiEl) => {
     const q = qEl.value.trim();
     const kodeProdi = prodiEl ? prodiEl.value : '';
@@ -1127,43 +1131,49 @@ function wireSearch(prefix, url, minChars, onPick) {
   }, 300);
 
   document.addEventListener('input', (e) => {
-    if (e.target.id !== prefix + '_q') return;
-    const idEl = document.getElementById(prefix + '_id');
-    const resultsEl = document.getElementById(prefix + '_results');
-    const prodiEl = document.getElementById(prefix + '_prodi');
+    if (e.target.id !== qId) return;
+    const idEl = document.getElementById(idFieldId);
+    const resultsEl = document.getElementById(resultsId);
+    const prodiEl = document.getElementById(prodiId);
     idEl.value = '';
     doSearch(e.target, idEl, resultsEl, prodiEl);
   });
 
   document.addEventListener('change', (e) => {
-    if (e.target.id !== prefix + '_prodi') return;
-    const qEl = document.getElementById(prefix + '_q');
-    const idEl = document.getElementById(prefix + '_id');
-    const resultsEl = document.getElementById(prefix + '_results');
+    if (e.target.id !== prodiId) return;
+    const qEl = document.getElementById(qId);
+    const idEl = document.getElementById(idFieldId);
+    const resultsEl = document.getElementById(resultsId);
     qEl.value = ''; idEl.value = ''; resultsEl.classList.add('d-none');
   });
 
   document.addEventListener('click', (e) => {
-    const resultsEl = document.getElementById(prefix + '_results');
-    const qEl = document.getElementById(prefix + '_q');
+    const resultsEl = document.getElementById(resultsId);
+    const qEl = document.getElementById(qId);
     if (resultsEl && !resultsEl.contains(e.target) && e.target !== qEl) {
       resultsEl.classList.add('d-none');
     }
   });
 }
 
-wireSearch('peng', "{% url 'simda_dosen:cari_mata_kuliah' %}", 0, (item) => {
+wireSearch('peng_mk_q', 'peng_mk_id', 'peng_mk_results', 'peng_prodi',
+  "{% url 'simda_dosen:cari_mata_kuliah' %}", 0, (item) => {
   document.getElementById('peng_jenis_mk').textContent = item.jenis_mk || '-';
   document.getElementById('peng_sks').textContent = item.sks_total || '-';
 });
-wireSearch('ed_peng', "{% url 'simda_dosen:cari_mata_kuliah' %}", 0, (item) => {
+wireSearch('ed_peng_mk_q', 'ed_peng_mk_id', 'ed_peng_mk_results', 'ed_peng_prodi',
+  "{% url 'simda_dosen:cari_mata_kuliah' %}", 0, (item) => {
   document.getElementById('ed_peng_jenis_mk').textContent = item.jenis_mk || '-';
   document.getElementById('ed_peng_sks').textContent = item.sks_total || '-';
 });
-wireSearch('bim', "{% url 'simda_dosen:cari_mahasiswa' %}", 3);
-wireSearch('ed_bim', "{% url 'simda_dosen:cari_mahasiswa' %}", 3);
-wireSearch('uji', "{% url 'simda_dosen:cari_mahasiswa' %}", 3);
-wireSearch('ed_uji', "{% url 'simda_dosen:cari_mahasiswa' %}", 3);
+wireSearch('bim_mhs_q', 'bim_mhs_id', 'bim_mhs_results', 'bim_prodi',
+  "{% url 'simda_dosen:cari_mahasiswa' %}", 3);
+wireSearch('ed_bim_mhs_q', 'ed_bim_mhs_id', 'ed_bim_mhs_results', 'ed_bim_prodi',
+  "{% url 'simda_dosen:cari_mahasiswa' %}", 3);
+wireSearch('uji_mhs_q', 'uji_mhs_id', 'uji_mhs_results', 'uji_prodi',
+  "{% url 'simda_dosen:cari_mahasiswa' %}", 3);
+wireSearch('ed_uji_mhs_q', 'ed_uji_mhs_id', 'ed_uji_mhs_results', 'ed_uji_prodi',
+  "{% url 'simda_dosen:cari_mahasiswa' %}", 3);
 
 // ============================================================
 // PENGAJARAN
