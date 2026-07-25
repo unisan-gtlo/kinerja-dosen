@@ -23,4 +23,8 @@ urlpatterns = [
     path('tambah-tes/', views.tambah_tes, name='tambah_tes'),
     path('edit-tes/<int:id>/', views.edit_tes, name='edit_tes'),
     path('hapus-tes/<int:id>/', views.hapus_tes, name='hapus_tes'),
+    path('dokumen/', views.dokumen_index, name='dokumen_index'),
+    path('tambah-dokumen-lain/', views.tambah_dokumen_lain, name='tambah_dokumen_lain'),
+    path('edit-dokumen-lain/<int:id>/', views.edit_dokumen_lain, name='edit_dokumen_lain'),
+    path('hapus-dokumen-lain/<int:id>/', views.hapus_dokumen_lain, name='hapus_dokumen_lain'),
 ]

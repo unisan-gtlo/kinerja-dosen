@@ -246,10 +246,19 @@ class Diklat(models.Model):
 
 
 class DokumenLain(models.Model):
+    JENIS_DOKUMEN = [
+        ('ktp', 'KTP'),
+        ('kartu_keluarga', 'Kartu Keluarga'),
+        ('npwp', 'NPWP'),
+        ('sk_pangkat_inpassing', 'SK Pangkat/Inpassing'),
+        ('sk_jabatan_fungsional', 'SK Jabatan Fungsional'),
+        ('lainnya', 'Lainnya'),
+    ]
+
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='dokumen_set'
     )
-    jenis_dokumen = models.CharField(max_length=50)
+    jenis_dokumen = models.CharField(max_length=50, choices=JENIS_DOKUMEN)
     nama_dokumen = models.CharField(max_length=200)
     no_dokumen = models.CharField(max_length=100, blank=True, null=True)
     tgl_terbit = models.DateField(blank=True, null=True)

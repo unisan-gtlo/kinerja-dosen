@@ -518,3 +518,155 @@ def edit_tes(request, id):
         obj.save()
         messages.success(request, 'Data tes berhasil diupdate.')
     return redirect('profil:kompetensi_index')
+
+
+# ============================================================
+# DATA DOKUMEN -- menu "Data Dokumen" (SISTER: Riwayat Dokumen Pribadi).
+# Gabungan: DokumenLain (CRUD bebas, lokal SIKD) + dokumen yang sudah
+# tersimpan di SIMDA lewat tab Profil/Kualifikasi (KTP/NPWP/SK Pengangkatan
+# di DataDosen, SK Jabfung per riwayat, Ijazah/Transkrip per riwayat
+# pendidikan) -- yang terakhir ini read-only di sini, tetap diedit dari
+# tab asalnya supaya tidak ada dua tempat mengubah data yang sama.
+# ============================================================
+
+def _dokumen_target_user(request):
+    user = request.user
+    dosen_id = request.GET.get('dosen_id')
+    if dosen_id and user.role in ['admin', 'kaprodi', 'sekprodi', 'operator', 'dekan', 'wadek', 'rektorat', 'biro']:
+        return get_object_or_404(User, id=dosen_id)
+    return user
+
+
+@login_required
+def dokumen_index(request):
+    user = request.user
+    target_user = _dokumen_target_user(request)
+    input_terbuka = cek_status_input()
+    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+
+    dokumen_lain_list = target_user.dokumen_set.all().order_by('-tgl_input')
+
+    dokumen_gabungan = []
+    for d in dokumen_lain_list:
+        dokumen_gabungan.append({
+            'sumber': 'lokal',
+            'id': d.id,
+            'nama': d.nama_dokumen,
+            'jenis': d.get_jenis_dokumen_display(),
+            'jenis_raw': d.jenis_dokumen,
+            'no_dokumen': d.no_dokumen,
+            'tanggal': d.tgl_terbit,
+            'file_url': d.file_dokumen.url if d.file_dokumen else '',
+            'link': d.link_dokumen,
+            'keterangan': d.keterangan,
+        })
+
+    profil = get_simda_dosen_or_none(target_user)
+    if profil:
+        if profil.file_ktp:
+            dokumen_gabungan.append({
+                'sumber': 'profil', 'id': None, 'nama': 'KTP',
+                'jenis': 'KTP', 'tanggal': None,
+                'file_url': profil.file_ktp.url, 'link': '',
+            })
+        if profil.file_npwp:
+            dokumen_gabungan.append({
+                'sumber': 'profil', 'id': None, 'nama': 'NPWP',
+                'jenis': 'NPWP', 'tanggal': None,
+                'file_url': profil.file_npwp.url, 'link': '',
+            })
+        if profil.file_sk_pengangkatan:
+            dokumen_gabungan.append({
+                'sumber': 'profil', 'id': None, 'nama': 'SK Pengangkatan',
+                'jenis': 'SK Pengangkatan', 'tanggal': None,
+                'file_url': profil.file_sk_pengangkatan.url, 'link': '',
+            })
+        for jf in profil.riwayat_jabfung.all():
+            if jf.file_sk:
+                dokumen_gabungan.append({
+                    'sumber': 'jabfung', 'id': None,
+                    'nama': f'SK Jabatan Fungsional (TMT {jf.tmt})' if jf.tmt else 'SK Jabatan Fungsional',
+                    'jenis': 'SK Jabatan Fungsional', 'tanggal': jf.tmt,
+                    'file_url': jf.file_sk.url, 'link': '',
+                })
+        for rp in profil.riwayat_pendidikan.all():
+            if rp.file_ijazah:
+                dokumen_gabungan.append({
+                    'sumber': 'pendidikan', 'id': None,
+                    'nama': f'Ijazah {rp.jenjang}', 'jenis': 'Ijazah',
+                    'tanggal': None, 'file_url': rp.file_ijazah.url, 'link': '',
+                })
+            if rp.file_transkrip:
+                dokumen_gabungan.append({
+                    'sumber': 'pendidikan', 'id': None,
+                    'nama': f'Transkrip {rp.jenjang}', 'jenis': 'Transkrip',
+                    'tanggal': None, 'file_url': rp.file_transkrip.url, 'link': '',
+                })
+
+    context = {
+        'target_user': target_user,
+        'bisa_edit': bisa_edit,
+        'input_terbuka': input_terbuka,
+        'dokumen_gabungan': dokumen_gabungan,
+        'jenis_dokumen_choices': DokumenLain.JENIS_DOKUMEN,
+    }
+    return render(request, 'profil/dokumen.html', context)
+
+
+@login_required
+def tambah_dokumen_lain(request):
+    if request.method != 'POST':
+        return redirect('profil:dokumen_index')
+    if not cek_status_input():
+        messages.error(request, 'Input data sedang dikunci.')
+        return redirect('profil:dokumen_index')
+
+    target_user = _dokumen_target_user(request) if request.POST.get('dosen_id') else request.user
+
+    dok = DokumenLain(
+        user=target_user,
+        jenis_dokumen=request.POST.get('jenis_dokumen', ''),
+        nama_dokumen=request.POST.get('nama_dokumen', '').strip(),
+        no_dokumen=request.POST.get('no_dokumen', '').strip(),
+        tgl_terbit=request.POST.get('tgl_terbit') or None,
+        keterangan=request.POST.get('keterangan', '').strip(),
+        link_dokumen=request.POST.get('link_dokumen', '').strip() or None,
+        updated_by=request.user.username,
+    )
+    if 'file_dokumen' in request.FILES:
+        dok.file_dokumen = request.FILES['file_dokumen']
+    dok.save()
+    messages.success(request, 'Dokumen berhasil ditambahkan.')
+    return redirect('profil:dokumen_index')
+
+
+@login_required
+def edit_dokumen_lain(request, id):
+    obj = get_object_or_404(DokumenLain, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:dokumen_index')
+    if request.method == 'POST':
+        obj.jenis_dokumen = request.POST.get('jenis_dokumen', obj.jenis_dokumen)
+        obj.nama_dokumen = request.POST.get('nama_dokumen', '').strip()
+        obj.no_dokumen = request.POST.get('no_dokumen', '').strip()
+        obj.tgl_terbit = request.POST.get('tgl_terbit') or None
+        obj.keterangan = request.POST.get('keterangan', '').strip()
+        obj.link_dokumen = request.POST.get('link_dokumen', '').strip() or None
+        if 'file_dokumen' in request.FILES:
+            obj.file_dokumen = request.FILES['file_dokumen']
+        obj.updated_by = request.user.username
+        obj.save()
+        messages.success(request, 'Dokumen berhasil diupdate.')
+    return redirect('profil:dokumen_index')
+
+
+@login_required
+def hapus_dokumen_lain(request, id):
+    obj = get_object_or_404(DokumenLain, id=id)
+    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:dokumen_index')
+    obj.delete()
+    messages.success(request, 'Dokumen berhasil dihapus.')
+    return redirect('profil:dokumen_index')

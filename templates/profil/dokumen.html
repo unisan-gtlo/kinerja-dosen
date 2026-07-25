@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block title %}Data Dokumen — SIKD{% endblock %}
+{% block page_title %}
+  Data Dokumen
+  {% if target_user != request.user %}
+  <small class="text-muted fs-5">— {{ target_user.get_full_name|default:target_user.username }}</small>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if not input_terbuka %}
+<div class="alert alert-warning">
+  <span class="ti ti-lock me-1"></span>
+  Input data sedang <strong>dikunci</strong> oleh admin.
+</div>
+{% endif %}
+
+<div class="alert alert-info d-flex align-items-start gap-2">
+  <span class="ti ti-info-circle mt-1"></span>
+  <div>
+    Halaman ini menampilkan seluruh dokumen pribadi Anda dalam satu tempat.
+    Dokumen dengan sumber <strong>KTP/NPWP/SK Pengangkatan/SK Jabatan Fungsional/Ijazah/Transkrip</strong>
+    diambil dari data yang sudah diisi di tab <strong>Profil Dosen</strong>/<strong>Kualifikasi</strong> (edit di sana).
+    Dokumen lain (KK, dsb) bisa ditambahkan langsung di sini.
+  </div>
+</div>
+
+{% if bisa_edit %}
+<div class="card border-0 bg-light mb-4">
+  <div class="card-body">
+    <h6 class="fw-semibold mb-3">Tambah Dokumen</h6>
+    <form method="post" action="{% url 'profil:tambah_dokumen_lain' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Jenis Dokumen *</label>
+          <select name="jenis_dokumen" class="form-select" required>
+            <option value="">-- Pilih --</option>
+            {% for val, label in jenis_dokumen_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-8"><label class="form-label">Nama Dokumen *</label><input type="text" name="nama_dokumen" class="form-control" required></div>
+        <div class="col-md-4"><label class="form-label">Nomor Dokumen</label><input type="text" name="no_dokumen" class="form-control"></div>
+        <div class="col-md-4"><label class="form-label">Tanggal Terbit</label><input type="date" name="tgl_terbit" class="form-control"></div>
+        <div class="col-md-4"><label class="form-label">Link Dokumen</label><input type="url" name="link_dokumen" class="form-control" placeholder="https://..."></div>
+        <div class="col-md-8"><label class="form-label">File Dokumen</label><input type="file" name="file_dokumen" class="form-control" accept=".pdf,.jpg,.jpeg,.png"></div>
+        <div class="col-md-4"><label class="form-label">Keterangan</label><input type="text" name="keterangan" class="form-control"></div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="table-responsive">
+  <table class="table table-hover">
+    <thead class="table-light">
+      <tr><th>Nama Dokumen</th><th>Jenis</th><th>Tanggal</th><th>File/Link</th><th>Sumber</th><th>Aksi</th></tr>
+    </thead>
+    <tbody>
+      {% for d in dokumen_gabungan %}
+      <tr>
+        <td>{{ d.nama }}</td>
+        <td><span class="badge bg-purple-lt text-purple">{{ d.jenis }}</span></td>
+        <td>{{ d.tanggal|date:'d/m/Y'|default:"-" }}</td>
+        <td>
+          {% if d.file_url %}
+          <a href="{{ d.file_url }}" target="_blank" class="btn btn-sm btn-outline-success">
+            <span class="ti ti-file me-1"></span>Lihat File
+          </a>
+          {% elif d.link %}
+          <a href="{{ d.link }}" target="_blank" class="btn btn-sm btn-outline-info">
+            <span class="ti ti-link me-1"></span>Buka Link
+          </a>
+          {% else %}
+          <span class="text-muted small">-</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if d.sumber == 'lokal' %}
+          <span class="badge bg-blue-lt text-blue">Data Dokumen</span>
+          {% elif d.sumber == 'profil' %}
+          <span class="badge bg-teal-lt text-teal">Profil Dosen</span>
+          {% elif d.sumber == 'jabfung' %}
+          <span class="badge bg-orange-lt text-orange">Kualifikasi (Jabfung)</span>
+          {% elif d.sumber == 'pendidikan' %}
+          <span class="badge bg-orange-lt text-orange">Kualifikasi (Pendidikan)</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if bisa_edit and d.sumber == 'lokal' %}
+          <div class="d-flex gap-1">
+            <button class="btn btn-sm btn-outline-primary" onclick="editDokumenFromBtn(this)"
+              data-obj='{"id":{{ d.id }},"nama_dokumen":"{{ d.nama|escapejs }}","jenis_dokumen":"{{ d.jenis_raw }}","no_dokumen":"{{ d.no_dokumen|default:""|escapejs }}","tgl_terbit":"{{ d.tanggal|date:'Y-m-d'|default:"" }}","link_dokumen":"{{ d.link|default:""|escapejs }}","keterangan":"{{ d.keterangan|default:""|escapejs }}"}'>
+              <span class="ti ti-edit"></span>
+            </button>
+            <form method="post" action="{% url 'profil:hapus_dokumen_lain' d.id %}" onsubmit="return confirm('Hapus dokumen ini?')">
+              {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+            </form>
+          </div>
+          {% elif d.sumber != 'lokal' %}
+          <span class="text-muted small">Edit di {% if d.sumber == 'profil' %}Profil Dosen{% else %}Kualifikasi{% endif %}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="text-center text-muted py-4">Belum ada dokumen</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- MODAL EDIT DOKUMEN LAIN -->
+<div class="modal fade" id="modalEditDokumen" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <form method="post" action="{% url 'profil:edit_dokumen_lain' 0 %}" id="formEditDokumen" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="modal-header"><h5 class="modal-title">Edit Dokumen</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Jenis Dokumen *</label>
+            <select name="jenis_dokumen" id="ed_dok_jenis" class="form-select" required>
+              {% for val, label in jenis_dokumen_choices %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-8"><label class="form-label">Nama Dokumen *</label><input type="text" name="nama_dokumen" id="ed_dok_nama" class="form-control" required></div>
+          <div class="col-md-4"><label class="form-label">Nomor Dokumen</label><input type="text" name="no_dokumen" id="ed_dok_no" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Tanggal Terbit</label><input type="date" name="tgl_terbit" id="ed_dok_tgl" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Link Dokumen</label><input type="url" name="link_dokumen" id="ed_dok_link" class="form-control"></div>
+          <div class="col-md-8"><label class="form-label">Ganti File (kosongkan jika tidak diubah)</label><input type="file" name="file_dokumen" class="form-control" accept=".pdf,.jpg,.jpeg,.png"></div>
+          <div class="col-12"><label class="form-label">Keterangan</label><input type="text" name="keterangan" id="ed_dok_ket" class="form-control"></div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+    </form>
+  </div></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editDokumenFromBtn(btn) {
+  const o = JSON.parse(btn.dataset.obj);
+  document.getElementById('formEditDokumen').action = `/profil/edit-dokumen-lain/${o.id}/`;
+  document.getElementById('ed_dok_jenis').value = o.jenis_dokumen;
+  document.getElementById('ed_dok_nama').value = o.nama_dokumen;
+  document.getElementById('ed_dok_no').value = o.no_dokumen;
+  document.getElementById('ed_dok_tgl').value = o.tgl_terbit;
+  document.getElementById('ed_dok_link').value = o.link_dokumen;
+  document.getElementById('ed_dok_ket').value = o.keterangan;
+  new bootstrap.Modal(document.getElementById('modalEditDokumen')).show();
+}
+</script>
+{% endblock %}
