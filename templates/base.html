@@ -338,10 +338,10 @@
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.app_name == 'kinerja' and request.resolver_match.url_name != 'bkd_index' %}active{% endif %}"
-               href="{% url 'kinerja:index' %}">
-              <span class="nav-link-icon"><span class="ti ti-chart-bar"></span></span>
-              <span class="nav-link-title">Data Kinerja</span>
+            <a class="nav-link {% if request.resolver_match.app_name == 'penunjang' %}active{% endif %}"
+               href="{% url 'penunjang:index' %}">
+              <span class="nav-link-icon"><span class="ti ti-shield-check"></span></span>
+              <span class="nav-link-title">Penunjang</span>
             </a>
           </li>
           <li class="nav-item">

@@ -727,7 +727,7 @@ def export_pdf_dosen(request, dosen_id):
     # Cek akses — dosen hanya bisa lihat miliknya sendiri
     if request.user.role == 'dosen' and request.user.id != target_dosen.id:
         messages.error(request, 'Anda tidak memiliki akses laporan dosen lain.')
-        return redirect('kinerja:index')
+        return redirect('dashboard:index')
         
     # Cek akses
     if request.user.role == 'dosen' and request.user != target_dosen:

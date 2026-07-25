@@ -1,0 +1,579 @@
+{% extends 'base.html' %}
+{% block title %}Penunjang — SIKD{% endblock %}
+{% block page_title %}
+  Penunjang
+  {% if target_user != request.user %}
+  <small class="text-muted fs-5">— {{ target_user.get_full_name|default:target_user.username }}</small>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if not input_terbuka %}
+<div class="alert alert-warning">
+  <span class="ti ti-lock me-1"></span>
+  Input data sedang <strong>dikunci</strong> oleh admin.
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+  <label class="form-label mb-0 small text-muted">Tampilkan</label>
+  <select class="form-select form-select-sm" style="width:auto" onchange="changePerPage(this.value)">
+    {% for n in per_page_choices %}
+    <option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }}</option>
+    {% endfor %}
+  </select>
+  <span class="small text-muted">data/halaman</span>
+</div>
+
+<ul class="nav nav-tabs mb-0 flex-nowrap overflow-auto" id="penunjangTab">
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-profesi">
+    <span class="ti ti-users-group me-1"></span>Anggota Profesi <span class="badge bg-blue-lt ms-1">{{ profesi_list.paginator.count }}</span></a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-penghargaan">
+    <span class="ti ti-award me-1"></span>Penghargaan <span class="badge bg-blue-lt ms-1">{{ penghargaan_list.paginator.count }}</span></a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-penunjang">
+    <span class="ti ti-puzzle me-1"></span>Penunjang Lain <span class="badge bg-blue-lt ms-1">{{ penunjang_list.paginator.count }}</span></a></li>
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
+
+  <!-- ============================================================ -->
+  <!-- TAB ANGGOTA PROFESI -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade show active" id="tab-profesi">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Data Anggota Organisasi Profesi</h6>
+        <form method="post" action="{% url 'penunjang:tambah_profesi' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label">Kategori Kegiatan *</label>
+              <select name="kategori_kegiatan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <optgroup label="Menjadi anggota organisasi profesi">
+                  <option value="org_internasional_pengurus">Tingkat internasional sebagai pengurus</option>
+                  <option value="org_internasional_anggota_permintaan">Tingkat internasional sebagai anggota atas permintaan</option>
+                  <option value="org_internasional_anggota">Tingkat internasional sebagai anggota</option>
+                  <option value="org_nasional_pengurus">Tingkat nasional sebagai pengurus</option>
+                  <option value="org_nasional_anggota_permintaan">Tingkat nasional sebagai anggota atas permintaan</option>
+                  <option value="org_nasional_anggota">Tingkat nasional sebagai anggota</option>
+                </optgroup>
+                <optgroup label="Keanggotaan dalam organisasi profesi dosen">
+                  <option value="dosen_nasional_pengurus_aktif">Tingkat nasional sebagai pengurus aktif</option>
+                  <option value="dosen_nasional_anggota_aktif">Tingkat nasional sebagai anggota aktif</option>
+                  <option value="dosen_daerah_pengurus_aktif">Tingkat nasional provinsi/kabupaten/kota sebagai pengurus aktif</option>
+                  <option value="dosen_daerah_anggota_aktif">Tingkat nasional provinsi/kabupaten/kota sebagai anggota aktif</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="col-md-6"><label class="form-label">Nama Organisasi *</label><input type="text" name="nama_organisasi" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">Peran *</label><input type="text" name="peran" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label">Mulai Keanggotaan *</label><input type="date" name="mulai_keanggotaan" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label">Selesai Keanggotaan</label><input type="date" name="selesai_keanggotaan" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Instansi Profesi</label><input type="text" name="instansi_profesi" class="form-control"></div>
+            <div class="col-md-3">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light"><tr><th>Nama Organisasi</th><th>Peran</th><th>Mulai</th><th>Selesai</th><th>Instansi Profesi</th><th>Dokumen</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {% for o in profesi_list %}
+          <tr>
+            <td>{{ o.nama_organisasi }}</td>
+            <td>{{ o.peran }}</td>
+            <td>{{ o.mulai_keanggotaan|date:'d/m/Y' }}</td>
+            <td>{{ o.selesai_keanggotaan|date:'d/m/Y'|default:"-" }}</td>
+            <td>{{ o.instansi_profesi|default:"-" }}</td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'anggota_profesi' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
+            <td>
+              {% if bisa_edit %}
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary" onclick="editProfesiFromBtn(this)"
+                  data-obj='{"id":{{ o.id }},"kategori_kegiatan":"{{ o.kategori_kegiatan }}","nama_organisasi":"{{ o.nama_organisasi|escapejs }}","peran":"{{ o.peran|escapejs }}","mulai_keanggotaan":"{{ o.mulai_keanggotaan|date:'Y-m-d' }}","selesai_keanggotaan":"{{ o.selesai_keanggotaan|date:'Y-m-d'|default:"" }}","instansi_profesi":"{{ o.instansi_profesi|default:""|escapejs }}","semester":"{{ o.semester|default:"" }}","tahun_akademik":"{{ o.tahun_akademik|default:"" }}"}'>
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'penunjang:hapus_profesi' o.id %}" onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data anggota profesi</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=profesi_list page_param='page_prof' %}
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB PENGHARGAAN -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade" id="tab-penghargaan">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Penghargaan</h6>
+        <form method="post" action="{% url 'penunjang:tambah_penghargaan' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label">Kategori Kegiatan *</label>
+              <select name="kategori_kegiatan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <optgroup label="Mendapat penghargaan/tanda jasa">
+                  <option value="satyalancana_30">Penghargaan/tanda jasa Satyalancana Karya Satya 30 tahun</option>
+                  <option value="satyalancana_20">Penghargaan/tanda jasa Satyalancana Karya Satya 20 tahun</option>
+                  <option value="satyalancana_10">Penghargaan/tanda jasa Satyalancana Karya Satya 10 tahun</option>
+                  <option value="lainnya_internasional">Penghargaan lainnya tingkat internasional</option>
+                  <option value="lainnya_nasional">Penghargaan lainnya tingkat nasional</option>
+                  <option value="lainnya_provinsi_lokal">Penghargaan lainnya tingkat provinsi/lokal</option>
+                </optgroup>
+                <optgroup label="Mempunyai prestasi di bidang olahraga/humaniora">
+                  <option value="prestasi_internasional">Prestasi olahraga/humaniora tingkat internasional</option>
+                  <option value="prestasi_nasional">Prestasi olahraga/humaniora tingkat nasional</option>
+                  <option value="prestasi_daerah_lokal">Prestasi olahraga/humaniora tingkat daerah/lokal</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tingkat Penghargaan *</label>
+              <select name="tingkat_penghargaan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="sekolah">Sekolah</option>
+                <option value="kecamatan">Kecamatan</option>
+                <option value="kabkota">Kab/kota</option>
+                <option value="propinsi">Propinsi</option>
+                <option value="nasional">Nasional</option>
+                <option value="internasional">Internasional</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-8"><label class="form-label">Jenis Penghargaan</label><input type="text" name="jenis_penghargaan" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Nama Penghargaan *</label><input type="text" name="nama_penghargaan" class="form-control" required></div>
+            <div class="col-md-2"><label class="form-label">Tahun *</label><input type="number" name="tahun" class="form-control" required min="1970" max="2035"></div>
+            <div class="col-md-4"><label class="form-label">Instansi Pemberi *</label><input type="text" name="instansi_pemberi" class="form-control" required></div>
+            <div class="col-md-3">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light"><tr><th>Nama Penghargaan</th><th>Tingkat</th><th>Tahun</th><th>Instansi Pemberi</th><th>Dokumen</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {% for o in penghargaan_list %}
+          <tr>
+            <td>{{ o.nama_penghargaan }}</td>
+            <td><span class="badge bg-purple-lt text-purple">{{ o.get_tingkat_penghargaan_display }}</span></td>
+            <td>{{ o.tahun }}</td>
+            <td>{{ o.instansi_pemberi }}</td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'penghargaan' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
+            <td>
+              {% if bisa_edit %}
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary" onclick="editPenghargaanFromBtn(this)"
+                  data-obj='{"id":{{ o.id }},"kategori_kegiatan":"{{ o.kategori_kegiatan }}","tingkat_penghargaan":"{{ o.tingkat_penghargaan }}","jenis_penghargaan":"{{ o.jenis_penghargaan|default:""|escapejs }}","nama_penghargaan":"{{ o.nama_penghargaan|escapejs }}","tahun":"{{ o.tahun }}","instansi_pemberi":"{{ o.instansi_pemberi|escapejs }}","semester":"{{ o.semester|default:"" }}","tahun_akademik":"{{ o.tahun_akademik|default:"" }}"}'>
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'penunjang:hapus_penghargaan' o.id %}" onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted py-3">Belum ada data penghargaan</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=penghargaan_list page_param='page_pgh' %}
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB PENUNJANG LAIN -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade" id="tab-penunjang">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Data Penunjang Lain</h6>
+        <form method="post" action="{% url 'penunjang:tambah_penunjang' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+          <div class="row g-3">
+            <div class="col-md-12"><label class="form-label">Kategori Kegiatan</label><input type="text" name="kategori_kegiatan" class="form-control" placeholder="Contoh: Mewakili perguruan tinggi/lembaga pemerintah"></div>
+            <div class="col-md-8"><label class="form-label">Nama Kegiatan *</label><input type="text" name="nama_kegiatan" class="form-control" required></div>
+            <div class="col-md-4">
+              <label class="form-label">Jenis Kegiatan *</label>
+              <select name="jenis_kegiatan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="panitia_pt">Panitia/badan pada perguruan tinggi</option>
+                <option value="panitia_lembaga_pemerintah">Panitia/badan pada lembaga pemerintah</option>
+                <option value="delegasi_nasional">Delegasi nasional ke pertemuan internasional</option>
+                <option value="panitia_pertemuan_ilmiah">Panitia pada pertemuan ilmiah</option>
+                <option value="tim_penilai_jabatan_akademik">Tim penilai jabatan akademik dosen</option>
+                <option value="sebagai_anggota">Sebagai anggota</option>
+                <option value="panitia_lainnya">Panitia lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-5"><label class="form-label">Instansi *</label><input type="text" name="instansi" class="form-control" required></div>
+            <div class="col-md-3">
+              <label class="form-label">Tingkat *</label>
+              <select name="tingkat" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="lokal">Lokal</option>
+                <option value="daerah">Daerah</option>
+                <option value="nasional">Nasional</option>
+                <option value="internasional">Internasional</option>
+              </select>
+            </div>
+            <div class="col-md-4"><label class="form-label">Nomor SK Penugasan</label><input type="text" name="no_sk_penugasan" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Tanggal Mulai *</label><input type="date" name="tanggal_mulai" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label">Tanggal Selesai</label><input type="date" name="tanggal_selesai" class="form-control"></div>
+            <div class="col-md-3">
+              <label class="form-label">Semester</label>
+              <select name="semester" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tahun Akademik</label>
+              <select name="tahun_akademik" class="form-select">
+                <option value="">-- Pilih --</option>
+                {% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+              <small class="text-muted ms-2">Anggota kegiatan & dokumen pendukung ditambahkan setelah data tersimpan.</small>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light"><tr><th>Nama Kegiatan</th><th>Jenis</th><th>Instansi</th><th>Tingkat</th><th>Periode</th><th>Anggota</th><th>Dokumen</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {% for o in penunjang_list %}
+          <tr>
+            <td style="max-width:200px">
+              {{ o.nama_kegiatan|truncatechars:60 }}
+              {% if o.co_penulis %}<br><span class="badge bg-orange-lt text-orange mt-1">Co-Anggota</span>{% endif %}
+            </td>
+            <td><span class="badge bg-purple-lt text-purple">{{ o.get_jenis_kegiatan_display }}</span></td>
+            <td>{{ o.instansi }}</td>
+            <td>{{ o.get_tingkat_display }}</td>
+            <td>{{ o.tanggal_mulai|date:'d/m/Y' }}{% if o.tanggal_selesai %} - {{ o.tanggal_selesai|date:'d/m/Y' }}{% endif %}</td>
+            <td><a href="{% url 'penunjang:kelola_anggota_penunjang' o.id %}" class="btn btn-sm btn-outline-secondary"><span class="ti ti-users me-1"></span>Anggota ({{ o.anggota_set.count }})</a></td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'penunjang' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
+            <td>
+              <div class="d-flex gap-1">
+                {% if bisa_edit and not o.co_penulis %}
+                <button class="btn btn-sm btn-outline-primary" onclick="editPenunjangFromBtn(this)"
+                  data-obj='{"id":{{ o.id }},"kategori_kegiatan":"{{ o.kategori_kegiatan|default:""|escapejs }}","nama_kegiatan":"{{ o.nama_kegiatan|escapejs }}","jenis_kegiatan":"{{ o.jenis_kegiatan }}","instansi":"{{ o.instansi|escapejs }}","tingkat":"{{ o.tingkat }}","no_sk_penugasan":"{{ o.no_sk_penugasan|default:""|escapejs }}","tanggal_mulai":"{{ o.tanggal_mulai|date:'Y-m-d' }}","tanggal_selesai":"{{ o.tanggal_selesai|date:'Y-m-d'|default:"" }}","semester":"{{ o.semester|default:"" }}","tahun_akademik":"{{ o.tahun_akademik|default:"" }}"}'>
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'penunjang:hapus_penunjang' o.id %}" onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+                {% elif o.co_penulis %}
+                <span class="text-muted small">Milik {{ o.user.get_full_name|default:o.user.username }}</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-3">Belum ada data penunjang lain</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=penunjang_list page_param='page_pnj' %}
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL EDIT ANGGOTA PROFESI -->
+<!-- ============================================================ -->
+<div class="modal fade" id="modalEditProfesi" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <form method="post" action="{% url 'penunjang:edit_profesi' 0 %}" id="formEditProfesi">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="modal-header"><h5 class="modal-title">Edit Anggota Profesi</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-12">
+            <label class="form-label">Kategori Kegiatan *</label>
+            <select name="kategori_kegiatan" id="ed_prof_kategori" class="form-select" required>
+              <optgroup label="Menjadi anggota organisasi profesi">
+                <option value="org_internasional_pengurus">Tingkat internasional sebagai pengurus</option>
+                <option value="org_internasional_anggota_permintaan">Tingkat internasional sebagai anggota atas permintaan</option>
+                <option value="org_internasional_anggota">Tingkat internasional sebagai anggota</option>
+                <option value="org_nasional_pengurus">Tingkat nasional sebagai pengurus</option>
+                <option value="org_nasional_anggota_permintaan">Tingkat nasional sebagai anggota atas permintaan</option>
+                <option value="org_nasional_anggota">Tingkat nasional sebagai anggota</option>
+              </optgroup>
+              <optgroup label="Keanggotaan dalam organisasi profesi dosen">
+                <option value="dosen_nasional_pengurus_aktif">Tingkat nasional sebagai pengurus aktif</option>
+                <option value="dosen_nasional_anggota_aktif">Tingkat nasional sebagai anggota aktif</option>
+                <option value="dosen_daerah_pengurus_aktif">Tingkat nasional provinsi/kabupaten/kota sebagai pengurus aktif</option>
+                <option value="dosen_daerah_anggota_aktif">Tingkat nasional provinsi/kabupaten/kota sebagai anggota aktif</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="col-md-6"><label class="form-label">Nama Organisasi *</label><input type="text" name="nama_organisasi" id="ed_prof_nama" class="form-control" required></div>
+          <div class="col-md-6"><label class="form-label">Peran *</label><input type="text" name="peran" id="ed_prof_peran" class="form-control" required></div>
+          <div class="col-md-3"><label class="form-label">Mulai Keanggotaan *</label><input type="date" name="mulai_keanggotaan" id="ed_prof_mulai" class="form-control" required></div>
+          <div class="col-md-3"><label class="form-label">Selesai Keanggotaan</label><input type="date" name="selesai_keanggotaan" id="ed_prof_selesai" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Instansi Profesi</label><input type="text" name="instansi_profesi" id="ed_prof_instansi" class="form-control"></div>
+          <div class="col-md-3">
+            <label class="form-label">Semester</label>
+            <select name="semester" id="ed_prof_semester" class="form-select"><option value="">-- Pilih --</option><option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tahun Akademik</label>
+            <select name="tahun_akademik" id="ed_prof_ta" class="form-select"><option value="">-- Pilih --</option>{% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}</select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+    </form>
+  </div></div>
+</div>
+
+<!-- MODAL EDIT PENGHARGAAN -->
+<div class="modal fade" id="modalEditPenghargaan" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <form method="post" action="{% url 'penunjang:edit_penghargaan' 0 %}" id="formEditPenghargaan">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="modal-header"><h5 class="modal-title">Edit Penghargaan</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-12">
+            <label class="form-label">Kategori Kegiatan *</label>
+            <select name="kategori_kegiatan" id="ed_pgh_kategori" class="form-select" required>
+              <optgroup label="Mendapat penghargaan/tanda jasa">
+                <option value="satyalancana_30">Penghargaan/tanda jasa Satyalancana Karya Satya 30 tahun</option>
+                <option value="satyalancana_20">Penghargaan/tanda jasa Satyalancana Karya Satya 20 tahun</option>
+                <option value="satyalancana_10">Penghargaan/tanda jasa Satyalancana Karya Satya 10 tahun</option>
+                <option value="lainnya_internasional">Penghargaan lainnya tingkat internasional</option>
+                <option value="lainnya_nasional">Penghargaan lainnya tingkat nasional</option>
+                <option value="lainnya_provinsi_lokal">Penghargaan lainnya tingkat provinsi/lokal</option>
+              </optgroup>
+              <optgroup label="Mempunyai prestasi di bidang olahraga/humaniora">
+                <option value="prestasi_internasional">Prestasi olahraga/humaniora tingkat internasional</option>
+                <option value="prestasi_nasional">Prestasi olahraga/humaniora tingkat nasional</option>
+                <option value="prestasi_daerah_lokal">Prestasi olahraga/humaniora tingkat daerah/lokal</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Tingkat Penghargaan *</label>
+            <select name="tingkat_penghargaan" id="ed_pgh_tingkat" class="form-select" required>
+              <option value="sekolah">Sekolah</option>
+              <option value="kecamatan">Kecamatan</option>
+              <option value="kabkota">Kab/kota</option>
+              <option value="propinsi">Propinsi</option>
+              <option value="nasional">Nasional</option>
+              <option value="internasional">Internasional</option>
+              <option value="lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="col-md-8"><label class="form-label">Jenis Penghargaan</label><input type="text" name="jenis_penghargaan" id="ed_pgh_jenis" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Nama Penghargaan *</label><input type="text" name="nama_penghargaan" id="ed_pgh_nama" class="form-control" required></div>
+          <div class="col-md-2"><label class="form-label">Tahun *</label><input type="number" name="tahun" id="ed_pgh_tahun" class="form-control" required></div>
+          <div class="col-md-4"><label class="form-label">Instansi Pemberi *</label><input type="text" name="instansi_pemberi" id="ed_pgh_instansi" class="form-control" required></div>
+          <div class="col-md-3">
+            <label class="form-label">Semester</label>
+            <select name="semester" id="ed_pgh_semester" class="form-select"><option value="">-- Pilih --</option><option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tahun Akademik</label>
+            <select name="tahun_akademik" id="ed_pgh_ta" class="form-select"><option value="">-- Pilih --</option>{% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}</select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+    </form>
+  </div></div>
+</div>
+
+<!-- MODAL EDIT PENUNJANG LAIN -->
+<div class="modal fade" id="modalEditPenunjang" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <form method="post" action="{% url 'penunjang:edit_penunjang' 0 %}" id="formEditPenunjang">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="modal-header"><h5 class="modal-title">Edit Penunjang Lain</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-12"><label class="form-label">Kategori Kegiatan</label><input type="text" name="kategori_kegiatan" id="ed_pnj_kategori" class="form-control"></div>
+          <div class="col-md-8"><label class="form-label">Nama Kegiatan *</label><input type="text" name="nama_kegiatan" id="ed_pnj_nama" class="form-control" required></div>
+          <div class="col-md-4">
+            <label class="form-label">Jenis Kegiatan *</label>
+            <select name="jenis_kegiatan" id="ed_pnj_jenis" class="form-select" required>
+              <option value="panitia_pt">Panitia/badan pada perguruan tinggi</option>
+              <option value="panitia_lembaga_pemerintah">Panitia/badan pada lembaga pemerintah</option>
+              <option value="delegasi_nasional">Delegasi nasional ke pertemuan internasional</option>
+              <option value="panitia_pertemuan_ilmiah">Panitia pada pertemuan ilmiah</option>
+              <option value="tim_penilai_jabatan_akademik">Tim penilai jabatan akademik dosen</option>
+              <option value="sebagai_anggota">Sebagai anggota</option>
+              <option value="panitia_lainnya">Panitia lainnya</option>
+            </select>
+          </div>
+          <div class="col-md-5"><label class="form-label">Instansi *</label><input type="text" name="instansi" id="ed_pnj_instansi" class="form-control" required></div>
+          <div class="col-md-3">
+            <label class="form-label">Tingkat *</label>
+            <select name="tingkat" id="ed_pnj_tingkat" class="form-select" required>
+              <option value="lokal">Lokal</option>
+              <option value="daerah">Daerah</option>
+              <option value="nasional">Nasional</option>
+              <option value="internasional">Internasional</option>
+            </select>
+          </div>
+          <div class="col-md-4"><label class="form-label">Nomor SK Penugasan</label><input type="text" name="no_sk_penugasan" id="ed_pnj_sk" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">Tanggal Mulai *</label><input type="date" name="tanggal_mulai" id="ed_pnj_mulai" class="form-control" required></div>
+          <div class="col-md-3"><label class="form-label">Tanggal Selesai</label><input type="date" name="tanggal_selesai" id="ed_pnj_selesai" class="form-control"></div>
+          <div class="col-md-3">
+            <label class="form-label">Semester</label>
+            <select name="semester" id="ed_pnj_semester" class="form-select"><option value="">-- Pilih --</option><option value="Ganjil">Ganjil</option><option value="Genap">Genap</option><option value="Keduanya">Keduanya</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tahun Akademik</label>
+            <select name="tahun_akademik" id="ed_pnj_ta" class="form-select"><option value="">-- Pilih --</option>{% for t in tahun_list %}<option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>{% endfor %}</select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+    </form>
+  </div></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function goToPage(pageParam, pageNum) {
+  const url = new URL(window.location.href);
+  url.searchParams.set(pageParam, pageNum);
+  window.location.href = url.toString();
+}
+
+function changePerPage(value) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('per_page', value);
+  ['page_prof', 'page_pgh', 'page_pnj'].forEach(p => url.searchParams.delete(p));
+  window.location.href = url.toString();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.location.hash) {
+    const trigger = document.querySelector(`[data-bs-toggle="tab"][href="${window.location.hash}"]`);
+    if (trigger) new bootstrap.Tab(trigger).show();
+  }
+  document.querySelectorAll('[data-bs-toggle="tab"]').forEach(el => {
+    el.addEventListener('shown.bs.tab', (e) => {
+      history.replaceState(null, '', e.target.getAttribute('href'));
+    });
+  });
+});
+
+function editProfesiFromBtn(btn) {
+  const o = JSON.parse(btn.dataset.obj);
+  document.getElementById('formEditProfesi').action = `/penunjang/edit-profesi/${o.id}/`;
+  document.getElementById('ed_prof_kategori').value = o.kategori_kegiatan;
+  document.getElementById('ed_prof_nama').value = o.nama_organisasi;
+  document.getElementById('ed_prof_peran').value = o.peran;
+  document.getElementById('ed_prof_mulai').value = o.mulai_keanggotaan;
+  document.getElementById('ed_prof_selesai').value = o.selesai_keanggotaan;
+  document.getElementById('ed_prof_instansi').value = o.instansi_profesi;
+  document.getElementById('ed_prof_semester').value = o.semester;
+  document.getElementById('ed_prof_ta').value = o.tahun_akademik;
+  new bootstrap.Modal(document.getElementById('modalEditProfesi')).show();
+}
+
+function editPenghargaanFromBtn(btn) {
+  const o = JSON.parse(btn.dataset.obj);
+  document.getElementById('formEditPenghargaan').action = `/penunjang/edit-penghargaan/${o.id}/`;
+  document.getElementById('ed_pgh_kategori').value = o.kategori_kegiatan;
+  document.getElementById('ed_pgh_tingkat').value = o.tingkat_penghargaan;
+  document.getElementById('ed_pgh_jenis').value = o.jenis_penghargaan;
+  document.getElementById('ed_pgh_nama').value = o.nama_penghargaan;
+  document.getElementById('ed_pgh_tahun').value = o.tahun;
+  document.getElementById('ed_pgh_instansi').value = o.instansi_pemberi;
+  document.getElementById('ed_pgh_semester').value = o.semester;
+  document.getElementById('ed_pgh_ta').value = o.tahun_akademik;
+  new bootstrap.Modal(document.getElementById('modalEditPenghargaan')).show();
+}
+
+function editPenunjangFromBtn(btn) {
+  const o = JSON.parse(btn.dataset.obj);
+  document.getElementById('formEditPenunjang').action = `/penunjang/edit-penunjang/${o.id}/`;
+  document.getElementById('ed_pnj_kategori').value = o.kategori_kegiatan;
+  document.getElementById('ed_pnj_nama').value = o.nama_kegiatan;
+  document.getElementById('ed_pnj_jenis').value = o.jenis_kegiatan;
+  document.getElementById('ed_pnj_instansi').value = o.instansi;
+  document.getElementById('ed_pnj_tingkat').value = o.tingkat;
+  document.getElementById('ed_pnj_sk').value = o.no_sk_penugasan;
+  document.getElementById('ed_pnj_mulai').value = o.tanggal_mulai;
+  document.getElementById('ed_pnj_selesai').value = o.tanggal_selesai;
+  document.getElementById('ed_pnj_semester').value = o.semester;
+  document.getElementById('ed_pnj_ta').value = o.tahun_akademik;
+  new bootstrap.Modal(document.getElementById('modalEditPenunjang')).show();
+}
+</script>
+{% endblock %}

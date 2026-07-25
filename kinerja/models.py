@@ -42,93 +42,11 @@ def upload_bkd(instance, filename):
 # upload_* lama tidak ada untuk model ini jadi tidak perlu dipertahankan.
 
 
-class Penghargaan(models.Model):
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='penghargaan_set'
-    )
-    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
-    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
-    nama_penghargaan = models.CharField(max_length=200)
-    lembaga_pemberi = models.CharField(max_length=150, blank=True, null=True)
-    tingkat = models.CharField(
-        max_length=5,
-        choices=[('L', 'Lokal'), ('R', 'Regional'), ('N', 'Nasional'), ('I', 'Internasional')],
-        blank=True, null=True
-    )
-    tahun = models.IntegerField(blank=True, null=True)
-    semester = models.CharField(
-        max_length=10, choices=SEMESTER_CHOICES,
-        blank=True, null=True
-    )
-    tahun_akademik = models.CharField(max_length=10)
-    link_bukti = models.URLField(blank=True, null=True)
-    tgl_input = models.DateTimeField(auto_now_add=True)
-    updated_by = models.CharField(max_length=50, blank=True, null=True)
-
-    class Meta:
-        verbose_name = 'Penghargaan'
-        verbose_name_plural = 'Penghargaan'
-        ordering = ['-tahun_akademik', 'semester']
-
-    def __str__(self):
-        return f"{self.user.get_full_name()} - {self.nama_penghargaan[:50]}"
-
-    @property
-    def periode(self):
-        if self.semester:
-            return f"{self.semester} {self.tahun_akademik}"
-        return self.tahun_akademik
-
-
-class KegiatanPenunjang(models.Model):
-    JENIS_KEGIATAN = [
-        ('reviewer', 'Reviewer Jurnal/Prosiding'),
-        ('editor', 'Editor Jurnal'),
-        ('narasumber', 'Narasumber/Pemateri'),
-        ('panitia', 'Panitia Kegiatan'),
-        ('organisasi_profesi', 'Pengurus Organisasi Profesi'),
-        ('asesor', 'Asesor/Reviewer Akreditasi'),
-        ('tim_adhoc', 'Tim Ad Hoc/Satgas'),
-        ('lainnya', 'Lainnya'),
-    ]
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='penunjang_set'
-    )
-    kode_prodi = models.CharField(max_length=10, blank=True, null=True)
-    kode_fakultas = models.CharField(max_length=10, blank=True, null=True)
-    jenis_kegiatan = models.CharField(max_length=25, choices=JENIS_KEGIATAN)
-    nama_kegiatan = models.CharField(max_length=200)
-    peran = models.CharField(max_length=100, blank=True, null=True)
-    penyelenggara = models.CharField(max_length=150, blank=True, null=True)
-    tingkat = models.CharField(
-        max_length=5,
-        choices=[('L', 'Lokal'), ('R', 'Regional'), ('N', 'Nasional'), ('I', 'Internasional')],
-        blank=True, null=True
-    )
-    tanggal_mulai = models.DateField(blank=True, null=True)
-    tanggal_selesai = models.DateField(blank=True, null=True)
-    semester = models.CharField(
-        max_length=10, choices=SEMESTER_CHOICES,
-        blank=True, null=True
-    )
-    tahun_akademik = models.CharField(max_length=10)
-    link_bukti = models.URLField(blank=True, null=True)
-    tgl_input = models.DateTimeField(auto_now_add=True)
-    updated_by = models.CharField(max_length=50, blank=True, null=True)
-
-    class Meta:
-        verbose_name = 'Kegiatan Penunjang'
-        verbose_name_plural = 'Kegiatan Penunjang'
-        ordering = ['-tahun_akademik', 'semester']
-
-    def __str__(self):
-        return f"{self.user.get_full_name()} - {self.get_jenis_kegiatan_display()} - {self.nama_kegiatan[:50]}"
-
-    @property
-    def periode(self):
-        if self.semester:
-            return f"{self.semester} {self.tahun_akademik}"
-        return self.tahun_akademik
+# Penghargaan & Kegiatan Penunjang pindah ke app penunjang (lihat
+# penunjang/models.py) -- direklasifikasi jadi menu top-level "Penunjang"
+# tersendiri (bukan bagian dari Data Kinerja), field dirombak mengikuti
+# taksonomi SISTER asli (Penunjang.docx) plus Anggota Profesi (baru) dan
+# fitur Anggota Kegiatan (Dosen) di Penunjang Lain.
 
 
 def upload_dokumen_kinerja(instance, filename):
@@ -153,6 +71,7 @@ class DokumenKinerja(models.Model):
         ('pembinaan_mahasiswa', 'Pembinaan Mahasiswa'),
         ('orasi_ilmiah', 'Orasi Ilmiah'),
         ('tugas_tambahan', 'Tugas Tambahan'),
+        ('anggota_profesi', 'Anggota Profesi'),
         ('penghargaan', 'Penghargaan'),
         ('penunjang', 'Kegiatan Penunjang'),
         ('diklat', 'Diklat'),
