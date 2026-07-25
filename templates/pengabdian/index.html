@@ -175,7 +175,17 @@
             <div class="col-md-4"><label class="form-label">Kategori Pembicara</label><input type="text" name="kategori_pembicara" class="form-control"></div>
             <div class="col-md-12"><label class="form-label">Judul Makalah *</label><textarea name="judul_makalah" class="form-control" rows="2" required></textarea></div>
             <div class="col-md-6"><label class="form-label">Nama Pertemuan Ilmiah *</label><input type="text" name="nama_pertemuan_ilmiah" class="form-control" required></div>
-            <div class="col-md-3"><label class="form-label">Tingkat Pertemuan</label><input type="text" name="tingkat_pertemuan" class="form-control"></div>
+            <div class="col-md-3">
+              <label class="form-label">Tingkat Pertemuan</label>
+              <select name="tingkat_pertemuan" class="form-select">
+                <option value="">-- Pilih --</option>
+                <option value="lokal">Lokal</option>
+                <option value="daerah">Daerah</option>
+                <option value="nasional">Nasional</option>
+                <option value="internasional">Internasional</option>
+                <option value="lain_lain">Lain-lain</option>
+              </select>
+            </div>
             <div class="col-md-3"><label class="form-label">Bahasa</label><input type="text" name="bahasa" class="form-control"></div>
             <div class="col-md-6"><label class="form-label">Penyelenggara *</label><input type="text" name="penyelenggara" class="form-control" required></div>
             <div class="col-md-3"><label class="form-label">Tanggal Pelaksanaan *</label><input type="date" name="tanggal_pelaksanaan" class="form-control" required></div>
@@ -481,7 +491,17 @@
           <div class="col-md-4"><label class="form-label">Kategori Pembicara</label><input type="text" name="kategori_pembicara" id="ed_bic_kp" class="form-control"></div>
           <div class="col-md-12"><label class="form-label">Judul Makalah *</label><textarea name="judul_makalah" id="ed_bic_judul" class="form-control" rows="2" required></textarea></div>
           <div class="col-md-6"><label class="form-label">Nama Pertemuan Ilmiah *</label><input type="text" name="nama_pertemuan_ilmiah" id="ed_bic_pertemuan" class="form-control" required></div>
-          <div class="col-md-3"><label class="form-label">Tingkat Pertemuan</label><input type="text" name="tingkat_pertemuan" id="ed_bic_tingkat" class="form-control"></div>
+          <div class="col-md-3">
+            <label class="form-label">Tingkat Pertemuan</label>
+            <select name="tingkat_pertemuan" id="ed_bic_tingkat" class="form-select">
+              <option value="">-- Pilih --</option>
+              <option value="lokal">Lokal</option>
+              <option value="daerah">Daerah</option>
+              <option value="nasional">Nasional</option>
+              <option value="internasional">Internasional</option>
+              <option value="lain_lain">Lain-lain</option>
+            </select>
+          </div>
           <div class="col-md-3"><label class="form-label">Bahasa</label><input type="text" name="bahasa" id="ed_bic_bahasa" class="form-control"></div>
           <div class="col-md-6"><label class="form-label">Penyelenggara *</label><input type="text" name="penyelenggara" id="ed_bic_penyelenggara" class="form-control" required></div>
           <div class="col-md-3"><label class="form-label">Tanggal Pelaksanaan *</label><input type="date" name="tanggal_pelaksanaan" id="ed_bic_tanggal" class="form-control" required></div>

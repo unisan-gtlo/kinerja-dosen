@@ -122,6 +122,14 @@ class AnggotaPengabdian(models.Model):
 
 
 class Pembicara(models.Model):
+    TINGKAT_PERTEMUAN = [
+        ('lokal', 'Lokal'),
+        ('daerah', 'Daerah'),
+        ('nasional', 'Nasional'),
+        ('internasional', 'Internasional'),
+        ('lain_lain', 'Lain-lain'),
+    ]
+
     KATEGORI_KEGIATAN = [
         ('terjadwal_semester_internasional', 'Terjadwal/terprogram dalam satu semester atau lebih (tingkat internasional)'),
         ('terjadwal_semester_nasional', 'Terjadwal/terprogram dalam satu semester atau lebih (tingkat nasional)'),
@@ -144,7 +152,7 @@ class Pembicara(models.Model):
     kategori_pembicara = models.CharField(max_length=100, blank=True)
     judul_makalah = models.TextField()
     nama_pertemuan_ilmiah = models.CharField(max_length=200)
-    tingkat_pertemuan = models.CharField(max_length=100, blank=True)
+    tingkat_pertemuan = models.CharField(max_length=20, choices=TINGKAT_PERTEMUAN, blank=True)
     penyelenggara = models.CharField(max_length=200)
     tanggal_pelaksanaan = models.DateField()
     bahasa = models.CharField(max_length=50, blank=True)
