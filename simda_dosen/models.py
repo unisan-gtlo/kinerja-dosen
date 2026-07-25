@@ -44,14 +44,20 @@ class DataDosen(models.Model):
     jabatan_fungsional_id = models.IntegerField(null=True, blank=True)
     golongan_id = models.IntegerField(null=True, blank=True)
     pendidikan_terakhir = models.CharField(max_length=5, choices=PENDIDIKAN, blank=True)
-    bidang_keahlian_id = models.IntegerField(null=True, blank=True)
     tgl_mulai_kerja = models.DateField(null=True, blank=True)
-    no_sk_pengangkatan = models.CharField(max_length=100, blank=True)
-    tgl_sk_pengangkatan = models.DateField(null=True, blank=True)
     id_serdos = models.CharField(max_length=30, blank=True)
     nama_bank = models.CharField(max_length=50, blank=True)
     no_rekening = models.CharField(max_length=30, blank=True)
     atas_nama_rekening = models.CharField(max_length=100, blank=True)
+
+    # bidang_keahlian_id/no_sk_pengangkatan/tgl_sk_pengangkatan/
+    # file_sk_pengangkatan awalnya masuk kategori admin/HR di atas, tapi
+    # sifatnya (berbasis SK, snapshot sekali per dosen) sama dengan
+    # Jabatan Fungsional/Pangkat yang sudah self-service -- dibuka jadi
+    # editable dosen lewat tab Profil Dasar (lihat profil/views.py::simpan_profil).
+    bidang_keahlian_id = models.IntegerField(null=True, blank=True)
+    no_sk_pengangkatan = models.CharField(max_length=100, blank=True)
+    tgl_sk_pengangkatan = models.DateField(null=True, blank=True)
     file_sk_pengangkatan = models.FileField(upload_to='dosen/sk_pengangkatan/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
     tgl_dibuat = models.DateTimeField(auto_now_add=True)
@@ -131,6 +137,14 @@ class DataDosen(models.Model):
         jf = JabatanFungsionalPublik.objects.using('simda').filter(
             id=self.jabatan_fungsional_id).first()
         return jf.nama if jf else ''
+
+    @property
+    def bidang_keahlian_nama(self):
+        if not self.bidang_keahlian_id:
+            return ''
+        bk = BidangKeahlianPublik.objects.using('simda').filter(
+            id=self.bidang_keahlian_id).first()
+        return bk.nama if bk else ''
 
     @property
     def persentase_kelengkapan(self):
@@ -351,6 +365,26 @@ class GolonganPublik(models.Model):
 
     def __str__(self):
         return f'{self.kode} ({self.pangkat})'
+
+
+class BidangKeahlianPublik(models.Model):
+    """Read-only, sumbernya master.v_bidang_keahlian_publik (view SIMDA).
+    Dipakai untuk dropdown Bidang Keahlian/Keilmuan di tab Profil Dasar --
+    id-nya dipakai sebagai DataDosen.bidang_keahlian_id."""
+    id = models.IntegerField(primary_key=True)
+    kode = models.CharField(max_length=20)
+    nama = models.CharField(max_length=150)
+    rumpun_ilmu = models.CharField(max_length=50, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'master"."v_bidang_keahlian_publik'
+        verbose_name = 'Bidang Keahlian (SIMDA)'
+        verbose_name_plural = 'Bidang Keahlian (SIMDA)'
+        ordering = ['nama']
+
+    def __str__(self):
+        return self.nama
 
 
 class FakultasPublik(models.Model):

@@ -6,6 +6,7 @@ from accounts.models import User
 from simda_dosen.models import (
     DataDosen, RiwayatJabatanFungsional, RiwayatPendidikanDosen,
     RiwayatPangkatGolongan, AgamaPublik, JabatanFungsionalPublik, GolonganPublik,
+    BidangKeahlianPublik,
 )
 from simda_dosen.utils import get_simda_dosen_or_none
 from kinerja.utils import attach_dokumen_count
@@ -56,6 +57,7 @@ def index(request):
         'agama_list': AgamaPublik.objects.using('simda').all(),
         'jabfung_ref_list': JabatanFungsionalPublik.objects.using('simda').all(),
         'golongan_ref_list': GolonganPublik.objects.using('simda').all(),
+        'bidang_keahlian_ref_list': BidangKeahlianPublik.objects.using('simda').all(),
     }
     return render(request, 'profil/index.html', context)
 
@@ -103,6 +105,9 @@ def simpan_profil(request):
     profil.nira = request.POST.get('nira', '').strip()
     profil.minat_penelitian = request.POST.get('minat_penelitian', '').strip()
     profil.npwp = request.POST.get('npwp', '').strip()
+    profil.bidang_keahlian_id = request.POST.get('bidang_keahlian_id') or None
+    profil.no_sk_pengangkatan = request.POST.get('no_sk_pengangkatan', '').strip()
+    profil.tgl_sk_pengangkatan = request.POST.get('tgl_sk_pengangkatan') or None
 
     if 'foto' in request.FILES:
         profil.foto = request.FILES['foto']
@@ -110,6 +115,8 @@ def simpan_profil(request):
         profil.file_ktp = request.FILES['file_ktp']
     if 'file_npwp' in request.FILES:
         profil.file_npwp = request.FILES['file_npwp']
+    if 'file_sk_pengangkatan' in request.FILES:
+        profil.file_sk_pengangkatan = request.FILES['file_sk_pengangkatan']
 
     profil.save()
     messages.success(request, 'Profil berhasil disimpan ke SIMDA.')

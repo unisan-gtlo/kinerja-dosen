@@ -233,6 +233,15 @@
       <div class="form-section">
         <div class="form-section-title"><span class="ti-badge"><span class="ti ti-flask"></span></span>Identitas Akademik & Riset</div>
         <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Bidang Keahlian/Keilmuan</label>
+            <select name="bidang_keahlian_id" class="form-select" {% if not bisa_edit %}disabled{% endif %}>
+              <option value="">-- Pilih --</option>
+              {% for bk in bidang_keahlian_ref_list %}
+              <option value="{{ bk.id }}" {% if profil.bidang_keahlian_id == bk.id %}selected{% endif %}>{{ bk.nama }}</option>
+              {% endfor %}
+            </select>
+          </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold">ID SINTA</label>
             <input type="text" name="id_sinta" class="form-control"
@@ -314,6 +323,36 @@
             {% endif %}
             {% if bisa_edit %}
             <input type="file" name="file_npwp" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Pengangkatan sebagai Dosen -->
+      <div class="form-section">
+        <div class="form-section-title"><span class="ti-badge"><span class="ti ti-certificate"></span></span>Data Pengangkatan sebagai Dosen</div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Nomor SK Pengangkatan</label>
+            <input type="text" name="no_sk_pengangkatan" class="form-control"
+                   value="{{ profil.no_sk_pengangkatan|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">TMT (Terhitung Mulai Tanggal)</label>
+            <input type="date" name="tgl_sk_pengangkatan" class="form-control"
+                   value="{{ profil.tgl_sk_pengangkatan|date:'Y-m-d'|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Upload SK Pengangkatan</label>
+            {% if profil and profil.file_sk_pengangkatan %}
+            <div class="mb-1">
+              <a href="{{ profil.file_sk_pengangkatan.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-eye me-1"></span>Lihat SK
+              </a>
+            </div>
+            {% endif %}
+            {% if bisa_edit %}
+            <input type="file" name="file_sk_pengangkatan" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
             {% endif %}
           </div>
         </div>
