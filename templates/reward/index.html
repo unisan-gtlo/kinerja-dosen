@@ -1,0 +1,455 @@
+{% extends 'base.html' %}
+{% block title %}Reward — SIKD{% endblock %}
+{% block page_title %}
+  Reward
+  {% if target_user != request.user %}
+  <small class="text-muted fs-5">— {{ target_user.get_full_name|default:target_user.username }}</small>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if not input_terbuka %}
+<div class="alert alert-warning">
+  <span class="ti ti-lock me-1"></span>
+  Input data sedang <strong>dikunci</strong> oleh admin.
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+  <label class="form-label mb-0 small text-muted">Tampilkan</label>
+  <select class="form-select form-select-sm" style="width:auto" onchange="changePerPage(this.value)">
+    {% for n in per_page_choices %}
+    <option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }}</option>
+    {% endfor %}
+  </select>
+  <span class="small text-muted">data/halaman</span>
+</div>
+
+<ul class="nav nav-tabs mb-0 flex-nowrap overflow-auto" id="rewardTab">
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-beasiswa">
+    <span class="ti ti-school me-1"></span>Beasiswa <span class="badge bg-blue-lt ms-1">{{ beasiswa_list.paginator.count }}</span></a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-kesejahteraan">
+    <span class="ti ti-heart-handshake me-1"></span>Kesejahteraan <span class="badge bg-blue-lt ms-1">{{ kesejahteraan_list.paginator.count }}</span></a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-tunjangan">
+    <span class="ti ti-cash me-1"></span>Tunjangan <span class="badge bg-blue-lt ms-1">{{ tunjangan_list.paginator.count }}</span></a></li>
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
+
+  <!-- ============================================================ -->
+  <!-- TAB BEASISWA -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade show active" id="tab-beasiswa">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Data Beasiswa</h6>
+        <form method="post" action="{% url 'reward:tambah_beasiswa' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jenis Beasiswa *</label>
+              <select name="jenis_beasiswa" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="prestasi">Prestasi</option>
+                <option value="kemiskinan">Kemiskinan</option>
+                <option value="pendidikan">Pendidikan</option>
+                <option value="unggulan">Unggulan</option>
+                <option value="ikatan_dinas">Ikatan Dinas</option>
+                <option value="peningkatan_karir">Peningkatan Karir</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-8"><label class="form-label">Nama Beasiswa *</label><input type="text" name="nama_beasiswa" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label">Tahun Mulai *</label><input type="number" name="tahun_mulai" class="form-control" required min="1970" max="2035"></div>
+            <div class="col-md-3"><label class="form-label">Tahun Selesai</label><input type="number" name="tahun_selesai" class="form-control" min="1970" max="2035"></div>
+            <div class="col-md-6">
+              <label class="form-label d-block">Masih Terima *</label>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="masih_terima" id="bea_ya" value="ya" checked>
+                <label class="form-check-label" for="bea_ya">Ya</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="masih_terima" id="bea_tidak" value="tidak">
+                <label class="form-check-label" for="bea_tidak">Tidak</label>
+              </div>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light"><tr><th>Jenis Beasiswa</th><th>Nama Beasiswa</th><th>Tahun Mulai</th><th>Tahun Selesai</th><th>Masih Terima</th><th>Dokumen</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {% for o in beasiswa_list %}
+          <tr>
+            <td><span class="badge bg-purple-lt text-purple">{{ o.get_jenis_beasiswa_display }}</span></td>
+            <td>{{ o.nama_beasiswa }}</td>
+            <td>{{ o.tahun_mulai }}</td>
+            <td>{{ o.tahun_selesai|default:"-" }}</td>
+            <td>{% if o.masih_terima %}<span class="badge bg-success-lt text-success">Ya</span>{% else %}<span class="badge bg-secondary-lt text-secondary">Tidak</span>{% endif %}</td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'beasiswa' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
+            <td>
+              {% if bisa_edit %}
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary" onclick="editBeasiswaFromBtn(this)"
+                  data-obj='{"id":{{ o.id }},"jenis_beasiswa":"{{ o.jenis_beasiswa }}","nama_beasiswa":"{{ o.nama_beasiswa|escapejs }}","tahun_mulai":"{{ o.tahun_mulai }}","tahun_selesai":"{{ o.tahun_selesai|default:"" }}","masih_terima":"{% if o.masih_terima %}ya{% else %}tidak{% endif %}"}'>
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'reward:hapus_beasiswa' o.id %}" onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data beasiswa</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=beasiswa_list page_param='page_bea' %}
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB KESEJAHTERAAN -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade" id="tab-kesejahteraan">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Data Kesejahteraan</h6>
+        <form method="post" action="{% url 'reward:tambah_kesejahteraan' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Jenis Kesejahteraan *</label>
+              <select name="jenis_kesejahteraan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="asuransi_kesejahteraan">Asuransi Kesejahteraan</option>
+                <option value="dana_pensiun">Dana Pensiun</option>
+                <option value="jamkesmas">Jamkesmas</option>
+                <option value="jamsostek">Jamsostek</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-8"><label class="form-label">Layanan Kesejahteraan *</label><input type="text" name="layanan_kesejahteraan" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">Penyelenggara *</label><input type="text" name="penyelenggara" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label">Tahun Mulai *</label><input type="number" name="tahun_mulai" class="form-control" required min="1970" max="2035"></div>
+            <div class="col-md-3"><label class="form-label">Tahun Selesai</label><input type="number" name="tahun_selesai" class="form-control" min="1970" max="2035"></div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light"><tr><th>Jenis Kesejahteraan</th><th>Layanan Kesejahteraan</th><th>Penyelenggara</th><th>Tahun Mulai</th><th>Tahun Selesai</th><th>Dokumen</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {% for o in kesejahteraan_list %}
+          <tr>
+            <td><span class="badge bg-purple-lt text-purple">{{ o.get_jenis_kesejahteraan_display }}</span></td>
+            <td>{{ o.layanan_kesejahteraan }}</td>
+            <td>{{ o.penyelenggara }}</td>
+            <td>{{ o.tahun_mulai }}</td>
+            <td>{{ o.tahun_selesai|default:"-" }}</td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'kesejahteraan' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
+            <td>
+              {% if bisa_edit %}
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary" onclick="editKesejahteraanFromBtn(this)"
+                  data-obj='{"id":{{ o.id }},"jenis_kesejahteraan":"{{ o.jenis_kesejahteraan }}","layanan_kesejahteraan":"{{ o.layanan_kesejahteraan|escapejs }}","penyelenggara":"{{ o.penyelenggara|escapejs }}","tahun_mulai":"{{ o.tahun_mulai }}","tahun_selesai":"{{ o.tahun_selesai|default:"" }}"}'>
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'reward:hapus_kesejahteraan' o.id %}" onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-3">Belum ada data kesejahteraan</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=kesejahteraan_list page_param='page_kes' %}
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB TUNJANGAN -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade" id="tab-tunjangan">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Data Tunjangan</h6>
+        <form method="post" action="{% url 'reward:tambah_tunjangan' %}">
+          {% csrf_token %}
+          {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Jenis Tunjangan *</label>
+              <select name="jenis_tunjangan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="tunjangan_anak">Tunjangan Anak</option>
+                <option value="tunjangan_istri_suami">Tunjangan Istri/Suami</option>
+                <option value="tunjangan_beras">Tunjangan Beras</option>
+                <option value="tunjangan_umum_pns">Tunjangan Umum PNS</option>
+                <option value="tunjangan_khusus_guru_dosen">Tunjangan Khusus Guru/Dosen</option>
+                <option value="tunjangan_medis">Tunjangan Medis</option>
+                <option value="tunjangan_pegawai_non_pns">Tunjangan Pegawai Non PNS</option>
+                <option value="tunjangan_hari_tua">Tunjangan Hari Tua</option>
+                <option value="bantuan_kualifikasi_akademik">Bantuan Peningkatan Kualifikasi Akademik</option>
+                <option value="tunjangan_guru_daerah_khusus">Tunjangan Guru Daerah Khusus</option>
+                <option value="tunjangan_fungsional_non_pns">Tunjangan Fungsional Non PNS</option>
+                <option value="tunjangan_pendidikan_layanan_khusus">Tunjangan Pendidikan Khusus & Layanan Khusus</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="col-md-6"><label class="form-label">Nama Tunjangan *</label><input type="text" name="nama_tunjangan" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">Instansi Pemberi Tunjangan</label><input type="text" name="instansi_pemberi_tunjangan" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Sumber Dana</label><input type="text" name="sumber_dana" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Tahun Mulai *</label><input type="number" name="tahun_mulai" class="form-control" required min="1970" max="2035"></div>
+            <div class="col-md-3"><label class="form-label">Tahun Selesai</label><input type="number" name="tahun_selesai" class="form-control" min="1970" max="2035"></div>
+            <div class="col-md-3"><label class="form-label">Nominal *</label><input type="number" step="0.01" name="nominal" class="form-control" required></div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light"><tr><th>Jenis Tunjangan</th><th>Nama Tunjangan</th><th>Instansi Pemberi</th><th>Sumber Dana</th><th>Periode</th><th>Nominal</th><th>Dokumen</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {% for o in tunjangan_list %}
+          <tr>
+            <td><span class="badge bg-purple-lt text-purple">{{ o.get_jenis_tunjangan_display }}</span></td>
+            <td>{{ o.nama_tunjangan }}</td>
+            <td>{{ o.instansi_pemberi_tunjangan|default:"-" }}</td>
+            <td>{{ o.sumber_dana|default:"-" }}</td>
+            <td>{{ o.tahun_mulai }}{% if o.tahun_selesai %} - {{ o.tahun_selesai }}{% endif %}</td>
+            <td>Rp {{ o.nominal }}</td>
+            <td><a href="{% url 'kinerja:kelola_dokumen' 'tunjangan' o.id %}" class="btn btn-sm btn-outline-primary"><span class="ti ti-files me-1"></span>Dokumen ({{ o.jumlah_dokumen }})</a></td>
+            <td>
+              {% if bisa_edit %}
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-primary" onclick="editTunjanganFromBtn(this)"
+                  data-obj='{"id":{{ o.id }},"jenis_tunjangan":"{{ o.jenis_tunjangan }}","nama_tunjangan":"{{ o.nama_tunjangan|escapejs }}","instansi_pemberi_tunjangan":"{{ o.instansi_pemberi_tunjangan|default:""|escapejs }}","sumber_dana":"{{ o.sumber_dana|default:""|escapejs }}","tahun_mulai":"{{ o.tahun_mulai }}","tahun_selesai":"{{ o.tahun_selesai|default:"" }}","nominal":"{{ o.nominal }}"}'>
+                  <span class="ti ti-edit"></span>
+                </button>
+                <form method="post" action="{% url 'reward:hapus_tunjangan' o.id %}" onsubmit="return confirm('Hapus data ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-3">Belum ada data tunjangan</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'pendidikan/_pagination.html' with page_obj=tunjangan_list page_param='page_tun' %}
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL EDIT BEASISWA -->
+<!-- ============================================================ -->
+<div class="modal fade" id="modalEditBeasiswa" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <form method="post" action="{% url 'reward:edit_beasiswa' 0 %}" id="formEditBeasiswa">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="modal-header"><h5 class="modal-title">Edit Beasiswa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Jenis Beasiswa *</label>
+            <select name="jenis_beasiswa" id="ed_bea_jenis" class="form-select" required>
+              <option value="prestasi">Prestasi</option>
+              <option value="kemiskinan">Kemiskinan</option>
+              <option value="pendidikan">Pendidikan</option>
+              <option value="unggulan">Unggulan</option>
+              <option value="ikatan_dinas">Ikatan Dinas</option>
+              <option value="peningkatan_karir">Peningkatan Karir</option>
+              <option value="lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="col-12"><label class="form-label">Nama Beasiswa *</label><input type="text" name="nama_beasiswa" id="ed_bea_nama" class="form-control" required></div>
+          <div class="col-md-6"><label class="form-label">Tahun Mulai *</label><input type="number" name="tahun_mulai" id="ed_bea_mulai" class="form-control" required></div>
+          <div class="col-md-6"><label class="form-label">Tahun Selesai</label><input type="number" name="tahun_selesai" id="ed_bea_selesai" class="form-control"></div>
+          <div class="col-12">
+            <label class="form-label d-block">Masih Terima *</label>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="masih_terima" id="ed_bea_ya" value="ya">
+              <label class="form-check-label" for="ed_bea_ya">Ya</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="masih_terima" id="ed_bea_tidak" value="tidak">
+              <label class="form-check-label" for="ed_bea_tidak">Tidak</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+    </form>
+  </div></div>
+</div>
+
+<!-- MODAL EDIT KESEJAHTERAAN -->
+<div class="modal fade" id="modalEditKesejahteraan" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <form method="post" action="{% url 'reward:edit_kesejahteraan' 0 %}" id="formEditKesejahteraan">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="modal-header"><h5 class="modal-title">Edit Kesejahteraan</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Jenis Kesejahteraan *</label>
+            <select name="jenis_kesejahteraan" id="ed_kes_jenis" class="form-select" required>
+              <option value="asuransi_kesejahteraan">Asuransi Kesejahteraan</option>
+              <option value="dana_pensiun">Dana Pensiun</option>
+              <option value="jamkesmas">Jamkesmas</option>
+              <option value="jamsostek">Jamsostek</option>
+              <option value="lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="col-12"><label class="form-label">Layanan Kesejahteraan *</label><input type="text" name="layanan_kesejahteraan" id="ed_kes_layanan" class="form-control" required></div>
+          <div class="col-12"><label class="form-label">Penyelenggara *</label><input type="text" name="penyelenggara" id="ed_kes_penyelenggara" class="form-control" required></div>
+          <div class="col-md-6"><label class="form-label">Tahun Mulai *</label><input type="number" name="tahun_mulai" id="ed_kes_mulai" class="form-control" required></div>
+          <div class="col-md-6"><label class="form-label">Tahun Selesai</label><input type="number" name="tahun_selesai" id="ed_kes_selesai" class="form-control"></div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+    </form>
+  </div></div>
+</div>
+
+<!-- MODAL EDIT TUNJANGAN -->
+<div class="modal fade" id="modalEditTunjangan" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <form method="post" action="{% url 'reward:edit_tunjangan' 0 %}" id="formEditTunjangan">
+      {% csrf_token %}
+      {% if target_user != request.user %}<input type="hidden" name="dosen_id" value="{{ target_user.id }}">{% endif %}
+      <div class="modal-header"><h5 class="modal-title">Edit Tunjangan</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Jenis Tunjangan *</label>
+            <select name="jenis_tunjangan" id="ed_tun_jenis" class="form-select" required>
+              <option value="tunjangan_anak">Tunjangan Anak</option>
+              <option value="tunjangan_istri_suami">Tunjangan Istri/Suami</option>
+              <option value="tunjangan_beras">Tunjangan Beras</option>
+              <option value="tunjangan_umum_pns">Tunjangan Umum PNS</option>
+              <option value="tunjangan_khusus_guru_dosen">Tunjangan Khusus Guru/Dosen</option>
+              <option value="tunjangan_medis">Tunjangan Medis</option>
+              <option value="tunjangan_pegawai_non_pns">Tunjangan Pegawai Non PNS</option>
+              <option value="tunjangan_hari_tua">Tunjangan Hari Tua</option>
+              <option value="bantuan_kualifikasi_akademik">Bantuan Peningkatan Kualifikasi Akademik</option>
+              <option value="tunjangan_guru_daerah_khusus">Tunjangan Guru Daerah Khusus</option>
+              <option value="tunjangan_fungsional_non_pns">Tunjangan Fungsional Non PNS</option>
+              <option value="tunjangan_pendidikan_layanan_khusus">Tunjangan Pendidikan Khusus & Layanan Khusus</option>
+              <option value="lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="col-12"><label class="form-label">Nama Tunjangan *</label><input type="text" name="nama_tunjangan" id="ed_tun_nama" class="form-control" required></div>
+          <div class="col-md-6"><label class="form-label">Instansi Pemberi Tunjangan</label><input type="text" name="instansi_pemberi_tunjangan" id="ed_tun_instansi" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Sumber Dana</label><input type="text" name="sumber_dana" id="ed_tun_sumber" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Tahun Mulai *</label><input type="number" name="tahun_mulai" id="ed_tun_mulai" class="form-control" required></div>
+          <div class="col-md-4"><label class="form-label">Tahun Selesai</label><input type="number" name="tahun_selesai" id="ed_tun_selesai" class="form-control"></div>
+          <div class="col-md-4"><label class="form-label">Nominal *</label><input type="number" step="0.01" name="nominal" id="ed_tun_nominal" class="form-control" required></div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Simpan</button></div>
+    </form>
+  </div></div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function goToPage(pageParam, pageNum) {
+  const url = new URL(window.location.href);
+  url.searchParams.set(pageParam, pageNum);
+  window.location.href = url.toString();
+}
+
+function changePerPage(value) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('per_page', value);
+  ['page_bea', 'page_kes', 'page_tun'].forEach(p => url.searchParams.delete(p));
+  window.location.href = url.toString();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.location.hash) {
+    const trigger = document.querySelector(`[data-bs-toggle="tab"][href="${window.location.hash}"]`);
+    if (trigger) new bootstrap.Tab(trigger).show();
+  }
+  document.querySelectorAll('[data-bs-toggle="tab"]').forEach(el => {
+    el.addEventListener('shown.bs.tab', (e) => {
+      history.replaceState(null, '', e.target.getAttribute('href'));
+    });
+  });
+});
+
+function editBeasiswaFromBtn(btn) {
+  const o = JSON.parse(btn.dataset.obj);
+  document.getElementById('formEditBeasiswa').action = `/reward/edit-beasiswa/${o.id}/`;
+  document.getElementById('ed_bea_jenis').value = o.jenis_beasiswa;
+  document.getElementById('ed_bea_nama').value = o.nama_beasiswa;
+  document.getElementById('ed_bea_mulai').value = o.tahun_mulai;
+  document.getElementById('ed_bea_selesai').value = o.tahun_selesai;
+  document.getElementById('ed_bea_' + o.masih_terima).checked = true;
+  new bootstrap.Modal(document.getElementById('modalEditBeasiswa')).show();
+}
+
+function editKesejahteraanFromBtn(btn) {
+  const o = JSON.parse(btn.dataset.obj);
+  document.getElementById('formEditKesejahteraan').action = `/reward/edit-kesejahteraan/${o.id}/`;
+  document.getElementById('ed_kes_jenis').value = o.jenis_kesejahteraan;
+  document.getElementById('ed_kes_layanan').value = o.layanan_kesejahteraan;
+  document.getElementById('ed_kes_penyelenggara').value = o.penyelenggara;
+  document.getElementById('ed_kes_mulai').value = o.tahun_mulai;
+  document.getElementById('ed_kes_selesai').value = o.tahun_selesai;
+  new bootstrap.Modal(document.getElementById('modalEditKesejahteraan')).show();
+}
+
+function editTunjanganFromBtn(btn) {
+  const o = JSON.parse(btn.dataset.obj);
+  document.getElementById('formEditTunjangan').action = `/reward/edit-tunjangan/${o.id}/`;
+  document.getElementById('ed_tun_jenis').value = o.jenis_tunjangan;
+  document.getElementById('ed_tun_nama').value = o.nama_tunjangan;
+  document.getElementById('ed_tun_instansi').value = o.instansi_pemberi_tunjangan;
+  document.getElementById('ed_tun_sumber').value = o.sumber_dana;
+  document.getElementById('ed_tun_mulai').value = o.tahun_mulai;
+  document.getElementById('ed_tun_selesai').value = o.tahun_selesai;
+  document.getElementById('ed_tun_nominal').value = o.nominal;
+  new bootstrap.Modal(document.getElementById('modalEditTunjangan')).show();
+}
+</script>
+{% endblock %}

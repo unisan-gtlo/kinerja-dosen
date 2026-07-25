@@ -345,6 +345,13 @@
             </a>
           </li>
           <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.app_name == 'reward' %}active{% endif %}"
+               href="{% url 'reward:index' %}">
+              <span class="nav-link-icon"><span class="ti ti-gift"></span></span>
+              <span class="nav-link-title">Reward</span>
+            </a>
+          </li>
+          <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.url_name == 'bkd_index' %}active{% endif %}"
                href="{% url 'kinerja:bkd_index' %}">
               <span class="nav-link-icon"><span class="ti ti-file-description"></span></span>

@@ -13,6 +13,7 @@ urlpatterns = [
     path('penelitian/', include('penelitian.urls')),
     path('pengabdian/', include('pengabdian.urls')),
     path('penunjang/', include('penunjang.urls')),
+    path('reward/', include('reward.urls')),
     path('laporan/', include('laporan.urls')),
     path('simda-dosen/', include('simda_dosen.urls')),
 ]

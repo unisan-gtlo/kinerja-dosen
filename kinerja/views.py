@@ -13,6 +13,7 @@ from pendidikan.models import (
 from penelitian.models import Penelitian, PublikasiKarya, PatenHki
 from pengabdian.models import Pengabdian, Pembicara, PengelolaJurnal, JabatanStruktural
 from penunjang.models import AnggotaProfesi, Penghargaan, PenunjangLain
+from reward.models import Beasiswa, Kesejahteraan, Tunjangan
 from .models import DokumenKinerja
 from .utils import attach_dokumen_count
 
@@ -128,6 +129,7 @@ PENDIDIKAN_JENIS = {
 PENELITIAN_JENIS = {'penelitian', 'publikasi', 'hki'}
 PENGABDIAN_JENIS = {'pkm', 'pembicara', 'pengelola_jurnal', 'jabatan_struktural'}
 PENUNJANG_JENIS = {'anggota_profesi', 'penghargaan', 'penunjang'}
+REWARD_JENIS = {'beasiswa', 'kesejahteraan', 'tunjangan'}
 
 
 def _kembali_url(jenis_kinerja):
@@ -141,6 +143,8 @@ def _kembali_url(jenis_kinerja):
         return 'pengabdian:index'
     if jenis_kinerja in PENUNJANG_JENIS:
         return 'penunjang:index'
+    if jenis_kinerja in REWARD_JENIS:
+        return 'reward:index'
     if jenis_kinerja == 'diklat':
         return 'profil:kualifikasi_index'
     if jenis_kinerja in ('sertifikasi', 'tes'):
@@ -172,6 +176,9 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         'anggota_profesi': AnggotaProfesi,
         'penghargaan': Penghargaan,
         'penunjang': PenunjangLain,
+        'beasiswa': Beasiswa,
+        'kesejahteraan': Kesejahteraan,
+        'tunjangan': Tunjangan,
         'diklat': Diklat,
         'sertifikasi': Sertifikasi,
         'tes': TesKompetensi,
@@ -325,6 +332,12 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         judul_kinerja = kinerja_obj.nama_penghargaan[:80]
     elif hasattr(kinerja_obj, 'nama_organisasi'):
         judul_kinerja = kinerja_obj.nama_organisasi[:80]
+    elif hasattr(kinerja_obj, 'nama_beasiswa'):
+        judul_kinerja = kinerja_obj.nama_beasiswa[:80]
+    elif hasattr(kinerja_obj, 'nama_tunjangan'):
+        judul_kinerja = kinerja_obj.nama_tunjangan[:80]
+    elif hasattr(kinerja_obj, 'layanan_kesejahteraan'):
+        judul_kinerja = kinerja_obj.layanan_kesejahteraan[:80]
     elif hasattr(kinerja_obj, 'nama_diklat'):
         judul_kinerja = kinerja_obj.nama_diklat[:80]
     elif hasattr(kinerja_obj, 'nama_tes'):

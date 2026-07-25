@@ -77,6 +77,9 @@ class DokumenKinerja(models.Model):
         ('diklat', 'Diklat'),
         ('sertifikasi', 'Sertifikasi'),
         ('tes', 'Tes'),
+        ('beasiswa', 'Beasiswa'),
+        ('kesejahteraan', 'Kesejahteraan'),
+        ('tunjangan', 'Tunjangan'),
     ]
     JENIS_DOKUMEN = [
         ('surat_tugas', 'Surat Tugas'),

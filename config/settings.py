@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'penelitian',
     'pengabdian',
     'penunjang',
+    'reward',
     'dashboard',
     'laporan',
     'simda_dosen',
