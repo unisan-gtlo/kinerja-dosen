@@ -87,9 +87,11 @@
           {% elif d.sumber == 'profil' %}
           <span class="badge bg-teal-lt text-teal">Profil Dosen</span>
           {% elif d.sumber == 'jabfung' %}
-          <span class="badge bg-orange-lt text-orange">Kualifikasi (Jabfung)</span>
+          <span class="badge bg-orange-lt text-orange">Profil Dosen (Jabfung)</span>
+          {% elif d.sumber == 'pangkat' %}
+          <span class="badge bg-orange-lt text-orange">Profil Dosen (Pangkat/Golongan)</span>
           {% elif d.sumber == 'pendidikan' %}
-          <span class="badge bg-orange-lt text-orange">Kualifikasi (Pendidikan)</span>
+          <span class="badge bg-orange-lt text-orange">Profil Dosen (Pendidikan)</span>
           {% endif %}
         </td>
         <td>
@@ -104,7 +106,7 @@
             </form>
           </div>
           {% elif d.sumber != 'lokal' %}
-          <span class="text-muted small">Edit di {% if d.sumber == 'profil' %}Profil Dosen{% else %}Kualifikasi{% endif %}</span>
+          <span class="text-muted small">Edit di Profil Dosen</span>
           {% endif %}
         </td>
       </tr>

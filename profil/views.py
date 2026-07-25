@@ -665,6 +665,14 @@ def dokumen_index(request):
                     'jenis': 'SK Jabatan Fungsional', 'tanggal': jf.tmt,
                     'file_url': jf.file_sk.url, 'link': '',
                 })
+        for pg in profil.riwayat_pangkat_golongan.all():
+            if pg.file_sk:
+                dokumen_gabungan.append({
+                    'sumber': 'pangkat', 'id': None,
+                    'nama': f'SK Inpassing {pg.golongan_display} (TMT {pg.tmt})' if pg.tmt else f'SK Inpassing {pg.golongan_display}',
+                    'jenis': 'SK Pangkat/Inpassing', 'tanggal': pg.tmt,
+                    'file_url': pg.file_sk.url, 'link': '',
+                })
         for rp in profil.riwayat_pendidikan.all():
             if rp.file_ijazah:
                 dokumen_gabungan.append({
