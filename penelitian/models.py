@@ -60,7 +60,6 @@ class Penelitian(models.Model):
     dana_dikti = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='Dana dari Dikti (Rp)')
     dana_pt = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='Dana dari Perguruan Tinggi (Rp)')
     dana_institusi_lain = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='Dana dari Institusi Lain (Rp)')
-    in_kind = models.CharField(max_length=200, blank=True, verbose_name='In Kind')
 
     no_sk_penugasan = models.CharField(max_length=100, blank=True)
     tanggal_sk_penugasan = models.DateField(null=True, blank=True)

@@ -75,7 +75,6 @@
             <div class="col-md-4"><label class="form-label">Dana dari Dikti (Rp)</label><input type="number" step="0.01" name="dana_dikti" class="form-control" value="0"></div>
             <div class="col-md-4"><label class="form-label">Dana dari Perguruan Tinggi (Rp)</label><input type="number" step="0.01" name="dana_pt" class="form-control" value="0"></div>
             <div class="col-md-4"><label class="form-label">Dana dari Institusi Lain (Rp)</label><input type="number" step="0.01" name="dana_institusi_lain" class="form-control" value="0"></div>
-            <div class="col-md-4"><label class="form-label">In Kind</label><input type="text" name="in_kind" class="form-control"></div>
             <div class="col-md-4"><label class="form-label">Nomor SK Penugasan</label><input type="text" name="no_sk_penugasan" class="form-control"></div>
             <div class="col-md-4"><label class="form-label">Tanggal SK Penugasan</label><input type="date" name="tanggal_sk_penugasan" class="form-control"></div>
             <div class="col-md-6"><label class="form-label">Mitra Litabmas</label><input type="text" name="mitra_litabmas" class="form-control"></div>
@@ -122,7 +121,7 @@
               <div class="d-flex gap-1">
                 {% if bisa_edit and not o.co_penulis %}
                 <button class="btn btn-sm btn-outline-primary" onclick="editPengabdianFromBtn(this)"
-                  data-obj='{"id":{{ o.id }},"kategori_kegiatan":"{{ o.kategori_kegiatan }}","judul_kegiatan":"{{ o.judul_kegiatan|escapejs }}","afiliasi":"{{ o.afiliasi|default:""|escapejs }}","kelompok_bidang":"{{ o.kelompok_bidang|default:""|escapejs }}","litabmas_sebelumnya":"{{ o.litabmas_sebelumnya|default:""|escapejs }}","jenis_skim":"{{ o.jenis_skim|default:""|escapejs }}","lokasi_kegiatan":"{{ o.lokasi_kegiatan|default:""|escapejs }}","tahun_usulan":"{{ o.tahun_usulan }}","tahun_kegiatan":"{{ o.tahun_kegiatan|escapejs }}","tahun_pelaksanaan":"{{ o.tahun_pelaksanaan }}","lama_kegiatan_tahun":"{{ o.lama_kegiatan_tahun }}","tahun_pelaksanaan_ke":"{{ o.tahun_pelaksanaan_ke }}","dana_dikti":"{{ o.dana_dikti }}","dana_pt":"{{ o.dana_pt }}","dana_institusi_lain":"{{ o.dana_institusi_lain }}","in_kind":"{{ o.in_kind|default:""|escapejs }}","no_sk_penugasan":"{{ o.no_sk_penugasan|default:""|escapejs }}","tanggal_sk_penugasan":"{{ o.tanggal_sk_penugasan|date:'Y-m-d'|default:"" }}","mitra_litabmas":"{{ o.mitra_litabmas|default:""|escapejs }}","semester":"{{ o.semester|default:"" }}","tahun_akademik":"{{ o.tahun_akademik|default:"" }}"}'>
+                  data-obj='{"id":{{ o.id }},"kategori_kegiatan":"{{ o.kategori_kegiatan }}","judul_kegiatan":"{{ o.judul_kegiatan|escapejs }}","afiliasi":"{{ o.afiliasi|default:""|escapejs }}","kelompok_bidang":"{{ o.kelompok_bidang|default:""|escapejs }}","litabmas_sebelumnya":"{{ o.litabmas_sebelumnya|default:""|escapejs }}","jenis_skim":"{{ o.jenis_skim|default:""|escapejs }}","lokasi_kegiatan":"{{ o.lokasi_kegiatan|default:""|escapejs }}","tahun_usulan":"{{ o.tahun_usulan }}","tahun_kegiatan":"{{ o.tahun_kegiatan|escapejs }}","tahun_pelaksanaan":"{{ o.tahun_pelaksanaan }}","lama_kegiatan_tahun":"{{ o.lama_kegiatan_tahun }}","tahun_pelaksanaan_ke":"{{ o.tahun_pelaksanaan_ke }}","dana_dikti":"{{ o.dana_dikti }}","dana_pt":"{{ o.dana_pt }}","dana_institusi_lain":"{{ o.dana_institusi_lain }}","no_sk_penugasan":"{{ o.no_sk_penugasan|default:""|escapejs }}","tanggal_sk_penugasan":"{{ o.tanggal_sk_penugasan|date:'Y-m-d'|default:"" }}","mitra_litabmas":"{{ o.mitra_litabmas|default:""|escapejs }}","semester":"{{ o.semester|default:"" }}","tahun_akademik":"{{ o.tahun_akademik|default:"" }}"}'>
                   <span class="ti ti-edit"></span>
                 </button>
                 <form method="post" action="{% url 'pengabdian:hapus_pengabdian' o.id %}" onsubmit="return confirm('Hapus data pengabdian ini?')">
@@ -452,7 +451,6 @@
           <div class="col-md-4"><label class="form-label">Dana dari Dikti (Rp)</label><input type="number" step="0.01" name="dana_dikti" id="ed_pkm_dikti" class="form-control"></div>
           <div class="col-md-4"><label class="form-label">Dana dari Perguruan Tinggi (Rp)</label><input type="number" step="0.01" name="dana_pt" id="ed_pkm_pt" class="form-control"></div>
           <div class="col-md-4"><label class="form-label">Dana dari Institusi Lain (Rp)</label><input type="number" step="0.01" name="dana_institusi_lain" id="ed_pkm_lain" class="form-control"></div>
-          <div class="col-md-4"><label class="form-label">In Kind</label><input type="text" name="in_kind" id="ed_pkm_inkind" class="form-control"></div>
           <div class="col-md-4"><label class="form-label">Nomor SK Penugasan</label><input type="text" name="no_sk_penugasan" id="ed_pkm_sk" class="form-control"></div>
           <div class="col-md-4"><label class="form-label">Tanggal SK Penugasan</label><input type="date" name="tanggal_sk_penugasan" id="ed_pkm_tgl_sk" class="form-control"></div>
           <div class="col-md-6"><label class="form-label">Mitra Litabmas</label><input type="text" name="mitra_litabmas" id="ed_pkm_mitra" class="form-control"></div>
@@ -655,7 +653,6 @@ function editPengabdianFromBtn(btn) {
   document.getElementById('ed_pkm_dikti').value = o.dana_dikti;
   document.getElementById('ed_pkm_pt').value = o.dana_pt;
   document.getElementById('ed_pkm_lain').value = o.dana_institusi_lain;
-  document.getElementById('ed_pkm_inkind').value = o.in_kind;
   document.getElementById('ed_pkm_sk').value = o.no_sk_penugasan;
   document.getElementById('ed_pkm_tgl_sk').value = o.tanggal_sk_penugasan;
   document.getElementById('ed_pkm_mitra').value = o.mitra_litabmas;

@@ -138,7 +138,6 @@ def tambah_pengabdian(request):
         dana_dikti=request.POST.get('dana_dikti') or 0,
         dana_pt=request.POST.get('dana_pt') or 0,
         dana_institusi_lain=request.POST.get('dana_institusi_lain') or 0,
-        in_kind=request.POST.get('in_kind', '').strip(),
         no_sk_penugasan=request.POST.get('no_sk_penugasan', '').strip(),
         tanggal_sk_penugasan=request.POST.get('tanggal_sk_penugasan') or None,
         mitra_litabmas=request.POST.get('mitra_litabmas', '').strip(),
@@ -172,7 +171,6 @@ def edit_pengabdian(request, id):
         obj.dana_dikti = request.POST.get('dana_dikti') or 0
         obj.dana_pt = request.POST.get('dana_pt') or 0
         obj.dana_institusi_lain = request.POST.get('dana_institusi_lain') or 0
-        obj.in_kind = request.POST.get('in_kind', '').strip()
         obj.no_sk_penugasan = request.POST.get('no_sk_penugasan', '').strip()
         obj.tanggal_sk_penugasan = request.POST.get('tanggal_sk_penugasan') or None
         obj.mitra_litabmas = request.POST.get('mitra_litabmas', '').strip()
