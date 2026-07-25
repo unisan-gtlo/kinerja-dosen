@@ -839,7 +839,6 @@ def export_pdf_dosen(request, dosen_id):
 
     jabfung_list = profil.riwayat_jabfung.all().order_by('-tmt') if profil else []
     pendidikan_list = profil.riwayat_pendidikan.all().order_by('-tahun_lulus') if profil else []
-    sertifikat_list = target_dosen.sertifikat_set.all().order_by('-tahun_terbit')
 
     penelitian_qs = target_dosen.penelitian_set.all()
     publikasi_qs = target_dosen.publikasi_set.all()
@@ -1204,6 +1203,16 @@ def export_excel_statistik_kinerja(request):
         'fakultas__kode_fakultas', 'kode_prodi'
     )
 
+    # Sub-kategori mengikuti choices field 'jenis' di model baru
+    # (PublikasiKarya/PatenHki, app penelitian) -- taksonomi lama
+    # (Sinta 1-4/Internasional Bereputasi, Paten/Merek/Desain Industri)
+    # sudah tidak ada di model, diganti sesuai kategori yang benar-benar
+    # tersimpan sekarang.
+    pub_choices = [c[0] for c in Publikasi.JENIS_PUBLIKASI]
+    pub_labels = [c[1] for c in Publikasi.JENIS_PUBLIKASI]
+    hki_choices = [c[0] for c in HKI.JENIS_PATEN]
+    hki_labels = [c[1] for c in HKI.JENIS_PATEN]
+
     def get_counts(filter_kwargs):
         p_qs = Penelitian.objects.filter(**filter_kwargs)
         pub_qs = Publikasi.objects.filter(**filter_kwargs)
@@ -1222,36 +1231,26 @@ def export_excel_statistik_kinerja(request):
             pkm_qs = pkm_qs.filter(semester=filter_semester)
             hki_qs = hki_qs.filter(semester=filter_semester)
 
-        # Publikasi per jenis
-        pub_ib = pub_qs.filter(jenis_publikasi='IB').count()
-        pub_i = pub_qs.filter(jenis_publikasi='I').count()
-        pub_s1 = pub_qs.filter(jenis_publikasi='S1').count()
-        pub_s2 = pub_qs.filter(jenis_publikasi='S2').count()
-        pub_s3 = pub_qs.filter(jenis_publikasi='S3').count()
-        pub_s4 = pub_qs.filter(jenis_publikasi='S4').count()
-        pub_t = pub_qs.filter(jenis_publikasi='T').count()
-
-        # HKI per jenis
-        hki_paten = hki_qs.filter(jenis_hki='Paten').count()
-        hki_ps = hki_qs.filter(jenis_hki='Paten Sederhana').count()
-        hki_hc = hki_qs.filter(jenis_hki='Hak Cipta').count()
-        hki_merek = hki_qs.filter(jenis_hki='Merek').count()
-        hki_di = hki_qs.filter(jenis_hki='Desain Industri').count()
-        hki_lain = hki_qs.filter(jenis_hki='Lainnya').count()
-
-        return {
+        result = {
             'penelitian': p_qs.count(),
             'pub_total': pub_qs.count(),
-            'pub_ib': pub_ib, 'pub_i': pub_i,
-            'pub_s1': pub_s1, 'pub_s2': pub_s2,
-            'pub_s3': pub_s3, 'pub_s4': pub_s4,
-            'pub_t': pub_t,
             'pkm': pkm_qs.count(),
             'hki_total': hki_qs.count(),
-            'hki_paten': hki_paten, 'hki_ps': hki_ps,
-            'hki_hc': hki_hc, 'hki_merek': hki_merek,
-            'hki_di': hki_di, 'hki_lain': hki_lain,
         }
+        for jenis in pub_choices:
+            result[f'pub_{jenis}'] = pub_qs.filter(jenis=jenis).count()
+        for jenis in hki_choices:
+            result[f'hki_{jenis}'] = hki_qs.filter(jenis=jenis).count()
+        return result
+
+    pub_keys = [f'pub_{j}' for j in pub_choices]
+    hki_keys = [f'hki_{j}' for j in hki_choices]
+    all_keys = ['penelitian', 'pub_total'] + pub_keys + ['pkm', 'hki_total'] + hki_keys
+
+    n_pub_cols = 1 + len(pub_choices)   # Total + tiap jenis
+    n_hki_cols = 1 + len(hki_choices)   # Total + tiap jenis
+    total_cols = 3 + n_pub_cols + 1 + n_hki_cols  # No, Fakultas/Prodi, Penelitian, Publikasi..., PKM, HKI...
+    last_col_letter = get_column_letter(total_cols)
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -1271,12 +1270,12 @@ def export_excel_statistik_kinerja(request):
     )
 
     # Judul
-    ws.merge_cells('A1:T1')
+    ws.merge_cells(f'A1:{last_col_letter}1')
     ws['A1'] = 'REKAP STATISTIK KINERJA DOSEN'
     ws['A1'].font = Font(bold=True, size=14, color='1e3a5f')
     ws['A1'].alignment = center
 
-    ws.merge_cells('A2:T2')
+    ws.merge_cells(f'A2:{last_col_letter}2')
     ws['A2'] = 'Universitas Ichsan Gorontalo'
     ws['A2'].font = Font(bold=True, size=12)
     ws['A2'].alignment = center
@@ -1292,79 +1291,59 @@ def export_excel_statistik_kinerja(request):
     if not periode_info:
         periode_info.append('Semua Periode')
 
-    ws.merge_cells('A3:T3')
+    ws.merge_cells(f'A3:{last_col_letter}3')
     ws['A3'] = ' | '.join(periode_info)
     ws['A3'].alignment = center
     ws['A3'].font = Font(italic=True, size=10)
 
-    # Header kolom — baris 5 & 6
-    headers_row1 = [
-        ('A5', 'B5', 'No'),
-        ('B5', 'C5', 'Fakultas / Prodi'),
-        ('C5', 'D5', 'Penelitian'),
-        ('D5', 'K5', 'Publikasi'),
-        ('K5', 'L5', 'PKM'),
-        ('L5', 'T5', 'HKI'),
-    ]
+    # Row 5 — header utama (kolom dihitung dinamis sesuai jumlah jenis)
+    col_no = 1
+    col_fakprodi = 2
+    col_penelitian = 3
+    col_pub_start = 4
+    col_pub_end = col_pub_start + n_pub_cols - 1
+    col_pkm = col_pub_end + 1
+    col_hki_start = col_pkm + 1
+    col_hki_end = col_hki_start + n_hki_cols - 1
 
-    # Row 5 — header utama
-    ws.merge_cells('A5:A6')
-    ws['A5'] = 'No'
-    ws['A5'].font = header_font
-    ws['A5'].fill = header_fill
-    ws['A5'].alignment = center
-    ws['A5'].border = thin
+    ws.merge_cells(start_row=5, start_column=col_no, end_row=6, end_column=col_no)
+    ws.cell(row=5, column=col_no, value='No')
 
-    ws.merge_cells('B5:B6')
-    ws['B5'] = 'Fakultas / Program Studi'
-    ws['B5'].font = header_font
-    ws['B5'].fill = header_fill
-    ws['B5'].alignment = center
-    ws['B5'].border = thin
+    ws.merge_cells(start_row=5, start_column=col_fakprodi, end_row=6, end_column=col_fakprodi)
+    ws.cell(row=5, column=col_fakprodi, value='Fakultas / Program Studi')
 
-    ws.merge_cells('C5:C6')
-    ws['C5'] = 'Penelitian'
-    ws['C5'].font = header_font
-    ws['C5'].fill = header_fill
-    ws['C5'].alignment = center
-    ws['C5'].border = thin
+    ws.merge_cells(start_row=5, start_column=col_penelitian, end_row=6, end_column=col_penelitian)
+    ws.cell(row=5, column=col_penelitian, value='Penelitian')
 
-    ws.merge_cells('D5:K5')
-    ws['D5'] = 'Publikasi'
-    ws['D5'].font = header_font
-    ws['D5'].fill = header_fill
-    ws['D5'].alignment = center
-    ws['D5'].border = thin
+    ws.merge_cells(start_row=5, start_column=col_pub_start, end_row=5, end_column=col_pub_end)
+    ws.cell(row=5, column=col_pub_start, value='Publikasi')
 
-    ws.merge_cells('L5:L6')
-    ws['L5'] = 'PKM'
-    ws['L5'].font = header_font
-    ws['L5'].fill = header_fill
-    ws['L5'].alignment = center
-    ws['L5'].border = thin
+    ws.merge_cells(start_row=5, start_column=col_pkm, end_row=6, end_column=col_pkm)
+    ws.cell(row=5, column=col_pkm, value='PKM')
 
-    ws.merge_cells('M5:T5')
-    ws['M5'] = 'HKI'
-    ws['M5'].font = header_font
-    ws['M5'].fill = header_fill
-    ws['M5'].alignment = center
-    ws['M5'].border = thin
+    ws.merge_cells(start_row=5, start_column=col_hki_start, end_row=5, end_column=col_hki_end)
+    ws.cell(row=5, column=col_hki_start, value='HKI')
+
+    for col in [col_no, col_fakprodi, col_penelitian, col_pub_start, col_pkm, col_hki_start]:
+        cell = ws.cell(row=5, column=col)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center
+        cell.border = thin
 
     # Row 6 — sub header
-    pub_sub = ['Total', 'Int. Bereputasi', 'Internasional',
-               'Sinta 1', 'Sinta 2', 'Sinta 3', 'Sinta 4', 'Tdk Terakreditasi']
-    hki_sub = ['Total', 'Paten', 'Paten Sederhana',
-               'Hak Cipta', 'Merek', 'Desain Industri', 'Lainnya']
+    pub_sub = ['Total'] + pub_labels
+    hki_sub = ['Total'] + hki_labels
 
-    for col, label in enumerate(pub_sub, start=4):  # D=4
-        cell = ws.cell(row=6, column=col, value=label)
+    for i, label in enumerate(pub_sub):
+        cell = ws.cell(row=6, column=col_pub_start + i, value=label)
         cell.font = Font(bold=True, color='FFFFFF', size=9)
         cell.fill = subheader_fill
         cell.alignment = center
         cell.border = thin
 
-    for col, label in enumerate(hki_sub, start=13):  # M=13
-        cell = ws.cell(row=6, column=col, value=label)
+    for i, label in enumerate(hki_sub):
+        cell = ws.cell(row=6, column=col_hki_start + i, value=label)
         cell.font = Font(bold=True, color='FFFFFF', size=9)
         cell.fill = subheader_fill
         cell.alignment = center
@@ -1375,32 +1354,15 @@ def export_excel_statistik_kinerja(request):
 
     # Data
     row_num = 7
-    grand_total = {k: 0 for k in [
-        'penelitian', 'pub_total', 'pub_ib', 'pub_i',
-        'pub_s1', 'pub_s2', 'pub_s3', 'pub_s4', 'pub_t',
-        'pkm', 'hki_total', 'hki_paten', 'hki_ps',
-        'hki_hc', 'hki_merek', 'hki_di', 'hki_lain'
-    ]}
+    grand_total = {k: 0 for k in all_keys}
     no = 1
 
     for fak in fakultas_list:
-        # Hitung total fakultas
         fak_counts = get_counts({'kode_fakultas': fak.kode_fakultas})
 
-        # Baris fakultas
         fak_font = Font(bold=True, size=10, color='1e3a5f')
-        row_data_fak = [
-            no, f'[{fak.kode_fakultas}] {fak.nama_fakultas}',
-            fak_counts['penelitian'],
-            fak_counts['pub_total'], fak_counts['pub_ib'],
-            fak_counts['pub_i'], fak_counts['pub_s1'],
-            fak_counts['pub_s2'], fak_counts['pub_s3'],
-            fak_counts['pub_s4'], fak_counts['pub_t'],
-            fak_counts['pkm'],
-            fak_counts['hki_total'], fak_counts['hki_paten'],
-            fak_counts['hki_ps'], fak_counts['hki_hc'],
-            fak_counts['hki_merek'], fak_counts['hki_di'],
-            fak_counts['hki_lain'],
+        row_data_fak = [no, f'[{fak.kode_fakultas}] {fak.nama_fakultas}'] + [
+            fak_counts[k] for k in all_keys
         ]
         for col, val in enumerate(row_data_fak, start=1):
             cell = ws.cell(row=row_num, column=col, value=val)
@@ -1412,26 +1374,14 @@ def export_excel_statistik_kinerja(request):
         row_num += 1
         no += 1
 
-        # Update grand total
         for k in grand_total:
             grand_total[k] += fak_counts[k]
 
-        # Baris per prodi dalam fakultas
         prodi_fak = prodi_list.filter(fakultas=fak)
         for prodi in prodi_fak:
             prodi_counts = get_counts({'kode_prodi': prodi.kode_prodi})
-            row_data_prodi = [
-                '', f'    {prodi.kode_prodi} - {prodi.nama_prodi}',
-                prodi_counts['penelitian'],
-                prodi_counts['pub_total'], prodi_counts['pub_ib'],
-                prodi_counts['pub_i'], prodi_counts['pub_s1'],
-                prodi_counts['pub_s2'], prodi_counts['pub_s3'],
-                prodi_counts['pub_s4'], prodi_counts['pub_t'],
-                prodi_counts['pkm'],
-                prodi_counts['hki_total'], prodi_counts['hki_paten'],
-                prodi_counts['hki_ps'], prodi_counts['hki_hc'],
-                prodi_counts['hki_merek'], prodi_counts['hki_di'],
-                prodi_counts['hki_lain'],
+            row_data_prodi = ['', f'    {prodi.kode_prodi} - {prodi.nama_prodi}'] + [
+                prodi_counts[k] for k in all_keys
             ]
             for col, val in enumerate(row_data_prodi, start=1):
                 cell = ws.cell(row=row_num, column=col, value=val)
@@ -1450,18 +1400,7 @@ def export_excel_statistik_kinerja(request):
     total_label.alignment = left
     total_label.border = thin
 
-    total_values = [
-        grand_total['penelitian'],
-        grand_total['pub_total'], grand_total['pub_ib'],
-        grand_total['pub_i'], grand_total['pub_s1'],
-        grand_total['pub_s2'], grand_total['pub_s3'],
-        grand_total['pub_s4'], grand_total['pub_t'],
-        grand_total['pkm'],
-        grand_total['hki_total'], grand_total['hki_paten'],
-        grand_total['hki_ps'], grand_total['hki_hc'],
-        grand_total['hki_merek'], grand_total['hki_di'],
-        grand_total['hki_lain'],
-    ]
+    total_values = [grand_total[k] for k in all_keys]
     for col, val in enumerate(total_values, start=3):
         cell = ws.cell(row=row_num, column=col, value=val)
         cell.font = total_font
@@ -1471,8 +1410,7 @@ def export_excel_statistik_kinerja(request):
     ws.row_dimensions[row_num].height = 22
 
     # Lebar kolom
-    col_widths = [5, 35, 12, 10, 14, 14, 10, 10, 10, 10, 16,
-                  10, 10, 10, 15, 12, 10, 15, 10]
+    col_widths = [5, 35, 12] + [12] * n_pub_cols + [10] + [14] * n_hki_cols
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
