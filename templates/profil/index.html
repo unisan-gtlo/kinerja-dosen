@@ -419,6 +419,19 @@
             <td>
               {% if bisa_edit %}
               <div class="d-flex gap-1">
+                  <button class="btn btn-sm btn-outline-primary"
+                    onclick="editJabfung(
+                      {{ j.id }},
+                      '{{ j.jabatan_fungsional_id|default:'' }}',
+                      '{{ j.no_sk|default:''|escapejs }}',
+                      '{{ j.tgl_sk|date:'Y-m-d'|default:'' }}',
+                      '{{ j.tmt|date:'Y-m-d'|default:'' }}',
+                      '{{ j.tgl_selesai|date:'Y-m-d'|default:'' }}',
+                      '{{ j.url_sk|default:''|escapejs }}',
+                      '{{ j.keterangan|default:''|escapejs }}'
+                    )">
+                    <span class="ti ti-edit"></span>
+                  </button>
                   <form method="post" action="{% url 'profil:hapus_jabfung' j.id %}"
                         onsubmit="return confirm('Hapus data ini?')">
                     {% csrf_token %}
@@ -577,6 +590,18 @@ if (hash) {
   if (tab) { new bootstrap.Tab(tab).show(); }
 }
 
+function editJabfung(id, jabfungId, noSk, tglSk, tmt, tglSelesai, urlSk, keterangan) {
+  document.getElementById('formEditJabfung').action = `/profil/edit-jabfung/${id}/`;
+  document.getElementById('ej_jabatan').value = jabfungId;
+  document.getElementById('ej_no_sk').value = noSk;
+  document.getElementById('ej_tgl_sk').value = tglSk;
+  document.getElementById('ej_tmt').value = tmt;
+  document.getElementById('ej_tgl_selesai').value = tglSelesai;
+  document.getElementById('ej_url_sk').value = urlSk;
+  document.getElementById('ej_keterangan').value = keterangan;
+  new bootstrap.Modal(document.getElementById('modalEditJabfung')).show();
+}
+
 function editPendidikan(id, jenjang, bidang, pt, masuk, lulus, no_ij) {
   document.getElementById('formEditPendidikan').action = `/profil/edit-pendidikan/${id}/`;
   document.getElementById('ep_jenjang').value = jenjang;
@@ -588,6 +613,69 @@ function editPendidikan(id, jenjang, bidang, pt, masuk, lulus, no_ij) {
   new bootstrap.Modal(document.getElementById('modalEditPendidikan')).show();
 }
 </script>
+<!-- Modal Edit Jabatan Fungsional -->
+<div class="modal fade" id="modalEditJabfung" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="" id="formEditJabfung" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if target_user != request.user %}
+        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+        {% endif %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Riwayat Jabatan Fungsional</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Jabatan *</label>
+              <select name="jabatan_fungsional_id" id="ej_jabatan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for jf in jabfung_ref_list %}
+                <option value="{{ jf.id }}">{{ jf.nama }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nomor SK</label>
+              <input type="text" name="no_sk" id="ej_no_sk" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tanggal SK</label>
+              <input type="date" name="tgl_sk" id="ej_tgl_sk" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">TMT</label>
+              <input type="date" name="tmt" id="ej_tmt" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tgl Selesai <small class="text-muted">(kosong = masih aktif)</small></label>
+              <input type="date" name="tgl_selesai" id="ej_tgl_selesai" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Upload SK Baru (PDF/JPG, max 1MB)</label>
+              <input type="file" name="file_sk" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Atau Link SK Drive</label>
+              <input type="url" name="url_sk" id="ej_url_sk" class="form-control" placeholder="https://drive.google.com/...">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Keterangan</label>
+              <input type="text" name="keterangan" id="ej_keterangan" class="form-control">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Edit Pendidikan -->
 <div class="modal fade" id="modalEditPendidikan" tabindex="-1">
   <div class="modal-dialog modal-lg">

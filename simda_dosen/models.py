@@ -171,6 +171,14 @@ class RiwayatJabatanFungsional(models.Model):
     def __str__(self):
         return f'{self.dosen.nidn} — jabfung {self.tmt}'
 
+    @property
+    def jabatan_fungsional_nama(self):
+        if not self.jabatan_fungsional_id:
+            return ''
+        jf = JabatanFungsionalPublik.objects.using('simda').filter(
+            id=self.jabatan_fungsional_id).first()
+        return jf.nama if jf else ''
+
 
 class RiwayatPendidikanDosen(models.Model):
     JENJANG = [('S1', 'S1'), ('S2', 'S2'), ('S3', 'S3')]

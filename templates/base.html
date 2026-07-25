@@ -317,13 +317,6 @@
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'dokumen_index' %}active{% endif %}"
-               href="{% url 'profil:dokumen_index' %}">
-              <span class="nav-link-icon"><span class="ti ti-file-text"></span></span>
-              <span class="nav-link-title">Data Dokumen</span>
-            </a>
-          </li>
-          <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'pendidikan' %}active{% endif %}"
                href="{% url 'pendidikan:index' %}">
               <span class="nav-link-icon"><span class="ti ti-chalkboard"></span></span>
@@ -363,6 +356,13 @@
                href="{% url 'kinerja:bkd_index' %}">
               <span class="nav-link-icon"><span class="ti ti-file-description"></span></span>
               <span class="nav-link-title">Laporan BKD</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'dokumen_index' %}active{% endif %}"
+               href="{% url 'profil:dokumen_index' %}">
+              <span class="nav-link-icon"><span class="ti ti-file-text"></span></span>
+              <span class="nav-link-title">Data Dokumen</span>
             </a>
           </li>
           {% endif %}
