@@ -1,13 +1,9 @@
 from django.contrib import admin
 
-from .models import PKM, Penghargaan, KegiatanPenunjang, DokumenKinerja
+from .models import Penghargaan, KegiatanPenunjang, DokumenKinerja
 # Penelitian/Publikasi/HKI pindah ke app penelitian (lihat penelitian/admin.py).
-
-@admin.register(PKM)
-class PKMAdmin(admin.ModelAdmin):
-    list_display = ['user', 'judul', 'tahun_akademik', 'jenis_hibah', 'pendanaan']
-    list_filter = ['tahun_akademik', 'ln_i']
-    search_fields = ['user__username', 'judul']
+# Pengabdian (PKM)/Pembicara/Pengelola Jurnal/Jabatan Struktural pindah ke
+# app pengabdian (lihat pengabdian/admin.py).
 
 @admin.register(Penghargaan)
 class PenghargaanAdmin(admin.ModelAdmin):

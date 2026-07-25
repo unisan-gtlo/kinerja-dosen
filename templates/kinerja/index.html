@@ -75,13 +75,7 @@
 <!-- Tab Navigation -->
 <ul class="nav nav-tabs mb-0" id="kinerjaTab">
   <li class="nav-item">
-    <a class="nav-link active" data-bs-toggle="tab" href="#tab-pkm">
-      <span class="ti ti-hearts me-1"></span>PKM
-      <span class="badge bg-blue-lt ms-1">{{ pkm_list|length }}</span>
-    </a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link" data-bs-toggle="tab" href="#tab-penghargaan">
+    <a class="nav-link active" data-bs-toggle="tab" href="#tab-penghargaan">
       <span class="ti ti-award me-1"></span>Penghargaan
       <span class="badge bg-blue-lt ms-1">{{ penghargaan_list|length }}</span>
     </a>
@@ -100,150 +94,10 @@
 
   <!-- Pengajaran pindah ke menu "Pelaks. Pendidikan" (app pendidikan) -->
 
-  <!-- TAB PKM -->
-  <div class="tab-pane fade" id="tab-pkm">
-    {% if bisa_edit %}
-    <div class="card border-0 bg-light mb-4">
-      <div class="card-body">
-        <h6 class="fw-semibold mb-3">Tambah Data PKM</h6>
-        <form method="post" action="{% url 'kinerja:tambah_pkm' %}">
-          {% csrf_token %}
-          {% if target_user != request.user %}
-          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
-          {% endif %}
-          <div class="row g-3">
-            <div class="col-12">
-              <label class="form-label">Judul PKM *</label>
-              <textarea name="judul" class="form-control" rows="2" required></textarea>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Semester</label>
-              <select name="semester" class="form-select">
-                <option value="">-- Pilih --</option>
-                <option value="Ganjil">Ganjil</option>
-                <option value="Genap">Genap</option>
-                <option value="Keduanya">Keduanya</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Tahun Akademik *</label>
-              <select name="tahun_akademik" class="form-select" required>
-                <option value="">-- Pilih --</option>
-                {% for t in tahun_list %}
-                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Jml Mahasiswa</label>
-              <input type="number" name="jml_mahasiswa" class="form-control" value="0" min="0">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Tingkat</label>
-              <select name="ln_i" class="form-select">
-                <option value="">-- Pilih --</option>
-                <option value="L">Lokal</option>
-                <option value="R">Regional</option>
-                <option value="N">Nasional</option>
-                <option value="I">Internasional</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Jenis Hibah</label>
-              <input type="text" name="jenis_hibah" class="form-control">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Sumber Dana</label>
-              <input type="text" name="sumber" class="form-control">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Durasi (Tahun)</label>
-              <input type="number" name="durasi" class="form-control" value="1" min="1">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Pendanaan (Rp Juta)</label>
-              <input type="number" name="pendanaan" class="form-control" value="0" step="0.01">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Link Bukti</label>
-              <input type="url" name="link_bukti" class="form-control" placeholder="https://...">
-            </div>
-            <div class="col-12">
-              <button type="submit" class="btn btn-primary">
-                <span class="ti ti-plus me-1"></span>Tambah
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-    {% endif %}
-    <div class="table-responsive">
-      <table class="table table-hover">
-        <thead class="table-light">
-          <tr>
-            <th>Judul</th><th>Periode</th><th>Tingkat</th>
-            <th>Pendanaan</th><th>Mahasiswa</th><th>Bukti</th>
-            <th>Dokumen</th><th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in pkm_list %}
-          <tr>
-            <td style="max-width:250px">{{ p.judul|truncatechars:70 }}</td>
-            <td><span class="badge bg-blue-lt text-blue">{{ p.periode }}</span></td>
-            <td>{{ p.get_ln_i_display|default:"-" }}</td>
-            <td>Rp {{ p.pendanaan }} Jt</td>
-            <td>{{ p.jml_mahasiswa }}</td>
-            <td>
-              {% if p.link_bukti %}
-              <a href="{{ p.link_bukti }}" target="_blank" class="btn btn-sm btn-outline-info">
-                <span class="ti ti-link"></span>
-              </a>
-              {% else %}-{% endif %}
-            </td>
-            <td>
-              <a href="{% url 'kinerja:kelola_dokumen' 'pkm' p.id %}"
-                 class="btn btn-sm btn-outline-primary">
-                <span class="ti ti-files me-1"></span>Dokumen ({{ p.jumlah_dokumen }})
-              </a>
-            </td>
-            <td>
-              {% if bisa_edit %}
-              <div class="d-flex gap-1">
-                <button class="btn btn-sm btn-outline-primary"
-                  onclick="editPKM(
-                    {{ p.id }},'{{ p.judul|escapejs }}',
-                    '{{ p.semester|default:'' }}','{{ p.tahun_akademik }}',
-                    {{ p.jml_mahasiswa }},'{{ p.ln_i|default:'' }}',
-                    '{{ p.jenis_hibah|default:''|escapejs }}',
-                    '{{ p.sumber|default:''|escapejs }}',
-                    {{ p.durasi }},{{ p.pendanaan }},
-                    '{{ p.link_bukti|default:'' }}'
-                  )">
-                  <span class="ti ti-edit"></span>
-                </button>
-                <form method="post" action="{% url 'kinerja:hapus_pkm' p.id %}"
-                      onsubmit="return confirm('Hapus data ini?')">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-sm btn-outline-danger">
-                    <span class="ti ti-trash"></span>
-                  </button>
-                </form>
-              </div>
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="8" class="text-center text-muted py-3">Belum ada data PKM</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
+  <!-- PKM/Pengabdian pindah ke menu "Pelaks. Pengabdian" (app pengabdian) -->
 
   <!-- TAB PENGHARGAAN -->
-  <div class="tab-pane fade" id="tab-penghargaan">
+  <div class="tab-pane fade show active" id="tab-penghargaan">
     {% if bisa_edit %}
     <div class="card border-0 bg-light mb-4">
       <div class="card-body">
@@ -525,87 +379,6 @@
 </div>
 
 
-<!-- ===================== MODAL EDIT PKM ===================== -->
-<div class="modal fade" id="modalEditPKM" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <form method="post" action="" id="formEditPKM">
-        {% csrf_token %}
-        {% if target_user != request.user %}
-        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
-        {% endif %}
-        <div class="modal-header">
-          <h5 class="modal-title">Edit PKM</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="row g-3">
-            <div class="col-12">
-              <label class="form-label">Judul *</label>
-              <textarea name="judul" id="epkm_judul" class="form-control" rows="2" required></textarea>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Semester</label>
-              <select name="semester" id="epkm_semester" class="form-select">
-                <option value="">-- Pilih --</option>
-                <option value="Ganjil">Ganjil</option>
-                <option value="Genap">Genap</option>
-                <option value="Keduanya">Keduanya</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Tahun Akademik *</label>
-              <select name="tahun_akademik" id="epkm_tahun" class="form-select" required>
-                {% for t in tahun_list %}
-                <option value="{{ t.tahun_akademik }}">{{ t.tahun_akademik }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Tingkat</label>
-              <select name="ln_i" id="epkm_lni" class="form-select">
-                <option value="">-- Pilih --</option>
-                <option value="L">Lokal</option>
-                <option value="R">Regional</option>
-                <option value="N">Nasional</option>
-                <option value="I">Internasional</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Jml Mahasiswa</label>
-              <input type="number" name="jml_mahasiswa" id="epkm_mhs" class="form-control" min="0">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Jenis Hibah</label>
-              <input type="text" name="jenis_hibah" id="epkm_hibah" class="form-control">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Sumber Dana</label>
-              <input type="text" name="sumber" id="epkm_sumber" class="form-control">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Durasi</label>
-              <input type="number" name="durasi" id="epkm_durasi" class="form-control" min="1">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Pendanaan (Juta)</label>
-              <input type="number" name="pendanaan" id="epkm_dana" class="form-control" step="0.01">
-            </div>
-            <div class="col-12">
-              <label class="form-label">Link Bukti</label>
-              <input type="url" name="link_bukti" id="epkm_link" class="form-control">
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-          <button type="submit" class="btn btn-primary">Simpan</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
 <!-- ===================== MODAL EDIT PENGHARGAAN ===================== -->
 <div class="modal fade" id="modalEditPenghargaan" tabindex="-1">
   <div class="modal-dialog modal-lg">
@@ -773,23 +546,6 @@ const hash = window.location.hash;
 if (hash) {
   const tab = document.querySelector(`[href="${hash}"]`);
   if (tab) { new bootstrap.Tab(tab).show(); }
-}
-
-// Edit PKM
-function editPKM(id, judul, semester, tahun, mhs, lni, hibah, sumber, durasi, dana, link) {
-  const form = document.getElementById('formEditPKM');
-  form.action = `/kinerja/edit-pkm/${id}/`;
-  document.getElementById('epkm_judul').value = judul;
-  document.getElementById('epkm_semester').value = semester;
-  document.getElementById('epkm_tahun').value = tahun;
-  document.getElementById('epkm_lni').value = lni;
-  document.getElementById('epkm_mhs').value = mhs;
-  document.getElementById('epkm_hibah').value = hibah;
-  document.getElementById('epkm_sumber').value = sumber;
-  document.getElementById('epkm_durasi').value = durasi;
-  document.getElementById('epkm_dana').value = dana;
-  document.getElementById('epkm_link').value = link;
-  new bootstrap.Modal(document.getElementById('modalEditPKM')).show();
 }
 
 // Edit Penghargaan

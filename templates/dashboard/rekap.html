@@ -615,11 +615,11 @@
 </div>
 
 {% elif active_tab == 'pkm' %}
-<!-- TAB PKM -->
+<!-- TAB PENGABDIAN -->
 <div class="card border-0 shadow-sm">
   <div class="card-header bg-white d-flex justify-content-between align-items-center">
     <h6 class="mb-0 fw-semibold">
-      <span class="ti ti-hearts me-1 text-warning"></span>Data PKM
+      <span class="ti ti-hearts me-1 text-warning"></span>Data Pengabdian
       <span class="badge bg-warning-lt text-warning ms-1">{{ total_pkm }}</span>
     </h6>
     <a href="{% url 'laporan:excel_pkm' %}?tahun={{ filter_tahun }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}"
@@ -634,13 +634,13 @@
           <th>#</th>
           <th>Nama Dosen</th>
           <th>Prodi</th>
-          <th>Judul PKM</th>
+          <th>Judul Kegiatan</th>
           <th>Semester</th>
           <th>Tahun</th>
-          <th>L/N/I</th>
-          <th>Sumber Dana</th>
-          <th>Pendanaan</th>
-          <th>Mhs</th>
+          <th>Kategori Kegiatan</th>
+          <th>Afiliasi</th>
+          <th>Total Dana</th>
+          <th>Anggota</th>
           <th>Bukti & Dokumen</th>
         </tr>
       </thead>
@@ -650,26 +650,20 @@
           <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
           <td>{{ p.user.get_full_name|default:p.user.username }}</td>
           <td><span class="badge bg-teal-lt text-teal">{{ p.kode_prodi }}</span></td>
-          <td style="max-width:280px; font-size:12px">{{ p.judul|truncatechars:80 }}</td>
+          <td style="max-width:280px; font-size:12px">{{ p.judul_kegiatan|truncatechars:80 }}</td>
           <td><span class="badge bg-blue-lt text-blue">{{ p.semester|default:"-" }}</span></td>
-          <td>{{ p.tahun_akademik }}</td>
-          <td>{{ p.get_ln_i_display|default:"-" }}</td>
-          <td style="font-size:12px">{{ p.sumber|default:"-" }}</td>
-          <td>Rp {{ p.pendanaan }} Jt</td>
-          <td class="text-center">{{ p.jml_mahasiswa }}</td>
+          <td>{{ p.tahun_akademik|default:p.tahun_kegiatan }}</td>
+          <td style="font-size:12px">{{ p.get_kategori_kegiatan_display|default:"-" }}</td>
+          <td style="font-size:12px">{{ p.afiliasi|default:"-" }}</td>
+          <td>Rp {{ p.total_dana }}</td>
+          <td class="text-center">{{ p.anggota_set.count }}</td>
           <td>
             <div class="d-flex flex-column gap-1" style="min-width:120px">
-              {% if p.link_bukti %}
-              <a href="{{ p.link_bukti }}" target="_blank"
-                class="btn btn-xs btn-outline-info">
-                <span class="ti ti-link me-1"></span>Link
-              </a>
-              {% endif %}
               {% if p.dokumen_list %}
               <button class="btn btn-xs btn-outline-primary"
                 data-bs-toggle="modal" data-bs-target="#modalDokumen"
                 onclick="loadDokumen(
-                  '{{ p.judul|truncatechars:50|escapejs }}',
+                  '{{ p.judul_kegiatan|truncatechars:50|escapejs }}',
                   {{ p.dokumen_list|length }},
                   '#dok_pkm_{{ p.id }}'
                 )">
@@ -689,15 +683,13 @@
                 {% endfor %}
               </div>
               {% else %}
-              {% if not p.link_bukti %}
               <span class="text-muted small">-</span>
-              {% endif %}
               {% endif %}
             </div>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="11" class="text-center text-muted py-4">Belum ada data PKM</td></tr>
+        <tr><td colspan="11" class="text-center text-muted py-4">Belum ada data pengabdian</td></tr>
         {% endfor %}
       </tbody>
     </table>

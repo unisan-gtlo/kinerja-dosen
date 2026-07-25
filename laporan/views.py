@@ -5,8 +5,8 @@ from accounts.models import User
 from master.models import Fakultas, Prodi, TahunAkademik, Pengaturan
 from simda_dosen.models import DataDosen, RiwayatBKD, JabatanFungsionalPublik
 from simda_dosen.utils import get_simda_dosen_or_none
-from kinerja.models import PKM
 from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
+from pengabdian.models import Pengabdian as PKM
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -536,7 +536,7 @@ def export_excel_pkm(request):
     )
 
     ws.merge_cells('A1:K1')
-    ws['A1'] = 'DATA PENGABDIAN KEPADA MASYARAKAT (PKM) DOSEN'
+    ws['A1'] = 'DATA PENGABDIAN KEPADA MASYARAKAT DOSEN'
     ws['A1'].font = Font(bold=True, size=14)
     ws['A1'].alignment = center
 
@@ -556,9 +556,9 @@ def export_excel_pkm(request):
         ws['A3'].alignment = center
 
     headers = [
-        'No', 'Nama Dosen', 'NIDN', 'Prodi', 'Judul PKM',
-        'Semester', 'Tahun Akademik', 'L/N/I',
-        'Sumber Dana', 'Pendanaan (Juta)', 'Jml Mahasiswa'
+        'No', 'Nama Dosen', 'NIDN', 'Prodi', 'Judul Kegiatan',
+        'Semester', 'Tahun Akademik', 'Kategori Kegiatan',
+        'Afiliasi', 'Total Dana', 'Jml Anggota'
     ]
     row_h = 5
     for col, h in enumerate(headers, 1):
@@ -584,13 +584,13 @@ def export_excel_pkm(request):
                 dosen.get_full_name() or dosen.username,
                 dosen.nidn or '-',
                 dosen.kode_prodi or '-',
-                p.judul,
+                p.judul_kegiatan,
                 p.semester or '-',
-                p.tahun_akademik,
-                p.get_ln_i_display() if p.ln_i else '-',
-                p.sumber or '-',
-                float(p.pendanaan),
-                p.jml_mahasiswa
+                p.tahun_akademik or p.tahun_kegiatan,
+                p.get_kategori_kegiatan_display(),
+                p.afiliasi or '-',
+                float(p.total_dana),
+                p.anggota_set.count()
             ]
             for col, value in enumerate(row_data, 1):
                 cell = ws.cell(row=row_num, column=col, value=value)
@@ -952,18 +952,18 @@ def export_pdf_dosen(request, dosen_id):
     elements.append(Spacer(1, 0.4*cm))
 
     # PKM
-    elements.append(section_header('4. PENGABDIAN KEPADA MASYARAKAT (PKM)'))
+    elements.append(section_header('4. PENGABDIAN KEPADA MASYARAKAT'))
     elements.append(Spacer(1, 0.2*cm))
     if pkm_qs.exists():
-        pkm_data = [['No', 'Judul', 'Semester', 'Tahun', 'L/N/I', 'Dana (Juta)']]
+        pkm_data = [['No', 'Judul Kegiatan', 'Semester', 'Tahun', 'Kategori', 'Total Dana']]
         for i, p in enumerate(pkm_qs, 1):
             pkm_data.append([
                 str(i),
-                Paragraph(p.judul[:80], small_style),
+                Paragraph(p.judul_kegiatan[:80], small_style),
                 p.semester or '-',
-                p.tahun_akademik,
-                p.get_ln_i_display() if p.ln_i else '-',
-                f'Rp {p.pendanaan}'
+                p.tahun_akademik or p.tahun_kegiatan,
+                p.get_kategori_kegiatan_display(),
+                f'Rp {p.total_dana}'
             ])
         t = Table(pkm_data, colWidths=[1*cm, 7*cm, 2*cm, 2.5*cm, 1.5*cm, 3*cm])
         t.setStyle(TableStyle([
@@ -1098,8 +1098,8 @@ def export_excel_statistik_kinerja(request):
         tahun_range = []
 
     from master.models import Fakultas, Prodi
-    from kinerja.models import PKM
     from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
+    from pengabdian.models import Pengabdian as PKM
 
     fakultas_list = Fakultas.objects.filter(status='aktif').order_by('kode_fakultas')
     prodi_list = Prodi.objects.filter(status='aktif').order_by(

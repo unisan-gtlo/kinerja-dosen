@@ -30,45 +30,10 @@ def upload_bkd(instance, filename):
 # generik flat. HKI juga pindah ke sana sebagai PatenHki.
 
 
-class PKM(models.Model):
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='pkm_set'
-    )
-    kode_prodi = models.CharField(max_length=10)
-    kode_fakultas = models.CharField(max_length=10)
-    judul = models.TextField()
-    jml_mahasiswa = models.IntegerField(default=0)
-    jenis_hibah = models.CharField(max_length=100, blank=True, null=True)
-    sumber = models.CharField(max_length=100, blank=True, null=True)
-    durasi = models.IntegerField(default=1)
-    ln_i = models.CharField(
-        max_length=5,
-        choices=[('L', 'Lokal'), ('R', 'Regional'), ('N', 'Nasional'), ('I', 'Internasional')],
-        blank=True, null=True
-    )
-    semester = models.CharField(
-        max_length=10, choices=SEMESTER_CHOICES,
-        blank=True, null=True
-    )
-    tahun_akademik = models.CharField(max_length=10)
-    pendanaan = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    link_bukti = models.URLField(blank=True, null=True)
-    tgl_input = models.DateTimeField(auto_now_add=True)
-    updated_by = models.CharField(max_length=50, blank=True, null=True)
-
-    class Meta:
-        verbose_name = 'Pengabdian Masyarakat'
-        verbose_name_plural = 'Pengabdian Masyarakat'
-        ordering = ['-tahun_akademik', 'semester']
-
-    def __str__(self):
-        return f"{self.user.get_full_name()} - {self.judul[:50]}"
-
-    @property
-    def periode(self):
-        if self.semester:
-            return f"{self.semester} {self.tahun_akademik}"
-        return self.tahun_akademik
+# Pengabdian (PKM) pindah ke app pengabdian (lihat pengabdian/models.py) --
+# dirombak mengikuti field spesifik SISTER (Pelaksanaan Pegabdian.docx) +
+# multi-anggota (Dosen/Mahasiswa/Kolaborator Eksternal), plus 3 sub-fitur
+# baru: Pembicara, Pengelola Jurnal, Jabatan Struktural.
 
 
 # Pengajaran pindah ke app pendidikan (lihat pendidikan/models.py) --
@@ -175,8 +140,11 @@ class DokumenKinerja(models.Model):
     JENIS_KINERJA = [
         ('penelitian', 'Penelitian'),
         ('publikasi', 'Publikasi'),
-        ('pkm', 'PKM'),
+        ('pkm', 'Pengabdian'),
         ('hki', 'HKI'),
+        ('pembicara', 'Pembicara'),
+        ('pengelola_jurnal', 'Pengelola Jurnal'),
+        ('jabatan_struktural', 'Jabatan Struktural'),
         ('bkd', 'BKD'),
         ('pengajaran', 'Pengajaran'),
         ('bimbingan_mahasiswa', 'Bimbingan Mahasiswa'),

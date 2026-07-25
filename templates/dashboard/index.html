@@ -90,7 +90,7 @@
 <!-- Stat Cards -->
 <div class="row g-3 mb-3">
   <div class="col-6 col-md-3">
-    <a href="{% url 'kinerja:index' %}#tab-penelitian" class="text-decoration-none">
+    <a href="{% url 'penelitian:index' %}#tab-penelitian" class="text-decoration-none">
       <div class="stat-card" style="background:linear-gradient(135deg,#e91e8c,#c2185b)">
         <div class="number">{{ total_penelitian|default:0 }}</div>
         <div class="label">Penelitian</div>
@@ -100,7 +100,7 @@
     </a>
   </div>
   <div class="col-6 col-md-3">
-    <a href="{% url 'kinerja:index' %}#tab-pkm" class="text-decoration-none">
+    <a href="{% url 'pengabdian:index' %}#tab-pkm" class="text-decoration-none">
       <div class="stat-card" style="background:linear-gradient(135deg,#00bcd4,#0097a7)">
         <div class="number">{{ total_pkm|default:0 }}</div>
         <div class="label">Pengabdian</div>
@@ -110,7 +110,7 @@
     </a>
   </div>
   <div class="col-6 col-md-3">
-    <a href="{% url 'kinerja:index' %}#tab-publikasi" class="text-decoration-none">
+    <a href="{% url 'penelitian:index' %}#tab-publikasi" class="text-decoration-none">
       <div class="stat-card" style="background:linear-gradient(135deg,#ff9800,#f57c00)">
         <div class="number">{{ total_publikasi|default:0 }}</div>
         <div class="label">Publikasi</div>
@@ -120,7 +120,7 @@
     </a>
   </div>
   <div class="col-6 col-md-3">
-    <a href="{% url 'kinerja:index' %}#tab-hki" class="text-decoration-none">
+    <a href="{% url 'penelitian:index' %}#tab-paten" class="text-decoration-none">
       <div class="stat-card" style="background:linear-gradient(135deg,#4caf50,#388e3c)">
         <div class="number">{{ total_hki|default:0 }}</div>
         <div class="label">HKI</div>

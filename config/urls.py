@@ -11,6 +11,7 @@ urlpatterns = [
     path('kinerja/', include('kinerja.urls')),
     path('pendidikan/', include('pendidikan.urls')),
     path('penelitian/', include('penelitian.urls')),
+    path('pengabdian/', include('pengabdian.urls')),
     path('laporan/', include('laporan.urls')),
     path('simda-dosen/', include('simda_dosen.urls')),
 ]

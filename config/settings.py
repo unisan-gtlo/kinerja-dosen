@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'kinerja',
     'pendidikan',
     'penelitian',
+    'pengabdian',
     'dashboard',
     'laporan',
     'simda_dosen',
