@@ -14,15 +14,23 @@ C:\\unisan\\simda\\buat_role_sikd_rw.sql untuk grant akses baca-tulisnya.
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from .storage import simda_media_storage
+
 
 def validate_file_size(value):
     """Sama seperti sdm.models.validate_file_size di SIMDA -- maks 1 MB,
     supaya konsisten dengan validator di sisi SIMDA."""
     limit_mb = 1
-    if value.size > limit_mb * 1024 * 1024:
+    try:
+        ukuran = value.size
+    except (FileNotFoundError, OSError):
+        # File rujukan sudah tidak ada fisiknya di storage -- jangan sampai
+        # full_clean() gagal total dan memblokir simpan field lain yang valid.
+        return
+    if ukuran > limit_mb * 1024 * 1024:
         raise ValidationError(
             f'Ukuran file maksimal {limit_mb} MB. '
-            f'File Anda: {value.size / (1024 * 1024):.2f} MB.'
+            f'File Anda: {ukuran / (1024 * 1024):.2f} MB.'
         )
 
 
@@ -58,7 +66,8 @@ class DataDosen(models.Model):
     bidang_keahlian_id = models.IntegerField(null=True, blank=True)
     no_sk_pengangkatan = models.CharField(max_length=100, blank=True)
     tgl_sk_pengangkatan = models.DateField(null=True, blank=True)
-    file_sk_pengangkatan = models.FileField(upload_to='dosen/sk_pengangkatan/', null=True, blank=True)
+    file_sk_pengangkatan = models.FileField(upload_to='dosen/sk_pengangkatan/', null=True, blank=True,
+                                             storage=simda_media_storage)
     is_active = models.BooleanField(default=True)
     tgl_dibuat = models.DateTimeField(auto_now_add=True)
     tgl_diperbarui = models.DateTimeField(auto_now=True)
@@ -92,11 +101,11 @@ class DataDosen(models.Model):
     nira = models.CharField(max_length=30, blank=True)
     minat_penelitian = models.TextField(blank=True)
     foto = models.ImageField(upload_to='dosen/foto/', null=True, blank=True,
-                              validators=[validate_file_size])
+                              validators=[validate_file_size], storage=simda_media_storage)
     file_ktp = models.FileField(upload_to='dosen/ktp/', null=True, blank=True,
-                                 validators=[validate_file_size])
+                                 validators=[validate_file_size], storage=simda_media_storage)
     file_npwp = models.FileField(upload_to='dosen/npwp/', null=True, blank=True,
-                                  validators=[validate_file_size])
+                                  validators=[validate_file_size], storage=simda_media_storage)
     npwp = models.CharField(max_length=20, blank=True)
     nik = models.CharField(max_length=20, blank=True)
 
@@ -171,7 +180,7 @@ class RiwayatJabatanFungsional(models.Model):
     tgl_selesai = models.DateField(null=True, blank=True)
     angka_kredit = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     file_sk = models.FileField(upload_to='dosen/jabfung_sk/', null=True, blank=True,
-                                validators=[validate_file_size])
+                                validators=[validate_file_size], storage=simda_media_storage)
     url_sk = models.URLField(blank=True, verbose_name='Link SK (alternatif)')
     keterangan = models.TextField(blank=True)
 
@@ -207,7 +216,7 @@ class RiwayatPangkatGolongan(models.Model):
     masa_kerja_tahun = models.IntegerField(default=0, verbose_name='Masa Kerja (Tahun)')
     masa_kerja_bulan = models.IntegerField(default=0, verbose_name='Masa Kerja (Bulan)')
     file_sk = models.FileField(upload_to='dosen/pangkat_sk/', null=True, blank=True,
-                                validators=[validate_file_size])
+                                validators=[validate_file_size], storage=simda_media_storage)
     url_sk = models.URLField(blank=True, verbose_name='Link SK (alternatif)')
 
     class Meta:
@@ -242,10 +251,10 @@ class RiwayatPendidikanDosen(models.Model):
     no_ijazah = models.CharField(max_length=50, blank=True)
     judul_thesis = models.TextField(blank=True, verbose_name='Judul Skripsi/Tesis/Disertasi')
     file_ijazah = models.FileField(upload_to='dosen/ijazah/', null=True, blank=True,
-                                    validators=[validate_file_size])
+                                    validators=[validate_file_size], storage=simda_media_storage)
     url_ijazah = models.URLField(blank=True)
     file_transkrip = models.FileField(upload_to='dosen/transkrip/', null=True, blank=True,
-                                       validators=[validate_file_size])
+                                       validators=[validate_file_size], storage=simda_media_storage)
     url_transkrip = models.URLField(blank=True)
 
     class Meta:
@@ -275,7 +284,8 @@ class RiwayatBKD(models.Model):
     sks_pkm = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     sks_penunjang = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     file_bkd = models.FileField(upload_to='dosen/bkd/', null=True, blank=True,
-                                 validators=[validate_file_size], verbose_name='File BKD')
+                                 validators=[validate_file_size], verbose_name='File BKD',
+                                 storage=simda_media_storage)
     link_bkd = models.URLField(blank=True, verbose_name='Link BKD (alternatif)')
     status_pengesahan = models.CharField(max_length=20, choices=STATUS_PENGESAHAN, default='belum')
     keterangan = models.TextField(blank=True)

@@ -196,6 +196,19 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # ============================================================
+# STORAGE DOKUMEN DOSEN -- FISIK DI SERVER SIMDA
+# ============================================================
+# Model simda_dosen.* menulis ke tabel yang SAMA PERSIS dengan SIMDA (lihat
+# simda_dosen/models.py), tapi MEDIA_ROOT di atas cuma disk lokal SIKD.
+# Tanpa storage khusus, upload dokumen dosen lewat SIKD hanya nyangkut di
+# disk SIKD sementara path yang tersimpan di database (dipakai bersama
+# SIMDA & aplikasi lain seperti Portal) menunjuk ke lokasi yang di SIMDA
+# tidak pernah ada filenya -- link jadi 404 di semua sisi selain SIKD.
+# Kedua aplikasi jalan di server fisik yang sama, jadi cukup path lokal.
+SIMDA_MEDIA_ROOT = config('SIMDA_MEDIA_ROOT', default=str(BASE_DIR.parent / 'simda' / 'media'))
+SIMDA_MEDIA_URL = config('SIMDA_MEDIA_URL', default='https://master.unisan-g.id/media/')
+
+# ============================================================
 # FILE UPLOAD
 # ============================================================
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1 * 1024 * 1024
