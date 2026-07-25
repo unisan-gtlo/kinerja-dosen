@@ -172,7 +172,15 @@
             </div>
             <div class="col-md-4"><label class="form-label">Kategori Capaian Luaran</label><input type="text" name="kategori_capaian_luaran" class="form-control"></div>
             <div class="col-md-4"><label class="form-label">Litabmas</label><input type="text" name="litabmas" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">Kategori Pembicara</label><input type="text" name="kategori_pembicara" class="form-control"></div>
+            <div class="col-md-4">
+              <label class="form-label">Kategori Pembicara *</label>
+              <select name="kategori_pembicara" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                <option value="pertemuan_ilmiah">Pembicara pada pertemuan ilmiah</option>
+                <option value="pembicara_kunci">Pembicara kunci</option>
+                <option value="pelatihan_penyuluhan_ceramah">Pembicara/narasumber pada pelatihan/penyuluhan/ceramah</option>
+              </select>
+            </div>
             <div class="col-md-12"><label class="form-label">Judul Makalah *</label><textarea name="judul_makalah" class="form-control" rows="2" required></textarea></div>
             <div class="col-md-6"><label class="form-label">Nama Pertemuan Ilmiah *</label><input type="text" name="nama_pertemuan_ilmiah" class="form-control" required></div>
             <div class="col-md-3">
@@ -488,7 +496,15 @@
           </div>
           <div class="col-md-4"><label class="form-label">Kategori Capaian Luaran</label><input type="text" name="kategori_capaian_luaran" id="ed_bic_capaian" class="form-control"></div>
           <div class="col-md-4"><label class="form-label">Litabmas</label><input type="text" name="litabmas" id="ed_bic_litabmas" class="form-control"></div>
-          <div class="col-md-4"><label class="form-label">Kategori Pembicara</label><input type="text" name="kategori_pembicara" id="ed_bic_kp" class="form-control"></div>
+          <div class="col-md-4">
+            <label class="form-label">Kategori Pembicara *</label>
+            <select name="kategori_pembicara" id="ed_bic_kp" class="form-select" required>
+              <option value="">-- Pilih --</option>
+              <option value="pertemuan_ilmiah">Pembicara pada pertemuan ilmiah</option>
+              <option value="pembicara_kunci">Pembicara kunci</option>
+              <option value="pelatihan_penyuluhan_ceramah">Pembicara/narasumber pada pelatihan/penyuluhan/ceramah</option>
+            </select>
+          </div>
           <div class="col-md-12"><label class="form-label">Judul Makalah *</label><textarea name="judul_makalah" id="ed_bic_judul" class="form-control" rows="2" required></textarea></div>
           <div class="col-md-6"><label class="form-label">Nama Pertemuan Ilmiah *</label><input type="text" name="nama_pertemuan_ilmiah" id="ed_bic_pertemuan" class="form-control" required></div>
           <div class="col-md-3">

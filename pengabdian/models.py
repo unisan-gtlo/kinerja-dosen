@@ -130,6 +130,12 @@ class Pembicara(models.Model):
         ('lain_lain', 'Lain-lain'),
     ]
 
+    KATEGORI_PEMBICARA = [
+        ('pertemuan_ilmiah', 'Pembicara pada pertemuan ilmiah'),
+        ('pembicara_kunci', 'Pembicara kunci'),
+        ('pelatihan_penyuluhan_ceramah', 'Pembicara/narasumber pada pelatihan/penyuluhan/ceramah'),
+    ]
+
     KATEGORI_KEGIATAN = [
         ('terjadwal_semester_internasional', 'Terjadwal/terprogram dalam satu semester atau lebih (tingkat internasional)'),
         ('terjadwal_semester_nasional', 'Terjadwal/terprogram dalam satu semester atau lebih (tingkat nasional)'),
@@ -149,7 +155,7 @@ class Pembicara(models.Model):
     kategori_kegiatan = models.CharField(max_length=40, choices=KATEGORI_KEGIATAN)
     kategori_capaian_luaran = models.CharField(max_length=150, blank=True)
     litabmas = models.CharField(max_length=200, blank=True)
-    kategori_pembicara = models.CharField(max_length=100, blank=True)
+    kategori_pembicara = models.CharField(max_length=30, choices=KATEGORI_PEMBICARA, blank=True)
     judul_makalah = models.TextField()
     nama_pertemuan_ilmiah = models.CharField(max_length=200)
     tingkat_pertemuan = models.CharField(max_length=20, choices=TINGKAT_PERTEMUAN, blank=True)
