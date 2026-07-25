@@ -228,6 +228,104 @@ def export_excel_rekap(request):
 
 
 @login_required
+def export_excel_generic(request, kategori):
+    """Export Excel generik untuk kategori 'long-tail' (Pendidikan/
+    Pengabdian/Penunjang/Reward) -- pakai registry REKAP_CATEGORIES yang
+    sama dengan tab generik di Rekap admin (dashboard/views.py), supaya
+    tidak perlu 1 fungsi export terpisah untuk tiap kategori."""
+    from django.http import Http404
+    from dashboard.views import REKAP_CATEGORIES_BY_KEY
+
+    cat = REKAP_CATEGORIES_BY_KEY.get(kategori)
+    if not cat:
+        raise Http404('Kategori tidak valid.')
+
+    tahun_range, filter_tahun, periode_label = get_tahun_range(request)
+    filter_semester = request.GET.get('semester', '')
+    filter_prodi = request.GET.get('prodi', '')
+    filter_fakultas = request.GET.get('fakultas', '')
+
+    dosen_qs = get_dosen_queryset(request.user, filter_prodi, filter_fakultas)
+
+    model = cat['model']
+    qs = model.objects.filter(user__in=dosen_qs).select_related('user')
+    if cat['periode_mode'] == 'semester_tahun':
+        if tahun_range:
+            qs = qs.filter(tahun_akademik__in=tahun_range)
+        if filter_semester:
+            qs = qs.filter(semester=filter_semester)
+    qs = qs.order_by('user__kode_fakultas', 'user__kode_prodi', 'user__first_name')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = cat['label'][:31]
+
+    header_font = Font(bold=True, color='FFFFFF', size=11)
+    header_fill = PatternFill(start_color='1e3a5f', end_color='1e3a5f', fill_type='solid')
+    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    left = Alignment(horizontal='left', vertical='center', wrap_text=True)
+    thin = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin')
+    )
+
+    ws.merge_cells('A1:F1')
+    ws['A1'] = f'DATA {cat["label"].upper()} DOSEN'
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A1'].alignment = center
+
+    ws.merge_cells('A2:F2')
+    ws['A2'] = 'Universitas Ichsan Gorontalo'
+    ws['A2'].font = Font(bold=True, size=12)
+    ws['A2'].alignment = center
+
+    headers = ['No', 'Nama Dosen', 'NIDN', 'Prodi', cat['label'], 'Periode']
+    row_h = 4
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=row_h, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center
+        cell.border = thin
+    ws.row_dimensions[row_h].height = 30
+
+    row_num = row_h + 1
+    no = 1
+    for o in qs:
+        row_data = [
+            no,
+            o.user.get_full_name() or o.user.username,
+            o.user.nidn or '-',
+            o.user.kode_prodi or '-',
+            getattr(o, cat['judul_field'], '') or '-',
+            o.periode,
+        ]
+        for col, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col, value=value)
+            cell.border = thin
+            cell.alignment = left if col == 5 else center
+        row_num += 1
+        no += 1
+
+    if no == 1:
+        ws.merge_cells(f'A{row_num}:F{row_num}')
+        ws[f'A{row_num}'] = 'Tidak ada data'
+        ws[f'A{row_num}'].alignment = center
+
+    col_widths = [5, 25, 15, 8, 50, 15]
+    for col, width in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f'Data_{cat["label"].replace(" ", "_")}_{filter_tahun or "Semua"}.xlsx'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+@login_required
 def export_excel_penelitian(request):
     tahun_range, filter_tahun, periode_label = get_tahun_range(request)
     filter_semester = request.GET.get('semester', '')

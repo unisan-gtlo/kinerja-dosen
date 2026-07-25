@@ -6,7 +6,69 @@ from simda_dosen.models import DataDosen, RiwayatBKD, JabatanFungsionalPublik
 from simda_dosen.utils import get_simda_dosen_or_none
 from kinerja.models import DokumenKinerja
 from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
-from pengabdian.models import Pengabdian as PKM
+from pengabdian.models import Pengabdian as PKM, Pembicara, PengelolaJurnal, JabatanStruktural
+from pendidikan.models import (
+    Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
+    PembinaanMahasiswa, OrasiIlmiah, TugasTambahan,
+)
+from penunjang.models import AnggotaProfesi, Penghargaan, PenunjangLain
+from reward.models import Beasiswa, Kesejahteraan, Tunjangan
+
+
+# Kategori "long-tail" untuk tab generik di Rekap admin -- Penelitian/
+# Publikasi/PKM/HKI/BKD tetap pakai tab detail khusus (kode lama, field
+# lengkap per kategori), sisanya pakai satu template generik supaya tidak
+# perlu duplikasi ~20x pola tab yang sama. periode_mode menentukan cara
+# filter tahun/semester: 'semester_tahun' pakai field semester+tahun_akademik
+# (mayoritas kategori), 'tahun_mulai' pakai field tahun_mulai polos (Reward --
+# tidak semester-bound sesuai form SISTER aslinya, jadi tidak difilter tahun/semester).
+REKAP_CATEGORIES = [
+    {'key': 'pengajaran', 'model': Pengajaran, 'label': 'Pengajaran', 'judul_field': 'nama_mk', 'periode_mode': 'semester_tahun', 'group': 'Pendidikan'},
+    {'key': 'bimbingan_mahasiswa', 'model': BimbinganMahasiswa, 'label': 'Bimbingan Mahasiswa', 'judul_field': 'judul_bimbingan', 'periode_mode': 'semester_tahun', 'group': 'Pendidikan'},
+    {'key': 'pengujian_mahasiswa', 'model': PengujianMahasiswa, 'label': 'Pengujian Mahasiswa', 'judul_field': 'judul_pengujian', 'periode_mode': 'semester_tahun', 'group': 'Pendidikan'},
+    {'key': 'bahan_ajar', 'model': BahanAjar, 'label': 'Bahan Ajar', 'judul_field': 'judul', 'periode_mode': 'semester_tahun', 'group': 'Pendidikan'},
+    {'key': 'pembinaan_mahasiswa', 'model': PembinaanMahasiswa, 'label': 'Pembinaan Mahasiswa', 'judul_field': 'nama_kegiatan', 'periode_mode': 'semester_tahun', 'group': 'Pendidikan'},
+    {'key': 'orasi_ilmiah', 'model': OrasiIlmiah, 'label': 'Orasi Ilmiah', 'judul_field': 'judul_orasi', 'periode_mode': 'semester_tahun', 'group': 'Pendidikan'},
+    {'key': 'tugas_tambahan', 'model': TugasTambahan, 'label': 'Tugas Tambahan', 'judul_field': 'jabatan_tambahan', 'periode_mode': 'semester_tahun', 'group': 'Pendidikan'},
+
+    {'key': 'pembicara', 'model': Pembicara, 'label': 'Pembicara', 'judul_field': 'judul_makalah', 'periode_mode': 'semester_tahun', 'group': 'Pengabdian'},
+    {'key': 'pengelola_jurnal', 'model': PengelolaJurnal, 'label': 'Pengelola Jurnal', 'judul_field': 'nama_jurnal', 'periode_mode': 'semester_tahun', 'group': 'Pengabdian'},
+    {'key': 'jabatan_struktural', 'model': JabatanStruktural, 'label': 'Jabatan Struktural', 'judul_field': 'jabatan_tugas', 'periode_mode': 'semester_tahun', 'group': 'Pengabdian'},
+
+    {'key': 'anggota_profesi', 'model': AnggotaProfesi, 'label': 'Anggota Profesi', 'judul_field': 'nama_organisasi', 'periode_mode': 'semester_tahun', 'group': 'Penunjang'},
+    {'key': 'penghargaan', 'model': Penghargaan, 'label': 'Penghargaan', 'judul_field': 'nama_penghargaan', 'periode_mode': 'semester_tahun', 'group': 'Penunjang'},
+    {'key': 'penunjang', 'model': PenunjangLain, 'label': 'Penunjang Lain', 'judul_field': 'nama_kegiatan', 'periode_mode': 'semester_tahun', 'group': 'Penunjang'},
+
+    {'key': 'beasiswa', 'model': Beasiswa, 'label': 'Beasiswa', 'judul_field': 'nama_beasiswa', 'periode_mode': 'tahun_mulai', 'group': 'Reward'},
+    {'key': 'kesejahteraan', 'model': Kesejahteraan, 'label': 'Kesejahteraan', 'judul_field': 'layanan_kesejahteraan', 'periode_mode': 'tahun_mulai', 'group': 'Reward'},
+    {'key': 'tunjangan', 'model': Tunjangan, 'label': 'Tunjangan', 'judul_field': 'nama_tunjangan', 'periode_mode': 'tahun_mulai', 'group': 'Reward'},
+]
+REKAP_CATEGORIES_BY_KEY = {c['key']: c for c in REKAP_CATEGORIES}
+
+
+def _generic_category_queryset(cat, user, filter_prodi, filter_fakultas, tahun_range, filter_semester):
+    model = cat['model']
+    if user.role in ['admin', 'rektorat', 'biro']:
+        qs = model.objects.all()
+    elif user.role in ['dekan', 'wadek']:
+        qs = model.objects.filter(kode_fakultas=user.kode_fakultas)
+    elif user.role in ['kaprodi', 'sekprodi', 'operator']:
+        qs = model.objects.filter(kode_prodi=user.kode_prodi)
+    else:
+        qs = model.objects.none()
+
+    if filter_prodi:
+        qs = qs.filter(kode_prodi=filter_prodi)
+    if filter_fakultas:
+        qs = qs.filter(kode_fakultas=filter_fakultas)
+
+    if cat['periode_mode'] == 'semester_tahun':
+        if tahun_range:
+            qs = qs.filter(tahun_akademik__in=tahun_range)
+        if filter_semester:
+            qs = qs.filter(semester=filter_semester)
+
+    return qs.select_related('user').order_by('-id')
 
 
 def annotate_dokumen(qs, jenis):
@@ -368,6 +430,25 @@ def rekap(request):
     hki_annotated = annotate_dokumen(hki_qs, 'hki')
     bkd_annotated = annotate_dokumen(bkd_qs, 'bkd')
 
+    # Kategori generik (long-tail) -- dipakai kalau active_tab cocok salah
+    # satu key di REKAP_CATEGORIES (lihat definisi di atas file ini).
+    current_generic = None
+    generic_cat = REKAP_CATEGORIES_BY_KEY.get(active_tab)
+    if generic_cat:
+        generic_qs = _generic_category_queryset(
+            generic_cat, user, filter_prodi, filter_fakultas, tahun_range, filter_semester
+        )
+        generic_annotated = annotate_dokumen(generic_qs, generic_cat['key'])
+        for obj in generic_annotated:
+            obj.judul_tampil = getattr(obj, generic_cat['judul_field'], '') or '-'
+        current_generic = {
+            'key': generic_cat['key'],
+            'label': generic_cat['label'],
+            'group': generic_cat['group'],
+            'list': generic_annotated,
+            'total': len(generic_annotated),
+        }
+
     # Pagination per tab
     from django.core.paginator import Paginator
     per_halaman = int(request.GET.get('per_halaman', 15))
@@ -382,11 +463,16 @@ def rekap(request):
         paginator = Paginator(hki_annotated, per_halaman)
     elif active_tab == 'bkd':
         paginator = Paginator(bkd_annotated, per_halaman)
+    elif current_generic:
+        paginator = Paginator(current_generic['list'], per_halaman)
     else:
         paginator = Paginator(rekap_data, per_halaman)
 
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
+
+    if current_generic:
+        current_generic['list'] = page_obj
 
     context = {
         'rekap_data': page_obj if active_tab == 'dosen' else rekap_data,
@@ -415,5 +501,7 @@ def rekap(request):
         'total_hki': hki_qs.count(),
         'total_bkd': bkd_qs.count(),
         'per_halaman': str(per_halaman),
+        'rekap_categories': REKAP_CATEGORIES,
+        'current_generic': current_generic,
     }
     return render(request, 'dashboard/rekap.html', context)

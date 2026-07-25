@@ -10,6 +10,7 @@ urlpatterns = [
     path('excel/publikasi/', views.export_excel_publikasi, name='excel_publikasi'),
     path('excel/pkm/', views.export_excel_pkm, name='excel_pkm'),
     path('excel/hki/', views.export_excel_hki, name='excel_hki'),
+    path('excel/generic/<str:kategori>/', views.export_excel_generic, name='excel_generic'),
     path('excel/statistik-kinerja/', views.export_excel_statistik_kinerja, name='excel_statistik_kinerja'),
     path('excel/statistik-profil/', views.export_excel_statistik_profil, name='excel_statistik_profil'),
     path('pdf/rekap/', views.export_pdf_rekap, name='pdf_rekap'),

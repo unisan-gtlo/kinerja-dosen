@@ -280,6 +280,25 @@
       </div>
     </a>
   </div>
+  <div class="col-12 col-md-2">
+    <div class="card border-0 shadow-sm h-100 {% if current_generic %}border-primary border-2{% endif %}">
+      <div class="card-body py-2 d-flex flex-column justify-content-center">
+        <label class="text-muted mb-1" style="font-size:11px">Kategori Lainnya</label>
+        <select class="form-select form-select-sm" onchange="if(this.value) location.href=this.value">
+          <option value="">{% if current_generic %}{{ current_generic.label }}{% else %}-- Pilih --{% endif %}</option>
+          {% regroup rekap_categories by group as category_groups %}
+          {% for grp in category_groups %}
+          <optgroup label="{{ grp.grouper }}">
+            {% for c in grp.list %}
+            <option value="?tab={{ c.key }}&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&status_kepegawaian={{ filter_status }}&per_halaman={{ per_halaman }}"
+              {% if active_tab == c.key %}selected{% endif %}>{{ c.label }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Tab Content -->
@@ -870,6 +889,78 @@
         </tr>
         {% empty %}
         <tr><td colspan="8" class="text-center text-muted py-4">Belum ada data BKD</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white">
+    {% include 'components/pagination.html' %}
+  </div>
+</div>
+
+{% elif current_generic %}
+<!-- TAB GENERIK (kategori long-tail: Pendidikan/Pengabdian/Penunjang/Reward) -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <span class="ti ti-list-details me-1 text-primary"></span>{{ current_generic.label }}
+      <span class="badge bg-blue-lt text-blue ms-1">{{ current_generic.total }}</span>
+    </h6>
+    <a href="{% url 'laporan:excel_generic' current_generic.key %}?tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}"
+       class="btn btn-sm btn-success">
+      <span class="ti ti-file-spreadsheet me-1"></span>Excel
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Nama Dosen</th>
+          <th>Prodi</th>
+          <th>{{ current_generic.label }}</th>
+          <th>Periode</th>
+          <th>Dokumen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in current_generic.list %}
+        <tr>
+          <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+          <td>{{ o.user.get_full_name|default:o.user.username }}</td>
+          <td><span class="badge bg-teal-lt text-teal">{{ o.kode_prodi|default:"-" }}</span></td>
+          <td style="max-width:320px; font-size:12px">{{ o.judul_tampil|truncatechars:80 }}</td>
+          <td><span class="badge bg-blue-lt text-blue">{{ o.periode }}</span></td>
+          <td>
+            {% if o.dokumen_list %}
+            <button class="btn btn-xs btn-outline-primary"
+              data-bs-toggle="modal" data-bs-target="#modalDokumen"
+              onclick="loadDokumen(
+                '{{ o.judul_tampil|truncatechars:50|escapejs }}',
+                {{ o.dokumen_list|length }},
+                '#dok_generic_{{ o.id }}'
+              )">
+              <span class="ti ti-files me-1"></span>
+              {{ o.dokumen_list|length }} Dokumen
+            </button>
+            <div id="dok_generic_{{ o.id }}" class="d-none">
+              {% for dok in o.dokumen_list %}
+              <div class="dok-item"
+                  data-jenis="{{ dok.get_jenis_dokumen_display }}"
+                  data-nama="{{ dok.nama_dokumen }}"
+                  data-ket="{{ dok.keterangan|default:'-' }}"
+                  data-file="{% if dok.file_dokumen %}{{ dok.file_dokumen.url }}{% endif %}"
+                  data-link="{{ dok.link_dokumen|default:'' }}">
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <span class="text-muted small">-</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">Belum ada data {{ current_generic.label|lower }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
