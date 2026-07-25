@@ -180,6 +180,40 @@ class RiwayatJabatanFungsional(models.Model):
         return jf.nama if jf else ''
 
 
+class RiwayatPangkatGolongan(models.Model):
+    """Riwayat kepangkatan/inpassing PNS (skala I/a-IV/e) -- beda dimensi
+    dari Jabatan Fungsional. Sesuai form SISTER "Form Tambah Inpassing"."""
+    dosen = models.ForeignKey(DataDosen, on_delete=models.DO_NOTHING,
+                               related_name='riwayat_pangkat_golongan', db_column='dosen_id')
+    golongan_id = models.IntegerField()
+    no_sk = models.CharField(max_length=100, verbose_name='Nomor SK Inpassing')
+    tgl_sk = models.DateField(null=True, blank=True, verbose_name='Tanggal SK')
+    tmt = models.DateField(verbose_name='TMT')
+    angka_kredit = models.DecimalField(max_digits=8, decimal_places=2)
+    masa_kerja_tahun = models.IntegerField(default=0, verbose_name='Masa Kerja (Tahun)')
+    masa_kerja_bulan = models.IntegerField(default=0, verbose_name='Masa Kerja (Bulan)')
+    file_sk = models.FileField(upload_to='dosen/pangkat_sk/', null=True, blank=True,
+                                validators=[validate_file_size])
+    url_sk = models.URLField(blank=True, verbose_name='Link SK (alternatif)')
+
+    class Meta:
+        managed = False
+        db_table = 'master"."riwayat_pangkat_golongan'
+        verbose_name = 'Riwayat Pangkat/Golongan (SIMDA)'
+        verbose_name_plural = 'Riwayat Pangkat/Golongan (SIMDA)'
+        ordering = ['-tmt']
+
+    def __str__(self):
+        return f'{self.dosen.nidn} — pangkat {self.tmt}'
+
+    @property
+    def golongan_display(self):
+        if not self.golongan_id:
+            return ''
+        g = GolonganPublik.objects.using('simda').filter(id=self.golongan_id).first()
+        return f'{g.kode} ({g.pangkat})' if g else ''
+
+
 class RiwayatPendidikanDosen(models.Model):
     JENJANG = [('S1', 'S1'), ('S2', 'S2'), ('S3', 'S3')]
 
@@ -296,6 +330,27 @@ class JabatanFungsionalPublik(models.Model):
 
     def __str__(self):
         return self.nama
+
+
+class GolonganPublik(models.Model):
+    """Read-only, sumbernya master.v_golongan_publik (view SIMDA). Dipakai
+    untuk dropdown Golongan/Pangkat (skala I/a-IV/e) -- id-nya dipakai
+    sebagai RiwayatPangkatGolongan.golongan_id."""
+    id = models.IntegerField(primary_key=True)
+    kode = models.CharField(max_length=5)
+    nama = models.CharField(max_length=50)
+    pangkat = models.CharField(max_length=100, blank=True)
+    urutan = models.IntegerField()
+
+    class Meta:
+        managed = False
+        db_table = 'master"."v_golongan_publik'
+        verbose_name = 'Golongan (SIMDA)'
+        verbose_name_plural = 'Golongan (SIMDA)'
+        ordering = ['urutan']
+
+    def __str__(self):
+        return f'{self.kode} ({self.pangkat})'
 
 
 class FakultasPublik(models.Model):

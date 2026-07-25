@@ -5,7 +5,7 @@ from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import (
     DataDosen, RiwayatJabatanFungsional, RiwayatPendidikanDosen,
-    AgamaPublik, JabatanFungsionalPublik,
+    RiwayatPangkatGolongan, AgamaPublik, JabatanFungsionalPublik, GolonganPublik,
 )
 from simda_dosen.utils import get_simda_dosen_or_none
 from kinerja.utils import attach_dokumen_count
@@ -31,9 +31,11 @@ def index(request):
 
     if profil:
         jabfung_list = profil.riwayat_jabfung.all().order_by('-tmt')
+        pangkat_list = profil.riwayat_pangkat_golongan.all().order_by('-tmt')
         pendidikan_list = profil.riwayat_pendidikan.all().order_by('-tahun_lulus')
     else:
         jabfung_list = RiwayatJabatanFungsional.objects.none()
+        pangkat_list = RiwayatPangkatGolongan.objects.none()
         pendidikan_list = RiwayatPendidikanDosen.objects.none()
 
     dokumen_list = target_user.dokumen_set.all().order_by('-tgl_input')
@@ -45,6 +47,7 @@ def index(request):
         'target_user': target_user,
         'profil': profil,
         'jabfung_list': jabfung_list,
+        'pangkat_list': pangkat_list,
         'pendidikan_list': pendidikan_list,
         'dokumen_list': dokumen_list,
         'tahun_list': tahun_list,
@@ -52,6 +55,7 @@ def index(request):
         'input_terbuka': input_terbuka,
         'agama_list': AgamaPublik.objects.using('simda').all(),
         'jabfung_ref_list': JabatanFungsionalPublik.objects.using('simda').all(),
+        'golongan_ref_list': GolonganPublik.objects.using('simda').all(),
     }
     return render(request, 'profil/index.html', context)
 
@@ -152,6 +156,71 @@ def hapus_jabfung(request, jabfung_id):
         return redirect('profil:index')
     jabfung.delete()
     messages.success(request, 'Data jabatan berhasil dihapus.')
+    return redirect('profil:index')
+
+@login_required
+def tambah_pangkat(request):
+    if request.method != 'POST':
+        return redirect('profil:index')
+    if not cek_status_input():
+        messages.error(request, 'Input data sedang dikunci.')
+        return redirect('profil:index')
+
+    user = request.user
+    dosen_id = request.POST.get('dosen_id')
+    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+    dosen = get_simda_dosen_or_none(target_user)
+    if not dosen:
+        messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
+        return redirect('profil:index')
+
+    pangkat = RiwayatPangkatGolongan(
+        dosen=dosen,
+        golongan_id=request.POST.get('golongan_id') or None,
+        no_sk=request.POST.get('no_sk', '').strip(),
+        tgl_sk=request.POST.get('tgl_sk') or None,
+        tmt=request.POST.get('tmt') or None,
+        angka_kredit=request.POST.get('angka_kredit') or 0,
+        masa_kerja_tahun=request.POST.get('masa_kerja_tahun') or 0,
+        masa_kerja_bulan=request.POST.get('masa_kerja_bulan') or 0,
+        url_sk=request.POST.get('url_sk', '').strip(),
+    )
+    if 'file_sk' in request.FILES:
+        pangkat.file_sk = request.FILES['file_sk']
+    pangkat.save()
+
+    messages.success(request, 'Riwayat pangkat/golongan berhasil ditambahkan ke SIMDA.')
+    return redirect('profil:index')
+
+@login_required
+def edit_pangkat(request, pangkat_id):
+    pangkat = get_object_or_404(RiwayatPangkatGolongan, id=pangkat_id)
+    if request.user.nidn != pangkat.dosen.nidn and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:index')
+    if request.method == 'POST':
+        pangkat.golongan_id = request.POST.get('golongan_id') or pangkat.golongan_id
+        pangkat.no_sk = request.POST.get('no_sk', '').strip()
+        pangkat.tgl_sk = request.POST.get('tgl_sk') or None
+        pangkat.tmt = request.POST.get('tmt') or pangkat.tmt
+        pangkat.angka_kredit = request.POST.get('angka_kredit') or pangkat.angka_kredit
+        pangkat.masa_kerja_tahun = request.POST.get('masa_kerja_tahun') or 0
+        pangkat.masa_kerja_bulan = request.POST.get('masa_kerja_bulan') or 0
+        pangkat.url_sk = request.POST.get('url_sk', '').strip()
+        if 'file_sk' in request.FILES:
+            pangkat.file_sk = request.FILES['file_sk']
+        pangkat.save()
+        messages.success(request, 'Data pangkat/golongan berhasil diupdate.')
+    return redirect('profil:index')
+
+@login_required
+def hapus_pangkat(request, pangkat_id):
+    pangkat = get_object_or_404(RiwayatPangkatGolongan, id=pangkat_id)
+    if request.user.nidn != pangkat.dosen.nidn and request.user.role not in ['admin', 'operator']:
+        messages.error(request, 'Tidak memiliki akses.')
+        return redirect('profil:index')
+    pangkat.delete()
+    messages.success(request, 'Data pangkat/golongan berhasil dihapus.')
     return redirect('profil:index')
 
 @login_required

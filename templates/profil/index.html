@@ -65,6 +65,12 @@
     </a>
   </li>
   <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-pangkat">
+      <span class="ti ti-stairs-up me-1"></span>Pangkat/Golongan
+      <span class="badge bg-blue-lt ms-1">{{ pangkat_list.count }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
     <a class="nav-link" data-bs-toggle="tab" href="#tab-pendidikan">
       <span class="ti ti-school me-1"></span>Pendidikan
       <span class="badge bg-blue-lt ms-1">{{ pendidikan_list.count }}</span>
@@ -451,6 +457,134 @@
     </div>
   </div>
 
+  <!-- TAB PANGKAT/GOLONGAN -->
+  <div class="tab-pane fade" id="tab-pangkat">
+    {% if bisa_edit %}
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Riwayat Pangkat/Golongan (Inpassing)</h6>
+        <form method="post" action="{% url 'profil:tambah_pangkat' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% if target_user != request.user %}
+          <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+          {% endif %}
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Golongan/Pangkat *</label>
+              <select name="golongan_id" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for g in golongan_ref_list %}
+                <option value="{{ g.id }}">{{ g.kode }} ({{ g.pangkat }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nomor SK Inpassing *</label>
+              <input type="text" name="no_sk" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tanggal SK</label>
+              <input type="date" name="tgl_sk" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Terhitung Mulai Tanggal *</label>
+              <input type="date" name="tmt" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Angka Kredit *</label>
+              <input type="number" step="0.01" name="angka_kredit" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Masa Kerja (Tahun) *</label>
+              <input type="number" name="masa_kerja_tahun" class="form-control" value="0" required min="0">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Masa Kerja (Bulan) *</label>
+              <input type="number" name="masa_kerja_bulan" class="form-control" value="0" required min="0" max="11">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Upload SK (PDF/JPG, max 1MB)</label>
+              <input type="file" name="file_sk" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Atau Link SK Drive</label>
+              <input type="url" name="url_sk" class="form-control" placeholder="https://drive.google.com/...">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <span class="ti ti-plus me-1"></span>Tambah
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Golongan/Pangkat</th><th>No SK</th><th>Tgl SK</th>
+            <th>TMT</th><th>Angka Kredit</th><th>Masa Kerja</th><th>Bukti</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pangkat_list %}
+          <tr>
+            <td><strong>{{ p.golongan_display }}</strong></td>
+            <td>{{ p.no_sk|default:"-" }}</td>
+            <td>{{ p.tgl_sk|date:'d/m/Y'|default:"-" }}</td>
+            <td>{{ p.tmt|date:'d/m/Y'|default:"-" }}</td>
+            <td>{{ p.angka_kredit }}</td>
+            <td>{{ p.masa_kerja_tahun }} Th {{ p.masa_kerja_bulan }} Bln</td>
+            <td>
+              {% if p.file_sk %}
+              <a href="{{ p.file_sk.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-file"></span>
+              </a>
+              {% elif p.url_sk %}
+              <a href="{{ p.url_sk }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
+              </a>
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if bisa_edit %}
+              <div class="d-flex gap-1">
+                  <button class="btn btn-sm btn-outline-primary"
+                    onclick="editPangkat(
+                      {{ p.id }},
+                      '{{ p.golongan_id|default:'' }}',
+                      '{{ p.no_sk|default:''|escapejs }}',
+                      '{{ p.tgl_sk|date:'Y-m-d'|default:'' }}',
+                      '{{ p.tmt|date:'Y-m-d'|default:'' }}',
+                      '{{ p.angka_kredit|default:'' }}',
+                      '{{ p.masa_kerja_tahun|default:'0' }}',
+                      '{{ p.masa_kerja_bulan|default:'0' }}',
+                      '{{ p.url_sk|default:''|escapejs }}'
+                    )">
+                    <span class="ti ti-edit"></span>
+                  </button>
+                  <form method="post" action="{% url 'profil:hapus_pangkat' p.id %}"
+                        onsubmit="return confirm('Hapus data ini?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                      <span class="ti ti-trash"></span>
+                    </button>
+                  </form>
+                </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-3">Belum ada data</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- TAB PENDIDIKAN -->
   <div class="tab-pane fade" id="tab-pendidikan">
     {% if bisa_edit %}
@@ -602,6 +736,19 @@ function editJabfung(id, jabfungId, noSk, tglSk, tmt, tglSelesai, urlSk, keteran
   new bootstrap.Modal(document.getElementById('modalEditJabfung')).show();
 }
 
+function editPangkat(id, golonganId, noSk, tglSk, tmt, angkaKredit, masaTahun, masaBulan, urlSk) {
+  document.getElementById('formEditPangkat').action = `/profil/edit-pangkat/${id}/`;
+  document.getElementById('epk_golongan').value = golonganId;
+  document.getElementById('epk_no_sk').value = noSk;
+  document.getElementById('epk_tgl_sk').value = tglSk;
+  document.getElementById('epk_tmt').value = tmt;
+  document.getElementById('epk_angka_kredit').value = angkaKredit;
+  document.getElementById('epk_masa_tahun').value = masaTahun;
+  document.getElementById('epk_masa_bulan').value = masaBulan;
+  document.getElementById('epk_url_sk').value = urlSk;
+  new bootstrap.Modal(document.getElementById('modalEditPangkat')).show();
+}
+
 function editPendidikan(id, jenjang, bidang, pt, masuk, lulus, no_ij) {
   document.getElementById('formEditPendidikan').action = `/profil/edit-pendidikan/${id}/`;
   document.getElementById('ep_jenjang').value = jenjang;
@@ -613,6 +760,73 @@ function editPendidikan(id, jenjang, bidang, pt, masuk, lulus, no_ij) {
   new bootstrap.Modal(document.getElementById('modalEditPendidikan')).show();
 }
 </script>
+<!-- Modal Edit Pangkat/Golongan -->
+<div class="modal fade" id="modalEditPangkat" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="" id="formEditPangkat" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if target_user != request.user %}
+        <input type="hidden" name="dosen_id" value="{{ target_user.id }}">
+        {% endif %}
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Riwayat Pangkat/Golongan</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Golongan/Pangkat *</label>
+              <select name="golongan_id" id="epk_golongan" class="form-select" required>
+                <option value="">-- Pilih --</option>
+                {% for g in golongan_ref_list %}
+                <option value="{{ g.id }}">{{ g.kode }} ({{ g.pangkat }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nomor SK Inpassing *</label>
+              <input type="text" name="no_sk" id="epk_no_sk" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tanggal SK</label>
+              <input type="date" name="tgl_sk" id="epk_tgl_sk" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Terhitung Mulai Tanggal *</label>
+              <input type="date" name="tmt" id="epk_tmt" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Angka Kredit *</label>
+              <input type="number" step="0.01" name="angka_kredit" id="epk_angka_kredit" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Masa Kerja (Tahun) *</label>
+              <input type="number" name="masa_kerja_tahun" id="epk_masa_tahun" class="form-control" required min="0">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Masa Kerja (Bulan) *</label>
+              <input type="number" name="masa_kerja_bulan" id="epk_masa_bulan" class="form-control" required min="0" max="11">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Upload SK Baru (PDF/JPG, max 1MB)</label>
+              <input type="file" name="file_sk" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Atau Link SK Drive</label>
+              <input type="url" name="url_sk" id="epk_url_sk" class="form-control" placeholder="https://drive.google.com/...">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Edit Jabatan Fungsional -->
 <div class="modal fade" id="modalEditJabfung" tabindex="-1">
   <div class="modal-dialog modal-lg">
