@@ -413,12 +413,8 @@
           <th>Nama Dosen</th>
           <th>NIDN</th>
           <th>Prodi</th>
-          <th>Jabfung</th>
-          <th>Golongan</th>
-          <th>Pend.</th>
-          <th class="text-center">Serdos</th>
-          <th>Status Keaktifan</th>
-          <th>Status Kepegawaian</th>
+          <th class="text-center">Info Akademik</th>
+          <th>Status</th>
           <th class="text-center">BKD</th>
           <th class="text-center">Penelitian</th>
           <th class="text-center">Publikasi</th>
@@ -433,7 +429,7 @@
         <tr>
           <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
           <td>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-start gap-2">
               {% if r.foto_url %}
               <img src="{{ r.foto_url }}" alt="" style="width:26px; height:26px; border-radius:50%; object-fit:cover; flex-shrink:0">
               {% else %}
@@ -444,32 +440,42 @@
           </td>
           <td><code>{{ r.dosen.nidn|default:"-" }}</code></td>
           <td><span class="badge bg-teal-lt text-teal">{{ r.dosen.kode_prodi|default:"-" }}</span></td>
-          <td style="font-size:12px">{{ r.jabfung }}</td>
-          <td style="font-size:12px">{{ r.golongan }}</td>
-          <td><span class="badge bg-purple-lt text-purple">{{ r.pendidikan }}</span></td>
           <td class="text-center">
-            {% if r.has_serdos %}
-            <span class="badge bg-success-lt text-success" title="Sudah Sertifikasi Dosen">
-              <span class="ti ti-certificate"></span>
-            </span>
-            {% else %}
-            <span class="text-muted">-</span>
-            {% endif %}
+            <div class="dropdown">
+              <button class="btn btn-xs btn-outline-secondary dropdown-toggle" type="button"
+                      data-bs-toggle="dropdown" title="Info Akademik">
+                <span class="ti ti-info-circle"></span>
+              </button>
+              <ul class="dropdown-menu p-2" style="min-width:220px; font-size:12px">
+                <li class="px-2 py-1"><strong>Jabfung:</strong> {{ r.jabfung }}</li>
+                <li class="px-2 py-1"><strong>Golongan:</strong> {{ r.golongan }}</li>
+                <li class="px-2 py-1"><strong>Pendidikan:</strong> {{ r.pendidikan }}</li>
+                <li class="px-2 py-1">
+                  <strong>Serdos:</strong>
+                  {% if r.has_serdos %}<span class="badge bg-success-lt text-success">Sudah</span>
+                  {% else %}<span class="text-muted">Belum</span>{% endif %}
+                </li>
+              </ul>
+            </div>
           </td>
           <td>
-            {% if r.status_kepegawaian == 'Aktif' or not r.status_kepegawaian %}
-            <span class="badge bg-success-lt text-success">Aktif</span>
-            {% elif r.status_kepegawaian == 'Tugas Belajar' %}
-            <span class="badge bg-blue-lt text-blue">TB</span>
-            {% elif r.status_kepegawaian == 'Izin Belajar' %}
-            <span class="badge bg-purple-lt text-purple">IB</span>
-            {% elif r.status_kepegawaian == 'Mutasi' %}
-            <span class="badge bg-orange-lt text-orange">Mutasi</span>
-            {% elif r.status_kepegawaian == 'Wafat' %}
-            <span class="badge bg-danger-lt text-danger">Wafat</span>
-            {% endif %}
+            <div class="d-flex flex-column gap-1">
+              {% if r.status_kepegawaian == 'Aktif' or not r.status_kepegawaian %}
+              <span class="badge bg-success-lt text-success">Aktif</span>
+              {% elif r.status_kepegawaian == 'Tugas Belajar' %}
+              <span class="badge bg-blue-lt text-blue">Tugas Belajar</span>
+              {% elif r.status_kepegawaian == 'Izin Belajar' %}
+              <span class="badge bg-purple-lt text-purple">Izin Belajar</span>
+              {% elif r.status_kepegawaian == 'Mutasi' %}
+              <span class="badge bg-orange-lt text-orange">Mutasi</span>
+              {% elif r.status_kepegawaian == 'Wafat' %}
+              <span class="badge bg-danger-lt text-danger">Wafat</span>
+              {% endif %}
+              {% if r.jenis_kepegawaian %}
+              <span class="badge bg-secondary-lt text-secondary" style="font-size:10px">{{ r.jenis_kepegawaian }}</span>
+              {% endif %}
+            </div>
           </td>
-          <td style="font-size:12px">{{ r.jenis_kepegawaian|default:"-" }}</td>
           <td class="text-center">
             {% if r.total_bkd > 0 %}<span class="badge bg-success-lt text-success">{{ r.total_bkd }}</span>
             {% else %}<span class="badge bg-danger-lt text-danger">0</span>{% endif %}
@@ -502,7 +508,7 @@
             </div>
           </td>
           <td>
-            <div class="d-flex gap-1">
+            <div class="d-flex flex-wrap gap-1" style="max-width:80px">
               <a href="{% url 'profil:index' %}?dosen_id={{ r.dosen.id }}"
                  class="btn btn-xs btn-outline-primary" title="Profil">
                 <span class="ti ti-user"></span>
@@ -552,7 +558,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="16" class="text-center text-muted py-4">Belum ada data dosen</td></tr>
+        <tr><td colspan="13" class="text-center text-muted py-4">Belum ada data dosen</td></tr>
         {% endfor %}
       </tbody>
     </table>
