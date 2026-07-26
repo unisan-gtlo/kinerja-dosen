@@ -177,7 +177,7 @@ def logout_view(request):
     logout(request)
     return redirect('accounts:login')
 
-ROLE_PENGELOLA_SCOPED = ['rektorat', 'biro', 'dekan', 'wadek', 'kaprodi', 'sekprodi']
+ROLE_PENGELOLA_SCOPED = ['dekan', 'wadek', 'kaprodi', 'sekprodi', 'operator']
 
 
 @login_required
@@ -197,13 +197,11 @@ def kelola_user(request):
 
     if request.user.role == 'admin':
         users = User.objects.all()
-    elif request.user.role in ['rektorat', 'biro']:
-        users = User.objects.filter(role='dosen')
     elif request.user.role in ['dekan', 'wadek']:
         users = User.objects.filter(role='dosen', kode_fakultas=request.user.kode_fakultas)
         fakultas_list = fakultas_list.filter(kode_fakultas=request.user.kode_fakultas)
         prodi_list = prodi_list.filter(fakultas__kode_fakultas=request.user.kode_fakultas)
-    else:  # kaprodi, sekprodi
+    else:  # kaprodi, sekprodi, operator
         users = User.objects.filter(role='dosen', kode_prodi=request.user.kode_prodi)
         fakultas_list = fakultas_list.filter(kode_fakultas=request.user.kode_fakultas)
         prodi_list = prodi_list.filter(kode_prodi=request.user.kode_prodi)
@@ -285,7 +283,7 @@ def tambah_user(request):
         # saja supaya tidak bisa eskalasi (mis. kaprodi membuat akun admin).
         if not is_admin:
             role = 'dosen'
-            if request.user.role in ['kaprodi', 'sekprodi']:
+            if request.user.role in ['kaprodi', 'sekprodi', 'operator']:
                 kode_fakultas = request.user.kode_fakultas
                 kode_prodi = request.user.kode_prodi
             elif request.user.role in ['dekan', 'wadek']:
@@ -293,7 +291,6 @@ def tambah_user(request):
                 if not Prodi.objects.filter(kode_prodi=kode_prodi,
                                              fakultas__kode_fakultas=kode_fakultas).exists():
                     kode_prodi = ''
-            # rektorat/biro: scope memang seluruh kampus, fakultas/prodi bebas dari POST
 
         if not username or not password or not first_name:
             messages.error(request, 'Username, nama depan, dan password wajib diisi.')
@@ -355,7 +352,7 @@ def edit_user(request, user_id):
             # Non-admin tidak boleh ubah role atau pindahkan dosen keluar
             # dari scope-nya sendiri (role tetap dosen, fakultas/prodi
             # tidak dipercaya begitu saja dari POST).
-            if request.user.role in ['kaprodi', 'sekprodi']:
+            if request.user.role in ['kaprodi', 'sekprodi', 'operator']:
                 target_user.kode_fakultas = request.user.kode_fakultas
                 target_user.kode_prodi = request.user.kode_prodi
             elif request.user.role in ['dekan', 'wadek']:
@@ -363,9 +360,6 @@ def edit_user(request, user_id):
                 if Prodi.objects.filter(kode_prodi=kode_prodi,
                                          fakultas__kode_fakultas=request.user.kode_fakultas).exists():
                     target_user.kode_prodi = kode_prodi
-            else:  # rektorat/biro: scope seluruh kampus
-                target_user.kode_fakultas = kode_fakultas
-                target_user.kode_prodi = kode_prodi
 
         target_user.no_hp = request.POST.get('no_hp', '').strip()
         target_user.status_akun = request.POST.get('status_akun', 'aktif')

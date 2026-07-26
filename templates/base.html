@@ -388,8 +388,8 @@
           </li>
           {% endif %}
 
-          <!-- Administrasi — admin + rektorat/biro/dekan/wadek/kaprodi/sekprodi (scoped) -->
-          {% if user.role == 'admin' or user.role == 'rektorat' or user.role == 'biro' or user.role == 'dekan' or user.role == 'wadek' or user.role == 'kaprodi' or user.role == 'sekprodi' %}
+          <!-- Administrasi — admin + dekan/wadek/kaprodi/sekprodi/operator (scoped). Rektorat/Biro baca saja. -->
+          {% if user.role == 'admin' or user.role == 'dekan' or user.role == 'wadek' or user.role == 'kaprodi' or user.role == 'sekprodi' or user.role == 'operator' %}
           <li class="nav-item">
             <div class="nav-section">Administrasi</div>
           </li>

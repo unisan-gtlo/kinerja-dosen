@@ -59,7 +59,7 @@
         </div>
         {% endif %}
 
-        {% if is_admin or request.user.role == 'rektorat' or request.user.role == 'biro' %}
+        {% if is_admin %}
         <div class="col-md-4">
           <label class="form-label fw-semibold">Fakultas</label>
           <select name="kode_fakultas" id="tambah_fakultas" class="form-select"
@@ -74,7 +74,7 @@
         <input type="hidden" name="kode_fakultas" value="{{ request.user.kode_fakultas }}">
         {% endif %}
 
-        {% if is_admin or request.user.role == 'rektorat' or request.user.role == 'biro' or request.user.role == 'dekan' or request.user.role == 'wadek' %}
+        {% if is_admin or request.user.role == 'dekan' or request.user.role == 'wadek' %}
         <div class="col-md-4">
           <label class="form-label fw-semibold">Program Studi</label>
           <select name="kode_prodi" id="tambah_prodi" class="form-select">
