@@ -23,10 +23,11 @@ def get_simda_dosen_or_none(user):
 
 
 def attach_kepegawaian_labels(users):
-    """Tempel atribut .jenis_kepegawaian_nama & .status_kepegawaian_nama ke
-    tiap User (role=dosen), dicocokkan lewat nidn ke DataDosen SIMDA. Dipakai
-    di Kelola User/Rekap/Laporan supaya badge Status Kepegawaian/Keaktifan
-    bisa ditampilkan di daftar tanpa N+1 query per baris ke database SIMDA.
+    """Tempel atribut .jenis_kepegawaian_nama, .status_kepegawaian_nama, dan
+    ID identitas riset (.id_sinta, .id_scopus, .id_google_scholar, .orcid,
+    .id_garuda) ke tiap User (role=dosen), dicocokkan lewat nidn ke DataDosen
+    SIMDA. Dipakai di Kelola User/Rekap/Laporan supaya badge status & link
+    riset bisa ditampilkan di daftar tanpa N+1 query per baris ke SIMDA.
     Return list (bukan queryset)."""
     users = list(users)
     nidn_set = {u.nidn for u in users if u.nidn}
@@ -43,6 +44,11 @@ def attach_kepegawaian_labels(users):
         d = dosen_by_nidn.get(u.nidn)
         u.jenis_kepegawaian_nama = jenis_map.get(d.jenis_kepegawaian_id, '') if d else ''
         u.status_kepegawaian_nama = status_map.get(d.status_kepegawaian_id, '') if d else ''
+        u.id_sinta = d.id_sinta if d else ''
+        u.id_scopus = d.id_scopus if d else ''
+        u.id_google_scholar = d.id_google_scholar if d else ''
+        u.orcid = d.orcid if d else ''
+        u.id_garuda = d.id_garuda if d else ''
     return users
 
 

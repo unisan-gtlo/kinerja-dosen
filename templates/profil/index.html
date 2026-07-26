@@ -244,28 +244,68 @@
           </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold">ID SINTA</label>
-            <input type="text" name="id_sinta" class="form-control"
-                   value="{{ profil.id_sinta|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+            <div class="input-group">
+              <input type="text" name="id_sinta" class="form-control"
+                     value="{{ profil.id_sinta|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+              {% if profil.id_sinta %}
+              <a href="https://sinta.kemdikbud.go.id/authors/profile/{{ profil.id_sinta }}"
+                 target="_blank" rel="noopener" class="btn btn-outline-secondary" title="Buka profil SINTA">
+                <span class="ti ti-external-link"></span>
+              </a>
+              {% endif %}
+            </div>
           </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold">Scopus Author ID</label>
-            <input type="text" name="id_scopus" class="form-control"
-                   value="{{ profil.id_scopus|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+            <div class="input-group">
+              <input type="text" name="id_scopus" class="form-control"
+                     value="{{ profil.id_scopus|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+              {% if profil.id_scopus %}
+              <a href="https://www.scopus.com/authid/detail.uri?authorId={{ profil.id_scopus }}"
+                 target="_blank" rel="noopener" class="btn btn-outline-secondary" title="Buka profil Scopus">
+                <span class="ti ti-external-link"></span>
+              </a>
+              {% endif %}
+            </div>
           </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold">Google Scholar ID</label>
-            <input type="text" name="id_google_scholar" class="form-control"
-                   value="{{ profil.id_google_scholar|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+            <div class="input-group">
+              <input type="text" name="id_google_scholar" class="form-control"
+                     value="{{ profil.id_google_scholar|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+              {% if profil.id_google_scholar %}
+              <a href="https://scholar.google.com/citations?user={{ profil.id_google_scholar }}"
+                 target="_blank" rel="noopener" class="btn btn-outline-secondary" title="Buka profil Google Scholar">
+                <span class="ti ti-external-link"></span>
+              </a>
+              {% endif %}
+            </div>
           </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold">ORCID</label>
-            <input type="text" name="orcid" class="form-control" placeholder="0000-0000-0000-0000"
-                   value="{{ profil.orcid|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+            <div class="input-group">
+              <input type="text" name="orcid" class="form-control" placeholder="0000-0000-0000-0000"
+                     value="{{ profil.orcid|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+              {% if profil.orcid %}
+              <a href="https://orcid.org/{{ profil.orcid }}"
+                 target="_blank" rel="noopener" class="btn btn-outline-secondary" title="Buka profil ORCID">
+                <span class="ti ti-external-link"></span>
+              </a>
+              {% endif %}
+            </div>
           </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold">ID Garuda</label>
-            <input type="text" name="id_garuda" class="form-control"
-                   value="{{ profil.id_garuda|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+            <div class="input-group">
+              <input type="text" name="id_garuda" class="form-control"
+                     value="{{ profil.id_garuda|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+              {% if profil.id_garuda %}
+              <a href="https://garuda.kemdikbud.go.id/author/view/{{ profil.id_garuda }}"
+                 target="_blank" rel="noopener" class="btn btn-outline-secondary" title="Buka profil Garuda">
+                <span class="ti ti-external-link"></span>
+              </a>
+              {% endif %}
+            </div>
           </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold">H-Index SINTA</label>

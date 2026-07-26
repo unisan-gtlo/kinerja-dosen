@@ -447,6 +447,31 @@
                  class="btn btn-xs btn-outline-danger" title="PDF">
                 <span class="ti ti-file-type-pdf"></span>
               </a>
+              {% if r.id_sinta or r.id_scopus or r.id_google_scholar or r.orcid or r.id_garuda %}
+              <div class="dropdown">
+                <button class="btn btn-xs btn-outline-secondary dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" title="Link Riset">
+                  <span class="ti ti-external-link"></span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  {% if r.id_sinta %}
+                  <li><a class="dropdown-item" href="https://sinta.kemdikbud.go.id/authors/profile/{{ r.id_sinta }}" target="_blank" rel="noopener">SINTA</a></li>
+                  {% endif %}
+                  {% if r.id_scopus %}
+                  <li><a class="dropdown-item" href="https://www.scopus.com/authid/detail.uri?authorId={{ r.id_scopus }}" target="_blank" rel="noopener">Scopus</a></li>
+                  {% endif %}
+                  {% if r.id_google_scholar %}
+                  <li><a class="dropdown-item" href="https://scholar.google.com/citations?user={{ r.id_google_scholar }}" target="_blank" rel="noopener">Google Scholar</a></li>
+                  {% endif %}
+                  {% if r.orcid %}
+                  <li><a class="dropdown-item" href="https://orcid.org/{{ r.orcid }}" target="_blank" rel="noopener">ORCID</a></li>
+                  {% endif %}
+                  {% if r.id_garuda %}
+                  <li><a class="dropdown-item" href="https://garuda.kemdikbud.go.id/author/view/{{ r.id_garuda }}" target="_blank" rel="noopener">Garuda</a></li>
+                  {% endif %}
+                </ul>
+              </div>
+              {% endif %}
             </div>
           </td>
         </tr>
