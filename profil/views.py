@@ -154,7 +154,6 @@ def tambah_jabfung(request):
         no_sk=request.POST.get('no_sk', '').strip(),
         tgl_sk=request.POST.get('tgl_sk') or None,
         tmt=request.POST.get('tmt') or None,
-        tgl_selesai=request.POST.get('tgl_selesai') or None,
         url_sk=request.POST.get('url_sk', '').strip(),
         keterangan=request.POST.get('keterangan', '').strip(),
     )
