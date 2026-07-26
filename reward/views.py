@@ -39,7 +39,7 @@ def index(request):
     target_user = _target_user(request)
 
     input_terbuka = cek_status_input()
-    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_edit = user.dapat_kelola(target_user) and input_terbuka
 
     try:
         per_page = int(request.GET.get('per_page', DEFAULT_PER_PAGE))
@@ -104,7 +104,7 @@ def tambah_beasiswa(request):
 @login_required
 def edit_beasiswa(request, id):
     obj = get_object_or_404(Beasiswa, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('reward:index')
     if request.method == 'POST':
@@ -122,7 +122,7 @@ def edit_beasiswa(request, id):
 @login_required
 def hapus_beasiswa(request, id):
     obj = get_object_or_404(Beasiswa, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('reward:index')
     obj.delete()
@@ -161,7 +161,7 @@ def tambah_kesejahteraan(request):
 @login_required
 def edit_kesejahteraan(request, id):
     obj = get_object_or_404(Kesejahteraan, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('reward:index')
     if request.method == 'POST':
@@ -179,7 +179,7 @@ def edit_kesejahteraan(request, id):
 @login_required
 def hapus_kesejahteraan(request, id):
     obj = get_object_or_404(Kesejahteraan, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('reward:index')
     obj.delete()
@@ -220,7 +220,7 @@ def tambah_tunjangan(request):
 @login_required
 def edit_tunjangan(request, id):
     obj = get_object_or_404(Tunjangan, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('reward:index')
     if request.method == 'POST':
@@ -240,7 +240,7 @@ def edit_tunjangan(request, id):
 @login_required
 def hapus_tunjangan(request, id):
     obj = get_object_or_404(Tunjangan, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('reward:index')
     obj.delete()

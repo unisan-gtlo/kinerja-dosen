@@ -8,7 +8,10 @@ from simda_dosen.models import (
     RiwayatPangkatGolongan, AgamaPublik, JabatanFungsionalPublik, GolonganPublik,
     BidangKeahlianPublik, JenisKepegawaianPublik, StatusKepegawaianPublik,
 )
-from simda_dosen.utils import get_simda_dosen_or_none
+from simda_dosen.utils import (
+    get_simda_dosen_or_none, dapat_kelola_nidn,
+    resolve_target_user as resolve_target_user_util,
+)
 from kinerja.utils import attach_dokumen_count
 from .models import DokumenLain, Diklat, Sertifikasi, TesKompetensi
 
@@ -18,6 +21,10 @@ def cek_status_input():
         return p.status_input == 'buka' if p else True
     except:
         return True
+
+
+def resolve_target_user(request, dosen_id):
+    return resolve_target_user_util(request, dosen_id, 'profil:index')
 
 @login_required
 def index(request):
@@ -42,8 +49,8 @@ def index(request):
     dokumen_list = target_user.dokumen_set.all().order_by('-tgl_input')
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
-    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
-    bisa_edit_kepegawaian = user.role in ['admin', 'operator'] and input_terbuka
+    bisa_edit = user.dapat_kelola(target_user) and input_terbuka
+    bisa_edit_kepegawaian = user.dapat_kelola(target_user) and input_terbuka
 
     context = {
         'target_user': target_user,
@@ -75,10 +82,9 @@ def simpan_profil(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    if dosen_id and user.role in ['admin', 'operator']:
-        target_user = get_object_or_404(User, id=dosen_id)
-    else:
-        target_user = user
+    target_user, err = resolve_target_user(request, dosen_id)
+    if err:
+        return err
 
     profil = get_simda_dosen_or_none(target_user)
     if not profil:
@@ -115,7 +121,7 @@ def simpan_profil(request):
 
     # Status Kepegawaian & Status Keaktifan -- ADMIN/HR, dosen tidak boleh
     # ubah status kepegawaiannya sendiri lewat form self-service ini.
-    if user.role in ['admin', 'operator']:
+    if user.dapat_kelola(target_user) and user != target_user:
         profil.jenis_kepegawaian_id = request.POST.get('jenis_kepegawaian_id') or None
         profil.status_kepegawaian_id = request.POST.get('status_kepegawaian_id') or None
 
@@ -142,7 +148,9 @@ def tambah_jabfung(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+    target_user, err = resolve_target_user(request, dosen_id)
+    if err:
+        return err
     dosen = get_simda_dosen_or_none(target_user)
     if not dosen:
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
@@ -167,7 +175,7 @@ def tambah_jabfung(request):
 @login_required
 def hapus_jabfung(request, jabfung_id):
     jabfung = get_object_or_404(RiwayatJabatanFungsional, id=jabfung_id)
-    if request.user.nidn != jabfung.dosen.nidn and request.user.role not in ['admin', 'operator']:
+    if not dapat_kelola_nidn(request.user, jabfung.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
     jabfung.delete()
@@ -184,7 +192,9 @@ def tambah_pangkat(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+    target_user, err = resolve_target_user(request, dosen_id)
+    if err:
+        return err
     dosen = get_simda_dosen_or_none(target_user)
     if not dosen:
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
@@ -211,7 +221,7 @@ def tambah_pangkat(request):
 @login_required
 def edit_pangkat(request, pangkat_id):
     pangkat = get_object_or_404(RiwayatPangkatGolongan, id=pangkat_id)
-    if request.user.nidn != pangkat.dosen.nidn and request.user.role not in ['admin', 'operator']:
+    if not dapat_kelola_nidn(request.user, pangkat.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
     if request.method == 'POST':
@@ -232,7 +242,7 @@ def edit_pangkat(request, pangkat_id):
 @login_required
 def hapus_pangkat(request, pangkat_id):
     pangkat = get_object_or_404(RiwayatPangkatGolongan, id=pangkat_id)
-    if request.user.nidn != pangkat.dosen.nidn and request.user.role not in ['admin', 'operator']:
+    if not dapat_kelola_nidn(request.user, pangkat.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
     pangkat.delete()
@@ -249,7 +259,9 @@ def tambah_pendidikan(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+    target_user, err = resolve_target_user(request, dosen_id)
+    if err:
+        return err
     dosen = get_simda_dosen_or_none(target_user)
     if not dosen:
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
@@ -276,7 +288,7 @@ def tambah_pendidikan(request):
 @login_required
 def hapus_pendidikan(request, pend_id):
     pend = get_object_or_404(RiwayatPendidikanDosen, id=pend_id)
-    if request.user.nidn != pend.dosen.nidn and request.user.role not in ['admin', 'operator']:
+    if not dapat_kelola_nidn(request.user, pend.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
     pend.delete()
@@ -286,7 +298,7 @@ def hapus_pendidikan(request, pend_id):
 @login_required
 def edit_jabfung(request, jabfung_id):
     jabfung = get_object_or_404(RiwayatJabatanFungsional, id=jabfung_id)
-    if request.user.nidn != jabfung.dosen.nidn and request.user.role not in ['admin', 'operator']:
+    if not dapat_kelola_nidn(request.user, jabfung.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
     if request.method == 'POST':
@@ -307,7 +319,7 @@ def edit_jabfung(request, jabfung_id):
 @login_required
 def edit_pendidikan(request, pend_id):
     pend = get_object_or_404(RiwayatPendidikanDosen, id=pend_id)
-    if request.user.nidn != pend.dosen.nidn and request.user.role not in ['admin', 'operator']:
+    if not dapat_kelola_nidn(request.user, pend.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
     if request.method == 'POST':
@@ -343,7 +355,7 @@ def kualifikasi_index(request):
 
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
-    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_edit = user.dapat_kelola(target_user) and input_terbuka
 
     diklat_list = target_user.diklat_set.all()
 
@@ -367,7 +379,9 @@ def tambah_diklat(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+    target_user, err = resolve_target_user(request, dosen_id)
+    if err:
+        return err
 
     diklat = Diklat(
         user=target_user,
@@ -399,7 +413,7 @@ def tambah_diklat(request):
 @login_required
 def hapus_diklat(request, id):
     obj = get_object_or_404(Diklat, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:kualifikasi_index')
     obj.delete()
@@ -410,7 +424,7 @@ def hapus_diklat(request, id):
 @login_required
 def edit_diklat(request, id):
     obj = get_object_or_404(Diklat, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:kualifikasi_index')
     if request.method == 'POST':
@@ -451,7 +465,7 @@ def kompetensi_index(request):
 
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
-    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_edit = user.dapat_kelola(target_user) and input_terbuka
     bisa_validasi = user.role in Sertifikasi.ROLE_BOLEH_VALIDASI
 
     context = {
@@ -476,7 +490,9 @@ def tambah_sertifikasi(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+    target_user, err = resolve_target_user(request, dosen_id)
+    if err:
+        return err
 
     jenis = request.POST.get('jenis_sertifikasi', '')
     Sertifikasi.objects.create(
@@ -505,7 +521,7 @@ def tambah_sertifikasi(request):
 @login_required
 def hapus_sertifikasi(request, id):
     obj = get_object_or_404(Sertifikasi, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:kompetensi_index')
     obj.delete()
@@ -516,9 +532,7 @@ def hapus_sertifikasi(request, id):
 @login_required
 def edit_sertifikasi(request, id):
     obj = get_object_or_404(Sertifikasi, id=id)
-    is_owner = request.user == obj.user
-    is_admin = request.user.role in ['admin', 'operator']
-    if not is_owner and not is_admin:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:kompetensi_index')
     if request.method == 'POST':
@@ -553,7 +567,9 @@ def tambah_tes(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+    target_user, err = resolve_target_user(request, dosen_id)
+    if err:
+        return err
 
     TesKompetensi.objects.create(
         user=target_user,
@@ -576,7 +592,7 @@ def tambah_tes(request):
 @login_required
 def hapus_tes(request, id):
     obj = get_object_or_404(TesKompetensi, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:kompetensi_index')
     obj.delete()
@@ -587,7 +603,7 @@ def hapus_tes(request, id):
 @login_required
 def edit_tes(request, id):
     obj = get_object_or_404(TesKompetensi, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:kompetensi_index')
     if request.method == 'POST':
@@ -627,7 +643,7 @@ def dokumen_index(request):
     user = request.user
     target_user = _dokumen_target_user(request)
     input_terbuka = cek_status_input()
-    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_edit = user.dapat_kelola(target_user) and input_terbuka
 
     dokumen_lain_list = target_user.dokumen_set.all().order_by('-tgl_input')
 
@@ -736,7 +752,7 @@ def tambah_dokumen_lain(request):
 @login_required
 def edit_dokumen_lain(request, id):
     obj = get_object_or_404(DokumenLain, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:dokumen_index')
     if request.method == 'POST':
@@ -757,7 +773,7 @@ def edit_dokumen_lain(request, id):
 @login_required
 def hapus_dokumen_lain(request, id):
     obj = get_object_or_404(DokumenLain, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:dokumen_index')
     obj.delete()

@@ -67,7 +67,7 @@ def index(request):
 
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
-    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_edit = user.dapat_kelola(target_user) and input_terbuka
 
     try:
         per_page = int(request.GET.get('per_page', DEFAULT_PER_PAGE))
@@ -152,7 +152,7 @@ def tambah_penelitian(request):
 @login_required
 def edit_penelitian(request, id):
     obj = get_object_or_404(Penelitian, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penelitian:index')
     if request.method == 'POST':
@@ -185,7 +185,7 @@ def edit_penelitian(request, id):
 @login_required
 def hapus_penelitian(request, id):
     obj = get_object_or_404(Penelitian, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penelitian:index')
     obj.delete()
@@ -197,9 +197,9 @@ def hapus_penelitian(request, id):
 def kelola_anggota_penelitian(request, penelitian_id):
     penelitian = get_object_or_404(Penelitian, id=penelitian_id)
     user = request.user
-    bisa_edit = (user == penelitian.user or user.role in ['admin', 'operator']) and cek_status_input()
+    bisa_edit = user.dapat_kelola(penelitian.user) and cek_status_input()
 
-    if penelitian.user != user and user.role not in ['admin', 'operator']:
+    if not user.dapat_kelola(penelitian.user):
         dosen = get_simda_dosen_or_none(user)
         is_co = dosen and penelitian.anggota_set.filter(jenis_anggota='dosen', dosen_id=dosen.id).exists()
         if not is_co:
@@ -329,7 +329,7 @@ def tambah_publikasi(request):
 @login_required
 def edit_publikasi(request, id):
     obj = get_object_or_404(PublikasiKarya, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penelitian:index')
     if request.method == 'POST':
@@ -360,7 +360,7 @@ def edit_publikasi(request, id):
 @login_required
 def hapus_publikasi(request, id):
     obj = get_object_or_404(PublikasiKarya, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penelitian:index')
     obj.delete()
@@ -404,7 +404,7 @@ def tambah_paten(request):
 @login_required
 def edit_paten(request, id):
     obj = get_object_or_404(PatenHki, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penelitian:index')
     if request.method == 'POST':
@@ -427,7 +427,7 @@ def edit_paten(request, id):
 @login_required
 def hapus_paten(request, id):
     obj = get_object_or_404(PatenHki, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penelitian:index')
     obj.delete()
@@ -441,9 +441,9 @@ def _kelola_penulis(request, obj, penulis_related, fk_field, id_field, template,
     FK di model Penulis (mis. 'publikasi' atau 'paten_hki'), id_field = nama
     kwarg URL (mis. 'publikasi_id' atau 'paten_id')."""
     user = request.user
-    bisa_edit = (user == obj.user or user.role in ['admin', 'operator']) and cek_status_input()
+    bisa_edit = user.dapat_kelola(obj.user) and cek_status_input()
 
-    if obj.user != user and user.role not in ['admin', 'operator']:
+    if not user.dapat_kelola(obj.user):
         dosen = get_simda_dosen_or_none(user)
         is_co = dosen and penulis_related.filter(jenis_penulis='dosen', dosen_id=dosen.id).exists()
         if not is_co:

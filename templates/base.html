@@ -388,8 +388,8 @@
           </li>
           {% endif %}
 
-          <!-- Administrasi — admin only -->
-          {% if user.role == 'admin' %}
+          <!-- Administrasi — admin + rektorat/biro/dekan/wadek/kaprodi/sekprodi (scoped) -->
+          {% if user.role == 'admin' or user.role == 'rektorat' or user.role == 'biro' or user.role == 'dekan' or user.role == 'wadek' or user.role == 'kaprodi' or user.role == 'sekprodi' %}
           <li class="nav-item">
             <div class="nav-section">Administrasi</div>
           </li>
@@ -408,7 +408,6 @@
               <span class="nav-link-title">Log Aktivitas</span>
             </a>
           </li>
-          {% endif %}
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'master' %}active{% endif %}"
                href="{% url 'master:index' %}">
@@ -416,7 +415,7 @@
               <span class="nav-link-title">Data Master</span>
             </a>
           </li>
-          
+          {% endif %}
           {% endif %}
            <!-- Ganti Password -->
           <li class="nav-item">

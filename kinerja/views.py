@@ -4,7 +4,7 @@ from django.contrib import messages
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import RiwayatBKD, TahunAkademikPublik
-from simda_dosen.utils import get_simda_dosen_or_none
+from simda_dosen.utils import get_simda_dosen_or_none, dapat_kelola_nidn, resolve_target_user
 from profil.models import Diklat, Sertifikasi, TesKompetensi
 from pendidikan.models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
@@ -35,7 +35,7 @@ def bkd_index(request):
 
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
-    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_edit = user.dapat_kelola(target_user) and input_terbuka
 
     filter_tahun = request.GET.get('tahun', '')
     filter_semester = request.GET.get('semester', '')
@@ -71,7 +71,9 @@ def tambah_bkd(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user = get_object_or_404(User, id=dosen_id) if dosen_id and user.role in ['admin', 'operator'] else user
+    target_user, err = resolve_target_user(request, dosen_id, 'kinerja:bkd_index')
+    if err:
+        return err
     dosen = get_simda_dosen_or_none(target_user)
     if not dosen:
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
@@ -103,7 +105,7 @@ def tambah_bkd(request):
 @login_required
 def hapus_bkd(request, bkd_id):
     bkd = get_object_or_404(RiwayatBKD, id=bkd_id)
-    if request.user.nidn != bkd.dosen.nidn and request.user.role not in ['admin', 'operator']:
+    if not dapat_kelola_nidn(request.user, bkd.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('kinerja:bkd_index')
     bkd.delete()
@@ -198,11 +200,11 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
     else:
         pemilik = kinerja_obj.user
 
-    # bisa_kelola = boleh tambah/edit/hapus dokumen (pemilik asli/admin saja).
-    # Selain itu, dosen yang jadi Penulis/Anggota Dosen (co-author) di Bahan
-    # Ajar/Penelitian/Publikasi Karya/Paten-HKI/Pengabdian/Penunjang Lain
-    # boleh LIHAT saja.
-    bisa_kelola = (pemilik == user or user.role in ['admin', 'operator'])
+    # bisa_kelola = boleh tambah/edit/hapus dokumen (pemilik asli/pengelola
+    # berjenjang saja). Selain itu, dosen yang jadi Penulis/Anggota Dosen
+    # (co-author) di Bahan Ajar/Penelitian/Publikasi Karya/Paten-HKI/
+    # Pengabdian/Penunjang Lain boleh LIHAT saja.
+    bisa_kelola = bool(pemilik) and user.dapat_kelola(pemilik)
 
     if not bisa_kelola:
         boleh_lihat = False
@@ -274,14 +276,14 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
         elif aksi == 'hapus':
             dok_id = request.POST.get('dok_id')
             dok = get_object_or_404(DokumenKinerja, id=dok_id)
-            if dok.user == pemilik or user.role in ['admin', 'operator']:
+            if dok.user == pemilik or bisa_kelola:
                 nama = dok.nama_dokumen
                 dok.delete()
                 messages.success(request, f'Dokumen "{nama}" berhasil dihapus.')
         elif aksi == 'edit':
             dok_id = request.POST.get('dok_id')
             dok = get_object_or_404(DokumenKinerja, id=dok_id)
-            if dok.user == pemilik or user.role in ['admin', 'operator']:
+            if dok.user == pemilik or bisa_kelola:
                 dok.jenis_dokumen = request.POST.get('jenis_dokumen', dok.jenis_dokumen)
                 dok.nama_dokumen = request.POST.get('nama_dokumen', '').strip() or dok.nama_dokumen
                 dok.keterangan = request.POST.get('keterangan', '').strip()
@@ -363,9 +365,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
 @login_required
 def edit_bkd(request, id):
     obj = get_object_or_404(RiwayatBKD, id=id)
-    is_owner = request.user.nidn == obj.dosen.nidn
-    is_admin = request.user.role in ['admin', 'operator']
-    if not is_owner and not is_admin:
+    if not dapat_kelola_nidn(request.user, obj.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('kinerja:bkd_index')
     if request.method == 'POST':

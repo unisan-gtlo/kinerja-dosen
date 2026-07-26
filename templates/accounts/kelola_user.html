@@ -12,6 +12,7 @@
       </div>
       <div class="col-md-2">
         <label class="form-label small text-muted">Role</label>
+        {% if request.user.role == 'admin' %}
         <select name="role" class="form-select">
           <option value="">Semua Role</option>
           <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Administrator</option>
@@ -24,6 +25,9 @@
           <option value="operator" {% if role_filter == 'operator' %}selected{% endif %}>Operator</option>
           <option value="dosen" {% if role_filter == 'dosen' %}selected{% endif %}>Dosen</option>
         </select>
+        {% else %}
+        <input type="text" class="form-control" value="Dosen" readonly>
+        {% endif %}
       </div>
       <div class="col-md-2">
         <label class="form-label small text-muted">Fakultas</label>
@@ -64,12 +68,14 @@
           <a href="{% url 'accounts:tambah_user' %}" class="btn btn-success">
             <span class="ti ti-plus me-1"></span>Tambah
           </a>
+          {% if request.user.role == 'admin' %}
           <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#modalImport">
             <span class="ti ti-file-import me-1"></span>Import Excel
           </button>
           <a href="{% url 'accounts:download_template' %}" class="btn btn-outline-primary">
             <span class="ti ti-download me-1"></span>Template
           </a>
+          {% endif %}
         </div>
     </form>
   </div>
@@ -148,12 +154,14 @@
                  class="btn btn-sm btn-outline-primary" title="Edit">
                 <span class="ti ti-edit"></span>
               </a>
+              {% if request.user.role == 'admin' %}
               <a href="{% url 'accounts:unlock_user' u.id %}"
                 class="btn btn-sm btn-outline-warning"
                 title="Buka Kunci Akun"
                 onclick="return confirm('Buka kunci akun {{ u.username }}?')">
                 <span class="ti ti-lock-open"></span>
               </a>
+              {% endif %}
               {% if u != request.user %}
               <form method="post" action="{% url 'accounts:hapus_user' u.id %}"
                     onsubmit="return confirm('Hapus user {{ u.username }}?')">

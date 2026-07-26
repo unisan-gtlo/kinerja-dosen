@@ -60,7 +60,24 @@ class User(AbstractUser):
 
     @property
     def can_export(self):
-        return self.role in ['admin', 'rektorat', 'biro', 'dekan', 'wadek', 'kaprodi']
+        return self.role in ['admin', 'rektorat', 'biro', 'dekan', 'wadek', 'kaprodi', 'sekprodi']
+
+    def dapat_kelola(self, target_user):
+        """True kalau self boleh kelola (edit/hapus akun & data kinerja)
+        target_user. Admin & Rektorat/Biro: semua dosen. Dekan/Wadek: dosen
+        se-fakultas. Kaprodi/Sekprodi: dosen se-prodi. Selain itu, cuma
+        boleh kelola diri sendiri."""
+        if self.id == target_user.id:
+            return True
+        if self.role == 'admin':
+            return True
+        if self.role in ['rektorat', 'biro']:
+            return True
+        if self.role in ['dekan', 'wadek']:
+            return bool(self.kode_fakultas) and self.kode_fakultas == target_user.kode_fakultas
+        if self.role in ['kaprodi', 'sekprodi']:
+            return bool(self.kode_prodi) and self.kode_prodi == target_user.kode_prodi
+        return False
     def get_role_display_id(self):
         role_labels = {
         'admin': 'Administrator',

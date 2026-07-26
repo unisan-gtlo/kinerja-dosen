@@ -1,4 +1,5 @@
-from django.shortcuts import get_object_or_404
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect
 
 from .models import DataDosen, JenisKepegawaianPublik, StatusKepegawaianPublik
 
@@ -67,3 +68,30 @@ def filter_dosen_qs_by_kepegawaian(qs, jenis_kepegawaian_id='', status_kepegawai
         DataDosen.objects.using('simda').filter(**dosen_filter).values_list('nidn', flat=True)
     )
     return qs.filter(nidn__in=nidn_list)
+
+
+def dapat_kelola_nidn(user, nidn):
+    """Sama seperti User.dapat_kelola(), tapi target ditentukan lewat nidn --
+    dipakai di record SIMDA (RiwayatJabatanFungsional/Pangkat/Pendidikan/BKD)
+    yang tidak punya FK langsung ke accounts.User, cuma field dosen.nidn."""
+    from accounts.models import User
+    if user.nidn and user.nidn == nidn:
+        return True
+    target = User.objects.filter(nidn=nidn).first()
+    return bool(target) and user.dapat_kelola(target)
+
+
+def resolve_target_user(request, dosen_id, redirect_url_name):
+    """Tentukan user yang datanya mau diedit lewat dosen_id (POST) --
+    dosen_id cuma dipakai kalau pemohon boleh kelola dosen itu (lihat
+    User.dapat_kelola), selain itu diedit ke diri sendiri. Return
+    (target_user, error_response); error_response None kalau aman."""
+    from accounts.models import User
+    user = request.user
+    if not dosen_id:
+        return user, None
+    target_user = get_object_or_404(User, id=dosen_id)
+    if not user.dapat_kelola(target_user):
+        messages.error(request, 'Anda tidak memiliki akses untuk mengelola data dosen ini.')
+        return None, redirect(redirect_url_name)
+    return target_user, None

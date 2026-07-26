@@ -60,7 +60,7 @@ def index(request):
 
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
-    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_edit = user.dapat_kelola(target_user) and input_terbuka
 
     try:
         per_page = int(request.GET.get('per_page', DEFAULT_PER_PAGE))
@@ -131,7 +131,7 @@ def tambah_profesi(request):
 @login_required
 def edit_profesi(request, id):
     obj = get_object_or_404(AnggotaProfesi, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penunjang:index')
     if request.method == 'POST':
@@ -152,7 +152,7 @@ def edit_profesi(request, id):
 @login_required
 def hapus_profesi(request, id):
     obj = get_object_or_404(AnggotaProfesi, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penunjang:index')
     obj.delete()
@@ -194,7 +194,7 @@ def tambah_penghargaan(request):
 @login_required
 def edit_penghargaan(request, id):
     obj = get_object_or_404(Penghargaan, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penunjang:index')
     if request.method == 'POST':
@@ -215,7 +215,7 @@ def edit_penghargaan(request, id):
 @login_required
 def hapus_penghargaan(request, id):
     obj = get_object_or_404(Penghargaan, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penunjang:index')
     obj.delete()
@@ -259,7 +259,7 @@ def tambah_penunjang(request):
 @login_required
 def edit_penunjang(request, id):
     obj = get_object_or_404(PenunjangLain, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penunjang:index')
     if request.method == 'POST':
@@ -282,7 +282,7 @@ def edit_penunjang(request, id):
 @login_required
 def hapus_penunjang(request, id):
     obj = get_object_or_404(PenunjangLain, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('penunjang:index')
     obj.delete()
@@ -294,9 +294,9 @@ def hapus_penunjang(request, id):
 def kelola_anggota_penunjang(request, penunjang_id):
     obj = get_object_or_404(PenunjangLain, id=penunjang_id)
     user = request.user
-    bisa_edit = (user == obj.user or user.role in ['admin', 'operator']) and cek_status_input()
+    bisa_edit = user.dapat_kelola(obj.user) and cek_status_input()
 
-    if obj.user != user and user.role not in ['admin', 'operator']:
+    if not user.dapat_kelola(obj.user):
         dosen = get_simda_dosen_or_none(user)
         is_co = dosen and obj.anggota_set.filter(dosen_id=dosen.id).exists()
         if not is_co:

@@ -36,6 +36,7 @@
           <input type="text" name="no_hp" class="form-control" value="{{ target_user.no_hp|default:'' }}">
         </div>
 
+        {% if is_admin %}
         <div class="col-md-4">
           <label class="form-label fw-semibold">Role</label>
           <select name="role" class="form-select">
@@ -50,7 +51,14 @@
             <option value="admin" {% if target_user.role == 'admin' %}selected{% endif %}>Administrator</option>
           </select>
         </div>
+        {% else %}
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Role</label>
+          <input type="text" class="form-control" value="Dosen" readonly>
+        </div>
+        {% endif %}
 
+        {% if is_admin or request.user.role == 'rektorat' or request.user.role == 'biro' %}
         <div class="col-md-4">
           <label class="form-label fw-semibold">Fakultas</label>
           <select name="kode_fakultas" id="edit_fakultas" class="form-select" onchange="filterProdiEdit(this.value)">
@@ -63,7 +71,14 @@
             {% endfor %}
           </select>
         </div>
+        {% else %}
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Fakultas</label>
+          <input type="text" class="form-control" value="{{ target_user.kode_fakultas|default:'-' }}" readonly>
+        </div>
+        {% endif %}
 
+        {% if is_admin or request.user.role == 'rektorat' or request.user.role == 'biro' or request.user.role == 'dekan' or request.user.role == 'wadek' %}
         <div class="col-md-4">
           <label class="form-label fw-semibold">Program Studi</label>
           <select name="kode_prodi" id="edit_prodi" class="form-select">
@@ -77,6 +92,12 @@
             {% endfor %}
           </select>
         </div>
+        {% else %}
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Program Studi</label>
+          <input type="text" class="form-control" value="{{ target_user.kode_prodi|default:'-' }}" readonly>
+        </div>
+        {% endif %}
 
         <div class="col-md-4">
           <label class="form-label fw-semibold">Status Akun</label>
@@ -137,16 +158,20 @@ function filterProdiEdit(kodeFakultas) {
 
 // Jalankan saat halaman load
 window.addEventListener('load', function() {
-  const fakVal = document.getElementById('edit_fakultas').value;
+  const fakultasSelect = document.getElementById('edit_fakultas');
+  const prodiSelect = document.getElementById('edit_prodi');
+  if (!fakultasSelect || !prodiSelect) return;  // dropdown dikunci (kaprodi/sekprodi), tidak perlu JS ini
+
+  const fakVal = fakultasSelect.value;
   const prodiVal = '{{ target_user.kode_prodi|default:"" }}';
-  
+
   if (fakVal) {
     filterProdiEdit(fakVal);
   }
-  
+
   // Set nilai prodi yang sudah tersimpan
   if (prodiVal) {
-    document.getElementById('edit_prodi').value = prodiVal;
+    prodiSelect.value = prodiVal;
   }
 });
 </script>

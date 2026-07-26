@@ -97,7 +97,7 @@ def index(request):
 
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
-    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_edit = user.dapat_kelola(target_user) and input_terbuka
 
     try:
         per_page = int(request.GET.get('per_page', DEFAULT_PER_PAGE))
@@ -189,7 +189,7 @@ def tambah_pengajaran(request):
 @login_required
 def edit_pengajaran(request, id):
     obj = get_object_or_404(Pengajaran, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     if request.method == 'POST':
@@ -218,7 +218,7 @@ def edit_pengajaran(request, id):
 @login_required
 def hapus_pengajaran(request, id):
     obj = get_object_or_404(Pengajaran, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     obj.delete()
@@ -269,7 +269,7 @@ def tambah_bimbingan(request):
 @login_required
 def edit_bimbingan(request, id):
     obj = get_object_or_404(BimbinganMahasiswa, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     if request.method == 'POST':
@@ -296,7 +296,7 @@ def edit_bimbingan(request, id):
 @login_required
 def hapus_bimbingan(request, id):
     obj = get_object_or_404(BimbinganMahasiswa, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     obj.delete()
@@ -346,7 +346,7 @@ def tambah_pengujian(request):
 @login_required
 def edit_pengujian(request, id):
     obj = get_object_or_404(PengujianMahasiswa, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     if request.method == 'POST':
@@ -372,7 +372,7 @@ def edit_pengujian(request, id):
 @login_required
 def hapus_pengujian(request, id):
     obj = get_object_or_404(PengujianMahasiswa, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     obj.delete()
@@ -414,7 +414,7 @@ def tambah_bahan_ajar(request):
 @login_required
 def edit_bahan_ajar(request, id):
     obj = get_object_or_404(BahanAjar, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     if request.method == 'POST':
@@ -435,7 +435,7 @@ def edit_bahan_ajar(request, id):
 @login_required
 def hapus_bahan_ajar(request, id):
     obj = get_object_or_404(BahanAjar, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     obj.delete()
@@ -451,11 +451,11 @@ def hapus_bahan_ajar(request, id):
 def kelola_penulis(request, bahan_ajar_id):
     bahan_ajar = get_object_or_404(BahanAjar, id=bahan_ajar_id)
     user = request.user
-    bisa_edit = (user == bahan_ajar.user or user.role in ['admin', 'operator']) and cek_status_input()
+    bisa_edit = user.dapat_kelola(bahan_ajar.user) and cek_status_input()
 
     # Selain pemilik asli/admin, dosen yang jadi Penulis Dosen (co-author)
     # di record ini boleh LIHAT saja (bisa_edit tetap False untuk mereka).
-    if bahan_ajar.user != user and user.role not in ['admin', 'operator']:
+    if not user.dapat_kelola(bahan_ajar.user):
         dosen = get_simda_dosen_or_none(user)
         is_co_penulis = dosen and bahan_ajar.penulis_set.filter(
             jenis_penulis='dosen', dosen_id=dosen.id
@@ -576,7 +576,7 @@ def tambah_pembinaan_mahasiswa(request):
 @login_required
 def edit_pembinaan_mahasiswa(request, id):
     obj = get_object_or_404(PembinaanMahasiswa, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     if request.method == 'POST':
@@ -595,7 +595,7 @@ def edit_pembinaan_mahasiswa(request, id):
 @login_required
 def hapus_pembinaan_mahasiswa(request, id):
     obj = get_object_or_404(PembinaanMahasiswa, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     obj.delete()
@@ -635,7 +635,7 @@ def tambah_orasi_ilmiah(request):
 @login_required
 def edit_orasi_ilmiah(request, id):
     obj = get_object_or_404(OrasiIlmiah, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     if request.method == 'POST':
@@ -654,7 +654,7 @@ def edit_orasi_ilmiah(request, id):
 @login_required
 def hapus_orasi_ilmiah(request, id):
     obj = get_object_or_404(OrasiIlmiah, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     obj.delete()
@@ -695,7 +695,7 @@ def tambah_tugas_tambahan(request):
 @login_required
 def edit_tugas_tambahan(request, id):
     obj = get_object_or_404(TugasTambahan, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     if request.method == 'POST':
@@ -715,7 +715,7 @@ def edit_tugas_tambahan(request, id):
 @login_required
 def hapus_tugas_tambahan(request, id):
     obj = get_object_or_404(TugasTambahan, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pendidikan:index')
     obj.delete()

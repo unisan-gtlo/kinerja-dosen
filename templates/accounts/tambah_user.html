@@ -36,6 +36,7 @@
           <input type="text" name="no_hp" class="form-control">
         </div>
 
+        {% if is_admin %}
         <div class="col-md-4">
           <label class="form-label fw-semibold">Role <span class="text-danger">*</span></label>
           <select name="role" class="form-select" required>
@@ -50,7 +51,15 @@
             <option value="admin">Administrator</option>
           </select>
         </div>
+        {% else %}
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Role</label>
+          <input type="text" class="form-control" value="Dosen" readonly>
+          <input type="hidden" name="role" value="dosen">
+        </div>
+        {% endif %}
 
+        {% if is_admin or request.user.role == 'rektorat' or request.user.role == 'biro' %}
         <div class="col-md-4">
           <label class="form-label fw-semibold">Fakultas</label>
           <select name="kode_fakultas" id="tambah_fakultas" class="form-select"
@@ -61,7 +70,11 @@
             {% endfor %}
           </select>
         </div>
+        {% else %}
+        <input type="hidden" name="kode_fakultas" value="{{ request.user.kode_fakultas }}">
+        {% endif %}
 
+        {% if is_admin or request.user.role == 'rektorat' or request.user.role == 'biro' or request.user.role == 'dekan' or request.user.role == 'wadek' %}
         <div class="col-md-4">
           <label class="form-label fw-semibold">Program Studi</label>
           <select name="kode_prodi" id="tambah_prodi" class="form-select">
@@ -74,6 +87,9 @@
             {% endfor %}
           </select>
         </div>
+        {% else %}
+        <input type="hidden" name="kode_prodi" value="{{ request.user.kode_prodi }}">
+        {% endif %}
 
         <div class="col-md-4">
           <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>

@@ -177,9 +177,12 @@ def logout_view(request):
     logout(request)
     return redirect('accounts:login')
 
+ROLE_PENGELOLA_SCOPED = ['rektorat', 'biro', 'dekan', 'wadek', 'kaprodi', 'sekprodi']
+
+
 @login_required
 def kelola_user(request):
-    if request.user.role != 'admin':
+    if request.user.role not in ['admin'] + ROLE_PENGELOLA_SCOPED:
         messages.error(request, 'Anda tidak memiliki akses.')
         return redirect('dashboard:index')
 
@@ -192,7 +195,20 @@ def kelola_user(request):
     prodi_filter = request.GET.get('prodi', '')
     cari = request.GET.get('cari', '')
 
-    users = User.objects.all().order_by('kode_fakultas', 'kode_prodi', 'first_name')
+    if request.user.role == 'admin':
+        users = User.objects.all()
+    elif request.user.role in ['rektorat', 'biro']:
+        users = User.objects.filter(role='dosen')
+    elif request.user.role in ['dekan', 'wadek']:
+        users = User.objects.filter(role='dosen', kode_fakultas=request.user.kode_fakultas)
+        fakultas_list = fakultas_list.filter(kode_fakultas=request.user.kode_fakultas)
+        prodi_list = prodi_list.filter(fakultas__kode_fakultas=request.user.kode_fakultas)
+    else:  # kaprodi, sekprodi
+        users = User.objects.filter(role='dosen', kode_prodi=request.user.kode_prodi)
+        fakultas_list = fakultas_list.filter(kode_fakultas=request.user.kode_fakultas)
+        prodi_list = prodi_list.filter(kode_prodi=request.user.kode_prodi)
+
+    users = users.order_by('kode_fakultas', 'kode_prodi', 'first_name')
 
     if role_filter:
         users = users.filter(role=role_filter)
@@ -243,11 +259,14 @@ def kelola_user(request):
 
 @login_required
 def tambah_user(request):
-    if request.user.role != 'admin':
+    is_admin = request.user.role == 'admin'
+    if not is_admin and request.user.role not in ROLE_PENGELOLA_SCOPED:
         return redirect('dashboard:index')
 
     fakultas_list = Fakultas.objects.filter(status='aktif').order_by('kode_fakultas')
     prodi_list = Prodi.objects.filter(status='aktif').order_by('kode_prodi')
+    if not is_admin and request.user.role in ['dekan', 'wadek']:
+        prodi_list = prodi_list.filter(fakultas__kode_fakultas=request.user.kode_fakultas)
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
@@ -260,6 +279,21 @@ def tambah_user(request):
         kode_prodi = request.POST.get('kode_prodi', '').strip()
         no_hp = request.POST.get('no_hp', '').strip()
         password = request.POST.get('password', '').strip()
+
+        # Non-admin hanya boleh buat akun dosen, dalam scope-nya sendiri --
+        # nilai dari POST untuk role/fakultas/prodi tidak dipercaya begitu
+        # saja supaya tidak bisa eskalasi (mis. kaprodi membuat akun admin).
+        if not is_admin:
+            role = 'dosen'
+            if request.user.role in ['kaprodi', 'sekprodi']:
+                kode_fakultas = request.user.kode_fakultas
+                kode_prodi = request.user.kode_prodi
+            elif request.user.role in ['dekan', 'wadek']:
+                kode_fakultas = request.user.kode_fakultas
+                if not Prodi.objects.filter(kode_prodi=kode_prodi,
+                                             fakultas__kode_fakultas=kode_fakultas).exists():
+                    kode_prodi = ''
+            # rektorat/biro: scope memang seluruh kampus, fakultas/prodi bebas dari POST
 
         if not username or not password or not first_name:
             messages.error(request, 'Username, nama depan, dan password wajib diisi.')
@@ -285,26 +319,54 @@ def tambah_user(request):
     context = {
         'fakultas_list': fakultas_list,
         'prodi_list': prodi_list,
+        'is_admin': is_admin,
     }
     return render(request, 'accounts/tambah_user.html', context)
 
 @login_required
 def edit_user(request, user_id):
-    if request.user.role != 'admin':
+    is_admin = request.user.role == 'admin'
+    if not is_admin and request.user.role not in ROLE_PENGELOLA_SCOPED:
         return redirect('dashboard:index')
 
     target_user = get_object_or_404(User, id=user_id)
+    if not is_admin and (target_user.role != 'dosen' or not request.user.dapat_kelola(target_user)):
+        messages.error(request, 'Anda tidak memiliki akses untuk mengelola akun ini.')
+        return redirect('accounts:kelola_user')
+
     fakultas_list = Fakultas.objects.filter(status='aktif').order_by('kode_fakultas')
     prodi_list = Prodi.objects.filter(status='aktif').order_by('kode_prodi')
+    if not is_admin and request.user.role in ['dekan', 'wadek']:
+        prodi_list = prodi_list.filter(fakultas__kode_fakultas=request.user.kode_fakultas)
 
     if request.method == 'POST':
         target_user.first_name = request.POST.get('first_name', '').strip()
         target_user.last_name = request.POST.get('last_name', '').strip()
         target_user.email = request.POST.get('email', '').strip()
         target_user.nidn = request.POST.get('nidn', '').strip()
-        target_user.role = request.POST.get('role', target_user.role)
-        target_user.kode_fakultas = request.POST.get('kode_fakultas', '').strip()
-        target_user.kode_prodi = request.POST.get('kode_prodi', '').strip()
+        kode_fakultas = request.POST.get('kode_fakultas', '').strip()
+        kode_prodi = request.POST.get('kode_prodi', '').strip()
+
+        if is_admin:
+            target_user.role = request.POST.get('role', target_user.role)
+            target_user.kode_fakultas = kode_fakultas
+            target_user.kode_prodi = kode_prodi
+        else:
+            # Non-admin tidak boleh ubah role atau pindahkan dosen keluar
+            # dari scope-nya sendiri (role tetap dosen, fakultas/prodi
+            # tidak dipercaya begitu saja dari POST).
+            if request.user.role in ['kaprodi', 'sekprodi']:
+                target_user.kode_fakultas = request.user.kode_fakultas
+                target_user.kode_prodi = request.user.kode_prodi
+            elif request.user.role in ['dekan', 'wadek']:
+                target_user.kode_fakultas = request.user.kode_fakultas
+                if Prodi.objects.filter(kode_prodi=kode_prodi,
+                                         fakultas__kode_fakultas=request.user.kode_fakultas).exists():
+                    target_user.kode_prodi = kode_prodi
+            else:  # rektorat/biro: scope seluruh kampus
+                target_user.kode_fakultas = kode_fakultas
+                target_user.kode_prodi = kode_prodi
+
         target_user.no_hp = request.POST.get('no_hp', '').strip()
         target_user.status_akun = request.POST.get('status_akun', 'aktif')
 
@@ -320,15 +382,21 @@ def edit_user(request, user_id):
         'target_user': target_user,
         'fakultas_list': fakultas_list,
         'prodi_list': prodi_list,
+        'is_admin': is_admin,
     }
     return render(request, 'accounts/edit_user.html', context)
 
 @login_required
 def hapus_user(request, user_id):
-    if request.user.role != 'admin':
+    is_admin = request.user.role == 'admin'
+    if not is_admin and request.user.role not in ROLE_PENGELOLA_SCOPED:
         return redirect('dashboard:index')
 
     target_user = get_object_or_404(User, id=user_id)
+    if not is_admin and (target_user.role != 'dosen' or not request.user.dapat_kelola(target_user)):
+        messages.error(request, 'Anda tidak memiliki akses untuk mengelola akun ini.')
+        return redirect('accounts:kelola_user')
+
     if target_user == request.user:
         messages.error(request, 'Tidak bisa menghapus akun sendiri.')
     else:

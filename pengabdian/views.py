@@ -65,7 +65,7 @@ def index(request):
 
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
-    bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_edit = user.dapat_kelola(target_user) and input_terbuka
 
     try:
         per_page = int(request.GET.get('per_page', DEFAULT_PER_PAGE))
@@ -152,7 +152,7 @@ def tambah_pengabdian(request):
 @login_required
 def edit_pengabdian(request, id):
     obj = get_object_or_404(Pengabdian, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pengabdian:index')
     if request.method == 'POST':
@@ -185,7 +185,7 @@ def edit_pengabdian(request, id):
 @login_required
 def hapus_pengabdian(request, id):
     obj = get_object_or_404(Pengabdian, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pengabdian:index')
     obj.delete()
@@ -197,9 +197,9 @@ def hapus_pengabdian(request, id):
 def kelola_anggota_pengabdian(request, pengabdian_id):
     pengabdian = get_object_or_404(Pengabdian, id=pengabdian_id)
     user = request.user
-    bisa_edit = (user == pengabdian.user or user.role in ['admin', 'operator']) and cek_status_input()
+    bisa_edit = user.dapat_kelola(pengabdian.user) and cek_status_input()
 
-    if pengabdian.user != user and user.role not in ['admin', 'operator']:
+    if not user.dapat_kelola(pengabdian.user):
         dosen = get_simda_dosen_or_none(user)
         is_co = dosen and pengabdian.anggota_set.filter(jenis_anggota='dosen', dosen_id=dosen.id).exists()
         if not is_co:
@@ -325,7 +325,7 @@ def tambah_pembicara(request):
 @login_required
 def edit_pembicara(request, id):
     obj = get_object_or_404(Pembicara, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pengabdian:index')
     if request.method == 'POST':
@@ -352,7 +352,7 @@ def edit_pembicara(request, id):
 @login_required
 def hapus_pembicara(request, id):
     obj = get_object_or_404(Pembicara, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pengabdian:index')
     obj.delete()
@@ -395,7 +395,7 @@ def tambah_jurnal(request):
 @login_required
 def edit_jurnal(request, id):
     obj = get_object_or_404(PengelolaJurnal, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pengabdian:index')
     if request.method == 'POST':
@@ -417,7 +417,7 @@ def edit_jurnal(request, id):
 @login_required
 def hapus_jurnal(request, id):
     obj = get_object_or_404(PengelolaJurnal, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pengabdian:index')
     obj.delete()
@@ -458,7 +458,7 @@ def tambah_jabatan(request):
 @login_required
 def edit_jabatan(request, id):
     obj = get_object_or_404(JabatanStruktural, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pengabdian:index')
     if request.method == 'POST':
@@ -478,7 +478,7 @@ def edit_jabatan(request, id):
 @login_required
 def hapus_jabatan(request, id):
     obj = get_object_or_404(JabatanStruktural, id=id)
-    if request.user != obj.user and request.user.role not in ['admin', 'operator']:
+    if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('pengabdian:index')
     obj.delete()
