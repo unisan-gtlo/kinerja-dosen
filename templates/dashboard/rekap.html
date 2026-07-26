@@ -508,7 +508,7 @@
             </div>
           </td>
           <td>
-            <div class="d-flex flex-wrap gap-1" style="max-width:80px">
+            <div style="display:grid; grid-template-columns:repeat(2, auto); gap:4px">
               <a href="{% url 'profil:index' %}?dosen_id={{ r.dosen.id }}"
                  class="btn btn-xs btn-outline-primary" title="Profil">
                 <span class="ti ti-user"></span>
