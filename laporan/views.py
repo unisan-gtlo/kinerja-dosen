@@ -10,6 +10,7 @@ from simda_dosen.models import (
 from simda_dosen.utils import get_simda_dosen_or_none, filter_dosen_qs_by_kepegawaian
 from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
 from pengabdian.models import Pengabdian as PKM
+from dashboard.views import REKAP_CATEGORIES
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -965,6 +966,59 @@ def export_pdf_dosen(request, dosen_id):
         ]))
         return t
 
+    # Helper generik untuk 16 kategori kinerja baru (REKAP_CATEGORIES) --
+    # Penelitian/Publikasi/PKM/HKI/BKD tetap pakai kode khusus di bawah
+    # (field lebih kaya: kategori, total dana, dst), sisanya generik supaya
+    # tidak perlu duplikasi ~16x blok tabel yang sama.
+    def kategori_qs(cat):
+        qs = cat['model'].objects.filter(user=target_dosen)
+        if cat['periode_mode'] == 'semester_tahun':
+            if tahun_range:
+                qs = qs.filter(tahun_akademik__in=tahun_range)
+            if filter_semester:
+                qs = qs.filter(semester=filter_semester)
+        return qs.order_by('-id')
+
+    def render_kategori(no_str, cat, qs):
+        elements.append(section_header(f'{no_str}. {cat["label"].upper()}'))
+        elements.append(Spacer(1, 0.2*cm))
+        if qs.exists():
+            if cat['periode_mode'] == 'tahun_mulai':
+                data = [['No', 'Judul/Kegiatan', 'Tahun Mulai']]
+                col_widths = [1*cm, 13*cm, 3*cm]
+            else:
+                data = [['No', 'Judul/Kegiatan', 'Semester', 'Tahun Akademik']]
+                col_widths = [1*cm, 10*cm, 3*cm, 3*cm]
+            for i, obj in enumerate(qs, 1):
+                judul = getattr(obj, cat['judul_field'], '') or '-'
+                if cat['periode_mode'] == 'tahun_mulai':
+                    data.append([str(i), Paragraph(str(judul)[:90], small_style),
+                                 str(getattr(obj, 'tahun_mulai', '') or '-')])
+                else:
+                    data.append([str(i), Paragraph(str(judul)[:90], small_style),
+                                 getattr(obj, 'semester', '') or '-',
+                                 getattr(obj, 'tahun_akademik', '') or '-'])
+            t = Table(data, colWidths=col_widths)
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), header_color),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,-1), 8),
+                ('ALIGN', (0,0), (0,-1), 'CENTER'),
+                ('ALIGN', (0,0), (-1,0), 'CENTER'),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, alt_color]),
+                ('TOPPADDING', (0,0), (-1,-1), 3),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ]))
+            elements.append(t)
+        else:
+            elements.append(Paragraph(f'Tidak ada data {cat["label"].lower()}.', small_style))
+        elements.append(Spacer(1, 0.4*cm))
+
+    kategori_counts = []  # (label_ringkasan, jumlah) -- dipakai di Ringkasan Kinerja
+
     # BKD
     elements.append(section_header('1. BEBAN KERJA DOSEN (BKD)'))
     elements.append(Spacer(1, 0.2*cm))
@@ -989,9 +1043,22 @@ def export_pdf_dosen(request, dosen_id):
     else:
         elements.append(Paragraph('Tidak ada data BKD.', small_style))
     elements.append(Spacer(1, 0.4*cm))
+    kategori_counts.append(('BKD Terupload', bkd_qs.count()))
+
+    # 2-8: PELAKS. PENDIDIKAN (Pengajaran, Bimbingan Mahasiswa, Pengujian
+    # Mahasiswa, Bahan Ajar, Pembinaan Mahasiswa, Orasi Ilmiah, Tugas
+    # Tambahan) -- sebelumnya sama sekali tidak ada di laporan ini.
+    no = 2
+    for cat in REKAP_CATEGORIES:
+        if cat['group'] != 'Pendidikan':
+            continue
+        qs = kategori_qs(cat)
+        render_kategori(str(no), cat, qs)
+        kategori_counts.append((cat['label'], qs.count()))
+        no += 1
 
     # Penelitian
-    elements.append(section_header('2. PENELITIAN'))
+    elements.append(section_header(f'{no}. PENELITIAN'))
     elements.append(Spacer(1, 0.2*cm))
     if penelitian_qs.exists():
         pen_data = [['No', 'Judul Kegiatan', 'Semester', 'Tahun', 'Kategori', 'Total Dana']]
@@ -1022,9 +1089,11 @@ def export_pdf_dosen(request, dosen_id):
     else:
         elements.append(Paragraph('Tidak ada data penelitian.', small_style))
     elements.append(Spacer(1, 0.4*cm))
+    kategori_counts.append(('Penelitian', penelitian_qs.count()))
+    no += 1
 
     # Publikasi
-    elements.append(section_header('3. PUBLIKASI'))
+    elements.append(section_header(f'{no}. PUBLIKASI'))
     elements.append(Spacer(1, 0.2*cm))
     if publikasi_qs.exists():
         pub_data = [['No', 'Judul Artikel', 'Jenis', 'Penerbit/Penyelenggara', 'Tanggal Terbit']]
@@ -1054,9 +1123,45 @@ def export_pdf_dosen(request, dosen_id):
     else:
         elements.append(Paragraph('Tidak ada data publikasi.', small_style))
     elements.append(Spacer(1, 0.4*cm))
+    kategori_counts.append(('Publikasi', publikasi_qs.count()))
+    no += 1
 
-    # PKM
-    elements.append(section_header('4. PENGABDIAN KEPADA MASYARAKAT'))
+    # HKI / Paten
+    elements.append(section_header(f'{no}. PATEN/HAK KEKAYAAN INTELEKTUAL (HKI)'))
+    elements.append(Spacer(1, 0.2*cm))
+    if hki_qs.exists():
+        hki_data = [['No', 'Judul Karya/Kegiatan', 'Jenis', 'Penyelenggara', 'Tanggal']]
+        for i, h in enumerate(hki_qs, 1):
+            hki_data.append([
+                str(i),
+                Paragraph(h.judul_karya[:80], small_style),
+                h.get_jenis_display(),
+                h.penyelenggara or '-',
+                str(h.tanggal)
+            ])
+        t = Table(hki_data, colWidths=[1*cm, 7*cm, 3*cm, 3.5*cm, 2.5*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), header_color),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
+            ('ALIGN', (0,0), (0,-1), 'CENTER'),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, alt_color]),
+            ('TOPPADDING', (0,0), (-1,-1), 3),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ]))
+        elements.append(t)
+    else:
+        elements.append(Paragraph('Tidak ada data HKI.', small_style))
+    elements.append(Spacer(1, 0.4*cm))
+    kategori_counts.append(('Paten/HKI', hki_qs.count()))
+    no += 1
+
+    # Pengabdian
+    elements.append(section_header(f'{no}. PENGABDIAN KEPADA MASYARAKAT'))
     elements.append(Spacer(1, 0.2*cm))
     if pkm_qs.exists():
         pkm_data = [['No', 'Judul Kegiatan', 'Semester', 'Tahun', 'Kategori', 'Total Dana']]
@@ -1087,49 +1192,25 @@ def export_pdf_dosen(request, dosen_id):
     else:
         elements.append(Paragraph('Tidak ada data PKM.', small_style))
     elements.append(Spacer(1, 0.4*cm))
+    kategori_counts.append(('Pengabdian', pkm_qs.count()))
+    no += 1
 
-    # HKI
-    elements.append(section_header('5. HAK KEKAYAAN INTELEKTUAL (HKI)'))
-    elements.append(Spacer(1, 0.2*cm))
-    if hki_qs.exists():
-        hki_data = [['No', 'Judul Karya/Kegiatan', 'Jenis', 'Penyelenggara', 'Tanggal']]
-        for i, h in enumerate(hki_qs, 1):
-            hki_data.append([
-                str(i),
-                Paragraph(h.judul_karya[:80], small_style),
-                h.get_jenis_display(),
-                h.penyelenggara or '-',
-                str(h.tanggal)
-            ])
-        t = Table(hki_data, colWidths=[1*cm, 7*cm, 3*cm, 3.5*cm, 2.5*cm])
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), header_color),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,-1), 8),
-            ('ALIGN', (0,0), (0,-1), 'CENTER'),
-            ('ALIGN', (0,0), (-1,0), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, alt_color]),
-            ('TOPPADDING', (0,0), (-1,-1), 3),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-        ]))
-        elements.append(t)
-    else:
-        elements.append(Paragraph('Tidak ada data HKI.', small_style))
-    elements.append(Spacer(1, 0.4*cm))
+    # Sisa kategori Pelaks. Pengabdian (Pembicara, Pengelola Jurnal,
+    # Jabatan Struktural), lalu Penunjang, lalu Reward -- semua generik.
+    for group in ['Pengabdian', 'Penunjang', 'Reward']:
+        for cat in REKAP_CATEGORIES:
+            if cat['group'] != group:
+                continue
+            qs = kategori_qs(cat)
+            render_kategori(str(no), cat, qs)
+            kategori_counts.append((cat['label'], qs.count()))
+            no += 1
 
     # Ringkasan
     elements.append(section_header('RINGKASAN KINERJA'))
     elements.append(Spacer(1, 0.2*cm))
-    summary_data = [
-        ['Komponen', 'Jumlah'],
-        ['BKD Terupload', str(bkd_qs.count())],
-        ['Penelitian', str(penelitian_qs.count())],
-        ['Publikasi', str(publikasi_qs.count())],
-        ['PKM', str(pkm_qs.count())],
-        ['HKI', str(hki_qs.count())],
+    summary_data = [['Komponen', 'Jumlah']] + [
+        [label, str(jumlah)] for label, jumlah in kategori_counts
     ]
     t = Table(summary_data, colWidths=[10*cm, 7*cm])
     t.setStyle(TableStyle([
