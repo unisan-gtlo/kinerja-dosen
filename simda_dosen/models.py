@@ -18,19 +18,22 @@ from .storage import simda_media_storage
 
 
 def validate_file_size(value):
-    """Sama seperti sdm.models.validate_file_size di SIMDA -- maks 1 MB,
-    supaya konsisten dengan validator di sisi SIMDA."""
-    limit_mb = 1
+    """Sama seperti sdm.models.validate_file_size di SIMDA -- maks 500KB,
+    supaya konsisten dengan validator di sisi SIMDA. Ini berfungsi
+    sebagai safety-net SETELAH compress_uploaded_file() (lihat
+    simda_dosen/file_compress.py) -- harusnya jarang kena, kecuali
+    kompresi gagal mencapai target di kasus ekstrem."""
+    limit_kb = 500
     try:
         ukuran = value.size
     except (FileNotFoundError, OSError):
         # File rujukan sudah tidak ada fisiknya di storage -- jangan sampai
         # full_clean() gagal total dan memblokir simpan field lain yang valid.
         return
-    if ukuran > limit_mb * 1024 * 1024:
+    if ukuran > limit_kb * 1024:
         raise ValidationError(
-            f'Ukuran file maksimal {limit_mb} MB. '
-            f'File Anda: {ukuran / (1024 * 1024):.2f} MB.'
+            f'Ukuran file maksimal {limit_kb} KB. '
+            f'File Anda: {ukuran / 1024:.0f} KB.'
         )
 
 
@@ -67,7 +70,7 @@ class DataDosen(models.Model):
     no_sk_pengangkatan = models.CharField(max_length=100, blank=True)
     tgl_sk_pengangkatan = models.DateField(null=True, blank=True)
     file_sk_pengangkatan = models.FileField(upload_to='dosen/sk_pengangkatan/', null=True, blank=True,
-                                             storage=simda_media_storage)
+                                             validators=[validate_file_size], storage=simda_media_storage)
     is_active = models.BooleanField(default=True)
     tgl_dibuat = models.DateTimeField(auto_now_add=True)
     tgl_diperbarui = models.DateTimeField(auto_now=True)

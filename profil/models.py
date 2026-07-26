@@ -11,8 +11,8 @@ def validate_file(value):
     ext = os.path.splitext(value.name)[1].lower()
     if ext not in ['.pdf', '.jpg', '.jpeg', '.png']:
         raise ValidationError('Hanya file PDF, JPG, dan PNG yang diizinkan.')
-    if value.size > 5 * 1024 * 1024:
-        raise ValidationError('Ukuran file maksimal 5MB.')
+    if value.size > 500 * 1024:
+        raise ValidationError('Ukuran file maksimal 500KB.')
 
 def upload_sertifikat(instance, filename):
     ext = os.path.splitext(filename)[1].lower()

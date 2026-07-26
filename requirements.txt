@@ -48,6 +48,7 @@ pycparser==3.0
 pydeck==0.9.1
 pyparsing==3.3.2
 python-dateutil==2.9.0.post0
+pymupdf==1.28.0
 python-decouple==3.8
 PyYAML==6.0.3
 referencing==0.37.0

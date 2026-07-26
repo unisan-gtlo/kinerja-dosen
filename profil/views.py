@@ -12,6 +12,7 @@ from simda_dosen.utils import (
     get_simda_dosen_or_none, dapat_kelola_nidn,
     resolve_target_user as resolve_target_user_util,
 )
+from simda_dosen.file_compress import compress_uploaded_file
 from kinerja.utils import attach_dokumen_count
 from .models import DokumenLain, Diklat, Sertifikasi, TesKompetensi
 
@@ -126,13 +127,13 @@ def simpan_profil(request):
         profil.status_kepegawaian_id = request.POST.get('status_kepegawaian_id') or None
 
     if 'foto' in request.FILES:
-        profil.foto = request.FILES['foto']
+        profil.foto = compress_uploaded_file(request.FILES['foto'])
     if 'file_ktp' in request.FILES:
-        profil.file_ktp = request.FILES['file_ktp']
+        profil.file_ktp = compress_uploaded_file(request.FILES['file_ktp'])
     if 'file_npwp' in request.FILES:
-        profil.file_npwp = request.FILES['file_npwp']
+        profil.file_npwp = compress_uploaded_file(request.FILES['file_npwp'])
     if 'file_sk_pengangkatan' in request.FILES:
-        profil.file_sk_pengangkatan = request.FILES['file_sk_pengangkatan']
+        profil.file_sk_pengangkatan = compress_uploaded_file(request.FILES['file_sk_pengangkatan'])
 
     profil.save()
     messages.success(request, 'Profil berhasil disimpan ke SIMDA.')
@@ -166,7 +167,7 @@ def tambah_jabfung(request):
         keterangan=request.POST.get('keterangan', '').strip(),
     )
     if 'file_sk' in request.FILES:
-        jabfung.file_sk = request.FILES['file_sk']
+        jabfung.file_sk = compress_uploaded_file(request.FILES['file_sk'])
     jabfung.save()
 
     messages.success(request, 'Riwayat jabatan fungsional berhasil ditambahkan ke SIMDA.')
@@ -212,7 +213,7 @@ def tambah_pangkat(request):
         url_sk=request.POST.get('url_sk', '').strip(),
     )
     if 'file_sk' in request.FILES:
-        pangkat.file_sk = request.FILES['file_sk']
+        pangkat.file_sk = compress_uploaded_file(request.FILES['file_sk'])
     pangkat.save()
 
     messages.success(request, 'Riwayat pangkat/golongan berhasil ditambahkan ke SIMDA.')
@@ -234,7 +235,7 @@ def edit_pangkat(request, pangkat_id):
         pangkat.masa_kerja_bulan = request.POST.get('masa_kerja_bulan') or 0
         pangkat.url_sk = request.POST.get('url_sk', '').strip()
         if 'file_sk' in request.FILES:
-            pangkat.file_sk = request.FILES['file_sk']
+            pangkat.file_sk = compress_uploaded_file(request.FILES['file_sk'])
         pangkat.save()
         messages.success(request, 'Data pangkat/golongan berhasil diupdate.')
     return redirect('profil:index')
@@ -278,9 +279,9 @@ def tambah_pendidikan(request):
         judul_thesis=request.POST.get('judul_thesis', '').strip(),
     )
     if 'file_ijazah' in request.FILES:
-        pend.file_ijazah = request.FILES['file_ijazah']
+        pend.file_ijazah = compress_uploaded_file(request.FILES['file_ijazah'])
     if 'file_transkrip' in request.FILES:
-        pend.file_transkrip = request.FILES['file_transkrip']
+        pend.file_transkrip = compress_uploaded_file(request.FILES['file_transkrip'])
     pend.save()
     messages.success(request, 'Data pendidikan berhasil ditambahkan ke SIMDA.')
     return redirect('profil:index')
@@ -310,7 +311,7 @@ def edit_jabfung(request, jabfung_id):
         jabfung.url_sk = request.POST.get('url_sk', '').strip()
         jabfung.keterangan = request.POST.get('keterangan', '').strip()
         if 'file_sk' in request.FILES:
-            jabfung.file_sk = request.FILES['file_sk']
+            jabfung.file_sk = compress_uploaded_file(request.FILES['file_sk'])
         jabfung.save()
         messages.success(request, 'Data jabatan berhasil diupdate.')
     return redirect('profil:index')
@@ -330,9 +331,9 @@ def edit_pendidikan(request, pend_id):
         pend.tahun_lulus = request.POST.get('tahun_lulus') or None
         pend.no_ijazah = request.POST.get('no_ijazah', '').strip()
         if 'file_ijazah' in request.FILES:
-            pend.file_ijazah = request.FILES['file_ijazah']
+            pend.file_ijazah = compress_uploaded_file(request.FILES['file_ijazah'])
         if 'file_transkrip' in request.FILES:
-            pend.file_transkrip = request.FILES['file_transkrip']
+            pend.file_transkrip = compress_uploaded_file(request.FILES['file_transkrip'])
         pend.save()
         messages.success(request, 'Data pendidikan berhasil diupdate.')
     return redirect('profil:index')
@@ -743,7 +744,7 @@ def tambah_dokumen_lain(request):
         updated_by=request.user.username,
     )
     if 'file_dokumen' in request.FILES:
-        dok.file_dokumen = request.FILES['file_dokumen']
+        dok.file_dokumen = compress_uploaded_file(request.FILES['file_dokumen'])
     dok.save()
     messages.success(request, 'Dokumen berhasil ditambahkan.')
     return redirect('profil:dokumen_index')
@@ -763,7 +764,7 @@ def edit_dokumen_lain(request, id):
         obj.keterangan = request.POST.get('keterangan', '').strip()
         obj.link_dokumen = request.POST.get('link_dokumen', '').strip() or None
         if 'file_dokumen' in request.FILES:
-            obj.file_dokumen = request.FILES['file_dokumen']
+            obj.file_dokumen = compress_uploaded_file(request.FILES['file_dokumen'])
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Dokumen berhasil diupdate.')

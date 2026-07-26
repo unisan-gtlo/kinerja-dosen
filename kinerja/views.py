@@ -5,6 +5,7 @@ from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import RiwayatBKD, TahunAkademikPublik
 from simda_dosen.utils import get_simda_dosen_or_none, dapat_kelola_nidn, resolve_target_user
+from simda_dosen.file_compress import compress_uploaded_file
 from profil.models import Diklat, Sertifikasi, TesKompetensi
 from pendidikan.models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
@@ -96,7 +97,7 @@ def tambah_bkd(request):
         keterangan=request.POST.get('keterangan', '').strip(),
     )
     if 'file_bkd' in request.FILES:
-        bkd.file_bkd = request.FILES['file_bkd']
+        bkd.file_bkd = compress_uploaded_file(request.FILES['file_bkd'])
     bkd.save()
     messages.success(request, 'BKD berhasil disimpan ke SIMDA.')
     return redirect('kinerja:bkd_index')
@@ -120,8 +121,8 @@ def validate_dokumen(file):
     ext = os.path.splitext(file.name)[1].lower()
     if ext not in ['.pdf', '.jpg', '.jpeg', '.png']:
         raise ValidationError('Hanya PDF, JPG, PNG yang diizinkan.')
-    if file.size > 5 * 1024 * 1024:
-        raise ValidationError('Ukuran file maksimal 5MB.')
+    if file.size > 500 * 1024:
+        raise ValidationError('Ukuran file maksimal 500KB.')
 
 
 PENDIDIKAN_JENIS = {
@@ -263,7 +264,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
                     updated_by=user.username
                 )
                 if 'file_dokumen' in request.FILES:
-                    file = request.FILES['file_dokumen']
+                    file = compress_uploaded_file(request.FILES['file_dokumen'])
                     try:
                         validate_dokumen(file)
                         dok.file_dokumen = file
@@ -290,7 +291,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
                 dok.link_dokumen = request.POST.get('link_dokumen', '').strip() or None
                 dok.updated_by = user.username
                 if 'file_dokumen' in request.FILES:
-                    file = request.FILES['file_dokumen']
+                    file = compress_uploaded_file(request.FILES['file_dokumen'])
                     try:
                         validate_dokumen(file)
                         dok.file_dokumen = file
@@ -376,7 +377,7 @@ def edit_bkd(request, id):
         obj.link_bkd = request.POST.get('link_bkd', '').strip() or None
         obj.keterangan = request.POST.get('keterangan', '').strip()
         if 'file_bkd' in request.FILES:
-            obj.file_bkd = request.FILES['file_bkd']
+            obj.file_bkd = compress_uploaded_file(request.FILES['file_bkd'])
         # Hanya admin/kaprodi/sekprodi/dekan/wadek/rektorat yang boleh sahkan BKD --
         # dosen pemilik record tidak bisa mengesahkan BKD-nya sendiri.
         if request.user.role in RiwayatBKD.ROLE_BOLEH_SAHKAN:
