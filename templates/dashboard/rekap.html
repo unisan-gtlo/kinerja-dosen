@@ -193,6 +193,53 @@
                class="btn btn-outline-secondary btn-sm">Reset</a>
           </div>
         </div>
+        <div class="row g-2 mt-1">
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Cari Nama</label>
+            <input type="text" name="nama" class="form-control form-select-sm"
+                   placeholder="Nama / username / NIDN" value="{{ filter_nama }}">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted">Pendidikan</label>
+            <select name="pendidikan" class="form-select form-select-sm">
+              <option value="">Semua</option>
+              <option value="S1" {% if filter_pendidikan == 'S1' %}selected{% endif %}>S1</option>
+              <option value="S2" {% if filter_pendidikan == 'S2' %}selected{% endif %}>S2</option>
+              <option value="S3" {% if filter_pendidikan == 'S3' %}selected{% endif %}>S3</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted">Golongan</label>
+            <select name="golongan" class="form-select form-select-sm">
+              <option value="">Semua</option>
+              {% for g in golongan_ref_list %}
+              <option value="{{ g.id }}" {% if filter_golongan == g.id|stringformat:'s' %}selected{% endif %}>
+                {{ g.kode }} ({{ g.pangkat }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted">Jabatan Fungsional</label>
+            <select name="jabfung" class="form-select form-select-sm">
+              <option value="">Semua</option>
+              {% for jf in jabfung_ref_list %}
+              <option value="{{ jf.id }}" {% if filter_jabfung == jf.id|stringformat:'s' %}selected{% endif %}>
+                {{ jf.nama }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Sertifikasi</label>
+            <select name="sertifikasi" class="form-select form-select-sm">
+              <option value="">Semua</option>
+              {% for kode, label in sertifikasi_jenis_choices %}
+              <option value="{{ kode }}" {% if filter_sertifikasi == kode %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
       </div>
 
       <!-- Info Filter Aktif -->
@@ -231,7 +278,7 @@
 <!-- Stat Cards -->
 <div class="row g-2 mb-3">
   <div class="col-6 col-md-2">
-    <a href="?tab=dosen&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&per_halaman={{ per_halaman }}"
+    <a href="?tab=dosen&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&nama={{ filter_nama }}&pendidikan={{ filter_pendidikan }}&golongan={{ filter_golongan }}&jabfung={{ filter_jabfung }}&sertifikasi={{ filter_sertifikasi }}&per_halaman={{ per_halaman }}"
        class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'dosen' %}border-primary border-2{% endif %}">
       <div class="card-body text-center py-2">
         <div class="fw-bold text-primary" style="font-size:22px">{{ total_dosen }}</div>
@@ -240,7 +287,7 @@
     </a>
   </div>
   <div class="col-6 col-md-2">
-    <a href="?tab=penelitian&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&per_halaman={{ per_halaman }}"
+    <a href="?tab=penelitian&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&nama={{ filter_nama }}&pendidikan={{ filter_pendidikan }}&golongan={{ filter_golongan }}&jabfung={{ filter_jabfung }}&sertifikasi={{ filter_sertifikasi }}&per_halaman={{ per_halaman }}"
        class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'penelitian' %}border-danger border-2{% endif %}">
       <div class="card-body text-center py-2">
         <div class="fw-bold text-danger" style="font-size:22px">{{ total_penelitian }}</div>
@@ -249,7 +296,7 @@
     </a>
   </div>
   <div class="col-6 col-md-2">
-    <a href="?tab=publikasi&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&per_halaman={{ per_halaman }}"
+    <a href="?tab=publikasi&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&nama={{ filter_nama }}&pendidikan={{ filter_pendidikan }}&golongan={{ filter_golongan }}&jabfung={{ filter_jabfung }}&sertifikasi={{ filter_sertifikasi }}&per_halaman={{ per_halaman }}"
        class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'publikasi' %}border-info border-2{% endif %}">
       <div class="card-body text-center py-2">
         <div class="fw-bold text-info" style="font-size:22px">{{ total_publikasi }}</div>
@@ -258,7 +305,7 @@
     </a>
   </div>
   <div class="col-6 col-md-2">
-    <a href="?tab=pkm&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&per_halaman={{ per_halaman }}"
+    <a href="?tab=pkm&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&nama={{ filter_nama }}&pendidikan={{ filter_pendidikan }}&golongan={{ filter_golongan }}&jabfung={{ filter_jabfung }}&sertifikasi={{ filter_sertifikasi }}&per_halaman={{ per_halaman }}"
        class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'pkm' %}border-warning border-2{% endif %}">
       <div class="card-body text-center py-2">
         <div class="fw-bold text-warning" style="font-size:22px">{{ total_pkm }}</div>
@@ -267,7 +314,7 @@
     </a>
   </div>
   <div class="col-6 col-md-2">
-    <a href="?tab=hki&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&per_halaman={{ per_halaman }}"
+    <a href="?tab=hki&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&nama={{ filter_nama }}&pendidikan={{ filter_pendidikan }}&golongan={{ filter_golongan }}&jabfung={{ filter_jabfung }}&sertifikasi={{ filter_sertifikasi }}&per_halaman={{ per_halaman }}"
        class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'hki' %}border-success border-2{% endif %}">
       <div class="card-body text-center py-2">
         <div class="fw-bold text-success" style="font-size:22px">{{ total_hki }}</div>
@@ -276,7 +323,7 @@
     </a>
   </div>
   <div class="col-6 col-md-2">
-    <a href="?tab=bkd&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&per_halaman={{ per_halaman }}"
+    <a href="?tab=bkd&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&nama={{ filter_nama }}&pendidikan={{ filter_pendidikan }}&golongan={{ filter_golongan }}&jabfung={{ filter_jabfung }}&sertifikasi={{ filter_sertifikasi }}&per_halaman={{ per_halaman }}"
        class="card border-0 shadow-sm text-decoration-none {% if active_tab == 'bkd' %}border-secondary border-2{% endif %}">
       <div class="card-body text-center py-2">
         <div class="fw-bold text-secondary" style="font-size:22px">{{ total_bkd }}</div>
@@ -294,7 +341,7 @@
           {% for grp in category_groups %}
           <optgroup label="{{ grp.grouper }}">
             {% for c in grp.list %}
-            <option value="?tab={{ c.key }}&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&per_halaman={{ per_halaman }}"
+            <option value="?tab={{ c.key }}&mode_filter={{ mode_filter }}&tahun={{ filter_tahun }}&tahun_awal={{ filter_tahun_awal }}&tahun_akhir={{ filter_tahun_akhir }}&semester={{ filter_semester }}&prodi={{ filter_prodi }}&fakultas={{ filter_fakultas }}&jenis_kepegawaian={{ filter_jenis_kepegawaian }}&status_kepegawaian={{ filter_status_kepegawaian }}&nama={{ filter_nama }}&pendidikan={{ filter_pendidikan }}&golongan={{ filter_golongan }}&jabfung={{ filter_jabfung }}&sertifikasi={{ filter_sertifikasi }}&per_halaman={{ per_halaman }}"
               {% if active_tab == c.key %}selected{% endif %}>{{ c.label }}</option>
             {% endfor %}
           </optgroup>
@@ -367,7 +414,9 @@
           <th>NIDN</th>
           <th>Prodi</th>
           <th>Jabfung</th>
+          <th>Golongan</th>
           <th>Pend.</th>
+          <th class="text-center">Serdos</th>
           <th>Status Keaktifan</th>
           <th>Status Kepegawaian</th>
           <th class="text-center">BKD</th>
@@ -383,11 +432,21 @@
         {% for r in rekap_data %}
         <tr>
           <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
-          <td><strong>{{ r.dosen.get_full_name|default:r.dosen.username }}</strong></td>
+          <td><strong>{{ r.nama_dosen }}</strong></td>
           <td><code>{{ r.dosen.nidn|default:"-" }}</code></td>
           <td><span class="badge bg-teal-lt text-teal">{{ r.dosen.kode_prodi|default:"-" }}</span></td>
           <td style="font-size:12px">{{ r.jabfung }}</td>
+          <td style="font-size:12px">{{ r.golongan }}</td>
           <td><span class="badge bg-purple-lt text-purple">{{ r.pendidikan }}</span></td>
+          <td class="text-center">
+            {% if r.has_serdos %}
+            <span class="badge bg-success-lt text-success" title="Sudah Sertifikasi Dosen">
+              <span class="ti ti-certificate"></span>
+            </span>
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </td>
           <td>
             {% if r.status_kepegawaian == 'Aktif' or not r.status_kepegawaian %}
             <span class="badge bg-success-lt text-success">Aktif</span>
@@ -447,6 +506,14 @@
                  class="btn btn-xs btn-outline-danger" title="PDF">
                 <span class="ti ti-file-type-pdf"></span>
               </a>
+              <a href="{% url 'kinerja:bkd_index' %}?dosen_id={{ r.dosen.id }}"
+                 class="btn btn-xs btn-outline-warning" title="Laporan BKD">
+                <span class="ti ti-file-description"></span>
+              </a>
+              <a href="{% url 'profil:dokumen_index' %}?dosen_id={{ r.dosen.id }}"
+                 class="btn btn-xs btn-outline-info" title="Data Dokumen">
+                <span class="ti ti-file-text"></span>
+              </a>
               {% if r.id_sinta or r.id_scopus or r.id_google_scholar or r.orcid or r.id_garuda %}
               <div class="dropdown">
                 <button class="btn btn-xs btn-outline-secondary dropdown-toggle" type="button"
@@ -476,7 +543,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="14" class="text-center text-muted py-4">Belum ada data dosen</td></tr>
+        <tr><td colspan="16" class="text-center text-muted py-4">Belum ada data dosen</td></tr>
         {% endfor %}
       </tbody>
     </table>

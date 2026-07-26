@@ -1,10 +1,11 @@
+from django.db.models import Q
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from accounts.models import User
 from master.models import Fakultas, Prodi, TahunAkademik, Pengaturan
 from simda_dosen.models import (
-    DataDosen, RiwayatBKD, JabatanFungsionalPublik, JenisKepegawaianPublik,
-    StatusKepegawaianPublik,
+    DataDosen, RiwayatBKD, RiwayatPangkatGolongan, JabatanFungsionalPublik,
+    GolonganPublik, JenisKepegawaianPublik, StatusKepegawaianPublik,
 )
 from simda_dosen.utils import get_simda_dosen_or_none, filter_dosen_qs_by_kepegawaian
 from kinerja.models import DokumenKinerja
@@ -16,6 +17,7 @@ from pendidikan.models import (
 )
 from penunjang.models import AnggotaProfesi, Penghargaan, PenunjangLain
 from reward.models import Beasiswa, Kesejahteraan, Tunjangan
+from profil.models import Sertifikasi
 
 
 # Kategori "long-tail" untuk tab generik di Rekap admin -- Penelitian/
@@ -281,6 +283,11 @@ def rekap(request):
     filter_fakultas = request.GET.get('fakultas', '')
     filter_jenis_kepegawaian = request.GET.get('jenis_kepegawaian', '')
     filter_status_kepegawaian = request.GET.get('status_kepegawaian', '')
+    filter_nama = request.GET.get('nama', '').strip()
+    filter_pendidikan = request.GET.get('pendidikan', '')
+    filter_golongan = request.GET.get('golongan', '')
+    filter_jabfung = request.GET.get('jabfung', '')
+    filter_sertifikasi = request.GET.get('sertifikasi', '')
     active_tab = request.GET.get('tab', 'dosen')
     mode_filter = request.GET.get('mode_filter', 'tunggal')
 
@@ -366,6 +373,39 @@ def rekap(request):
             dosen_qs, filter_jenis_kepegawaian, filter_status_kepegawaian
         )
 
+    if filter_nama:
+        nidn_by_nama = list(DataDosen.objects.using('simda').filter(
+            nama_lengkap__icontains=filter_nama
+        ).values_list('nidn', flat=True))
+        dosen_qs = dosen_qs.filter(
+            Q(first_name__icontains=filter_nama) | Q(last_name__icontains=filter_nama) |
+            Q(username__icontains=filter_nama) | Q(nidn__in=nidn_by_nama)
+        )
+
+    if filter_pendidikan:
+        nidn_list = list(DataDosen.objects.using('simda').filter(
+            pendidikan_terakhir=filter_pendidikan
+        ).values_list('nidn', flat=True))
+        dosen_qs = dosen_qs.filter(nidn__in=nidn_list)
+
+    if filter_golongan:
+        nidn_list = list(RiwayatPangkatGolongan.objects.using('simda').filter(
+            golongan_id=filter_golongan
+        ).values_list('dosen__nidn', flat=True))
+        dosen_qs = dosen_qs.filter(nidn__in=nidn_list)
+
+    if filter_jabfung:
+        nidn_list = list(DataDosen.objects.using('simda').filter(
+            jabatan_fungsional_id=filter_jabfung
+        ).values_list('nidn', flat=True))
+        dosen_qs = dosen_qs.filter(nidn__in=nidn_list)
+
+    if filter_sertifikasi:
+        user_ids = Sertifikasi.objects.filter(
+            jenis_sertifikasi=filter_sertifikasi
+        ).values_list('user_id', flat=True)
+        dosen_qs = dosen_qs.filter(id__in=user_ids)
+
     if tahun_range:
         penelitian_qs = penelitian_qs.filter(tahun_akademik__in=tahun_range)
         publikasi_qs = publikasi_qs.filter(tahun_akademik__in=tahun_range)
@@ -398,6 +438,11 @@ def rekap(request):
         '-periode__tahun_akademik', 'dosen__nama_lengkap'
     )
 
+    # Serdos -- diambil sekali di luar loop supaya tidak N+1 query per dosen.
+    serdos_user_ids = set(Sertifikasi.objects.filter(
+        user__in=dosen_qs, jenis_sertifikasi='serdos'
+    ).values_list('user_id', flat=True))
+
     # Rekap per dosen
     rekap_data = []
     for dosen in dosen_qs:
@@ -406,10 +451,17 @@ def rekap(request):
             kelengkapan = profil.persentase_kelengkapan
             jabfung = profil.jabatan_fungsional_nama or '-'
             pendidikan = profil.pendidikan_terakhir or '-'
+            # Nama lengkap + gelar dari SIMDA (master) -- bukan first_name/
+            # last_name User SIKD yang sering belum diisi lengkap/tanpa gelar.
+            nama_dosen = profil.nama_lengkap_gelar
+            pangkat_terakhir = profil.riwayat_pangkat_golongan.first()
+            golongan = pangkat_terakhir.golongan_display if pangkat_terakhir else '-'
         else:
             kelengkapan = 0
             jabfung = '-'
             pendidikan = '-'
+            nama_dosen = dosen.get_full_name() or dosen.username
+            golongan = '-'
 
         d_penelitian = penelitian_qs.filter(user=dosen)
         d_publikasi = publikasi_qs.filter(user=dosen)
@@ -419,8 +471,11 @@ def rekap(request):
 
         rekap_data.append({
             'dosen': dosen,
+            'nama_dosen': nama_dosen,
             'jabfung': jabfung,
             'pendidikan': pendidikan,
+            'golongan': golongan,
+            'has_serdos': dosen.id in serdos_user_ids,
             'kelengkapan': kelengkapan,
             'jenis_kepegawaian': profil.jenis_kepegawaian_nama if profil else '',
             'status_kepegawaian': profil.status_kepegawaian_nama if profil else '',
@@ -508,8 +563,16 @@ def rekap(request):
         'filter_fakultas': filter_fakultas,
         'filter_jenis_kepegawaian': filter_jenis_kepegawaian,
         'filter_status_kepegawaian': filter_status_kepegawaian,
+        'filter_nama': filter_nama,
+        'filter_pendidikan': filter_pendidikan,
+        'filter_golongan': filter_golongan,
+        'filter_jabfung': filter_jabfung,
+        'filter_sertifikasi': filter_sertifikasi,
         'jenis_kepegawaian_ref_list': JenisKepegawaianPublik.objects.using('simda').all(),
         'status_kepegawaian_ref_list': StatusKepegawaianPublik.objects.using('simda').all(),
+        'golongan_ref_list': GolonganPublik.objects.using('simda').all(),
+        'jabfung_ref_list': JabatanFungsionalPublik.objects.using('simda').all(),
+        'sertifikasi_jenis_choices': Sertifikasi.JENIS_SERTIFIKASI,
         'total_dosen': len(rekap_data),
         'total_penelitian': penelitian_qs.count(),
         'total_publikasi': publikasi_qs.count(),

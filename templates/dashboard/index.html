@@ -64,11 +64,11 @@
       <div>
         <div class="mb-2" style="font-size:13px; opacity:0.8">
           <span class="ti ti-calendar me-1"></span>
-          {{ request.user.get_full_name|default:request.user.username }} &mdash;
+          {{ profil.nama_lengkap_gelar|default:request.user.get_full_name|default:request.user.username }} &mdash;
           {% now "j F Y" %}
         </div>
         <h2 style="color:#ffffff !important; font-size:25px; font-weight:700; margin-bottom:4px; text-shadow: 1px 1px 3px rgba(0,0,0,0.3);">
-          Selamat Datang, {{ request.user.get_full_name|default:request.user.username }}!
+          Selamat Datang, {{ profil.nama_lengkap_gelar|default:request.user.get_full_name|default:request.user.username }}!
         </h2>
         <p style="color:rgba(255,255,255,0.8); font-size:14px; margin-bottom:16px">
           Sistem Informasi Kinerja Dosen — Universitas Ichsan Gorontalo
@@ -174,7 +174,7 @@
         {% endif %}
         <div>
           <div style="color:#ffffff !important; font-weight:600; font-size:16px">
-            {{ request.user.get_full_name|default:request.user.username }}
+            {{ profil.nama_lengkap_gelar|default:request.user.get_full_name|default:request.user.username }}
           </div>
           <div style="color:rgba(255,255,255,0.7) !important; font-size:12px">
             {{ nama_prodi|default:request.user.kode_prodi|default:"Prodi belum diset" }}
@@ -332,7 +332,7 @@
     <div class="d-flex justify-content-between align-items-center">
       <div>
         <h3 style="color:white !important; margin:0; font-weight:700">
-          Selamat Datang, {{ request.user.get_full_name|default:request.user.username }}!
+          Selamat Datang, {{ profil.nama_lengkap_gelar|default:request.user.get_full_name|default:request.user.username }}!
         </h3>
         <p style="color:rgba(255,255,255,0.75) !important; margin:0; font-size:13px">
           Sistem Informasi Kinerja Dosen — Universitas Ichsan Gorontalo
