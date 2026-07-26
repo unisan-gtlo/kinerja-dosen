@@ -3,8 +3,11 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from accounts.models import User
 from master.models import Fakultas, Prodi, TahunAkademik, Pengaturan
-from simda_dosen.models import DataDosen, RiwayatBKD, JabatanFungsionalPublik
-from simda_dosen.utils import get_simda_dosen_or_none
+from simda_dosen.models import (
+    DataDosen, RiwayatBKD, JabatanFungsionalPublik, JenisKepegawaianPublik,
+    StatusKepegawaianPublik,
+)
+from simda_dosen.utils import get_simda_dosen_or_none, filter_dosen_qs_by_kepegawaian
 from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
 from pengabdian.models import Pengabdian as PKM
 import openpyxl
@@ -33,6 +36,8 @@ def index(request):
         'fakultas_list': fakultas_list,
         'prodi_list': prodi_list,
         'pengaturan': pengaturan,
+        'jenis_kepegawaian_ref_list': JenisKepegawaianPublik.objects.using('simda').all(),
+        'status_kepegawaian_ref_list': StatusKepegawaianPublik.objects.using('simda').all(),
     }
     return render(request, 'laporan/index.html', context)
 
@@ -40,7 +45,7 @@ def index(request):
 # HELPER FUNCTIONS
 # ============================================================
 
-def get_dosen_queryset(user, filter_prodi='', filter_fakultas='', filter_status=''):
+def get_dosen_queryset(user, filter_prodi='', filter_fakultas='', filter_status='', filter_jenis=''):
     """Ambil queryset dosen berdasarkan role dan filter"""
     if user.role in ['admin', 'rektorat', 'biro']:
         qs = User.objects.filter(role='dosen')
@@ -55,8 +60,8 @@ def get_dosen_queryset(user, filter_prodi='', filter_fakultas='', filter_status=
         qs = qs.filter(kode_prodi=filter_prodi)
     if filter_fakultas:
         qs = qs.filter(kode_fakultas=filter_fakultas)
-    if filter_status:
-        qs = qs.filter(status_kepegawaian=filter_status)
+    if filter_jenis or filter_status:
+        qs = filter_dosen_qs_by_kepegawaian(qs, filter_jenis, filter_status)
 
     return qs.order_by('kode_fakultas', 'kode_prodi', 'first_name')
 
@@ -95,8 +100,9 @@ def export_excel_rekap(request):
     filter_prodi = request.GET.get('prodi', '')
     filter_fakultas = request.GET.get('fakultas', '')
     filter_status = request.GET.get('status_kepegawaian', '')
+    filter_jenis = request.GET.get('jenis_kepegawaian', '')
 
-    dosen_qs = get_dosen_queryset(request.user, filter_prodi, filter_fakultas, filter_status)
+    dosen_qs = get_dosen_queryset(request.user, filter_prodi, filter_fakultas, filter_status, filter_jenis)
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -193,7 +199,7 @@ def export_excel_rekap(request):
             dosen.kode_prodi or '-',
             jabfung,
             pendidikan,
-            dosen.status_kepegawaian or 'Aktif',
+            profil.status_kepegawaian_nama if profil else '-',
             bkd_qs.count(),
             penelitian_qs.count(),
             publikasi_qs.count(),
@@ -492,8 +498,9 @@ def export_pdf_rekap(request):
     filter_prodi = request.GET.get('prodi', '')
     filter_fakultas = request.GET.get('fakultas', '')
     filter_status = request.GET.get('status_kepegawaian', '')
+    filter_jenis = request.GET.get('jenis_kepegawaian', '')
 
-    dosen_qs = get_dosen_queryset(request.user, filter_prodi, filter_fakultas, filter_status)
+    dosen_qs = get_dosen_queryset(request.user, filter_prodi, filter_fakultas, filter_status, filter_jenis)
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -575,7 +582,7 @@ def export_pdf_rekap(request):
             dosen.kode_prodi or '-',
             jabfung,
             pendidikan,
-            dosen.status_kepegawaian or 'Aktif',
+            profil.status_kepegawaian_nama if profil else '-',
             str(bkd_qs.count()),
             str(penelitian_qs.count()),
             str(publikasi_qs.count()),
@@ -918,7 +925,7 @@ def export_pdf_dosen(request, dosen_id):
     jabfung_aktif = profil.jabatan_fungsional_nama if profil else '-'
     pendidikan = profil.pendidikan_terakhir if profil else '-'
     bidang = '-'
-    status_kpg = target_dosen.status_kepegawaian or 'Aktif'
+    status_kpg = profil.status_kepegawaian_nama if profil else '-'
 
     identitas_data = [
         ['DATA IDENTITAS DOSEN', '', '', ''],
@@ -1476,12 +1483,24 @@ def export_excel_statistik_profil(request):
             user__in=dosen_qs, jenis_sertifikasi='serdos'
         ).values('user').distinct().count()
 
-        # Status kepegawaian
-        aktif = dosen_qs.filter(status_kepegawaian='Aktif').count()
-        tb = dosen_qs.filter(status_kepegawaian='Tugas Belajar').count()
-        ls = dosen_qs.filter(status_kepegawaian='Lanjut Studi').count()
-        keluar = dosen_qs.filter(status_kepegawaian='Keluar').count()
-        meninggal = dosen_qs.filter(status_kepegawaian='Meninggal').count()
+        # Status keaktifan -- sumbernya DataDosen SIMDA, cocokkan lewat nidn
+        status_ref = {
+            s.kode: s.id for s in StatusKepegawaianPublik.objects.using('simda').all()
+        }
+
+        def count_status(kode):
+            status_id = status_ref.get(kode)
+            if not status_id:
+                return 0
+            return DataDosen.objects.using('simda').filter(
+                nidn__in=nidn_list, status_kepegawaian_id=status_id
+            ).count()
+
+        aktif = count_status('AKTIF')
+        tb = count_status('TUGAS_BELAJAR')
+        ls = count_status('IZIN_BELAJAR')
+        keluar = count_status('MUTASI')
+        meninggal = count_status('WAFAT')
 
         return {
             'total': total,

@@ -156,6 +156,22 @@ class DataDosen(models.Model):
         return bk.nama if bk else ''
 
     @property
+    def jenis_kepegawaian_nama(self):
+        if not self.jenis_kepegawaian_id:
+            return ''
+        jk = JenisKepegawaianPublik.objects.using('simda').filter(
+            id=self.jenis_kepegawaian_id).first()
+        return jk.nama if jk else ''
+
+    @property
+    def status_kepegawaian_nama(self):
+        if not self.status_kepegawaian_id:
+            return ''
+        sk = StatusKepegawaianPublik.objects.using('simda').filter(
+            id=self.status_kepegawaian_id).first()
+        return sk.nama if sk else ''
+
+    @property
     def persentase_kelengkapan(self):
         """Kelengkapan profil berdasarkan field yang ada di SIMDA (beda
         definisi dari versi lama SIKD yang mengecek jabfung_aktif/
@@ -392,6 +408,49 @@ class BidangKeahlianPublik(models.Model):
         verbose_name = 'Bidang Keahlian (SIMDA)'
         verbose_name_plural = 'Bidang Keahlian (SIMDA)'
         ordering = ['nama']
+
+    def __str__(self):
+        return self.nama
+
+
+class JenisKepegawaianPublik(models.Model):
+    """Read-only, sumbernya master.v_jenis_kepegawaian_publik (view SIMDA).
+    Dipakai untuk dropdown Status Kepegawaian (tipe: Tetap Yayasan/
+    Kontrak/Paruh Waktu/Tidak Tetap) -- id-nya dipakai sebagai
+    DataDosen.jenis_kepegawaian_id."""
+    id = models.IntegerField(primary_key=True)
+    kode = models.CharField(max_length=20)
+    nama = models.CharField(max_length=100)
+    urutan = models.IntegerField()
+
+    class Meta:
+        managed = False
+        db_table = 'master"."v_jenis_kepegawaian_publik'
+        verbose_name = 'Jenis Kepegawaian (SIMDA)'
+        verbose_name_plural = 'Jenis Kepegawaian (SIMDA)'
+        ordering = ['urutan']
+
+    def __str__(self):
+        return self.nama
+
+
+class StatusKepegawaianPublik(models.Model):
+    """Read-only, sumbernya master.v_status_kepegawaian_publik (view
+    SIMDA). Dipakai untuk dropdown Status Keaktifan (Aktif/Izin Belajar/
+    Tugas Belajar/Mutasi/Wafat) -- id-nya dipakai sebagai
+    DataDosen.status_kepegawaian_id. Sejak sesi ini menggantikan field
+    lama accounts.User.status_kepegawaian (lihat migrasi data terkait)."""
+    id = models.IntegerField(primary_key=True)
+    kode = models.CharField(max_length=20)
+    nama = models.CharField(max_length=50)
+    urutan = models.IntegerField()
+
+    class Meta:
+        managed = False
+        db_table = 'master"."v_status_kepegawaian_publik'
+        verbose_name = 'Status Keaktifan (SIMDA)'
+        verbose_name_plural = 'Status Keaktifan (SIMDA)'
+        ordering = ['urutan']
 
     def __str__(self):
         return self.nama

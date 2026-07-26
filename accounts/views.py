@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password
 from master.models import Fakultas, Prodi
+from simda_dosen.utils import attach_kepegawaian_labels
 from .models import User
 import openpyxl
 from django.http import HttpResponse
@@ -226,7 +227,7 @@ def kelola_user(request):
     page_obj = paginator.get_page(page_number)
 
     context = {
-        'users': page_obj,
+        'users': attach_kepegawaian_labels(page_obj),
         'page_obj': page_obj,
         'fakultas_list': fakultas_list,
         'prodi_list': prodi_list,
@@ -258,7 +259,6 @@ def tambah_user(request):
         kode_fakultas = request.POST.get('kode_fakultas', '').strip()
         kode_prodi = request.POST.get('kode_prodi', '').strip()
         no_hp = request.POST.get('no_hp', '').strip()
-        status_kepegawaian = request.POST.get('status_kepegawaian', 'Aktif')
         password = request.POST.get('password', '').strip()
 
         if not username or not password or not first_name:
@@ -276,7 +276,6 @@ def tambah_user(request):
                 kode_fakultas=kode_fakultas,
                 kode_prodi=kode_prodi,
                 no_hp=no_hp,
-                status_kepegawaian=status_kepegawaian,
                 password=make_password(password),
                 status_akun='aktif'
             )
@@ -378,8 +377,7 @@ def import_user(request):
                     role = str(row[6]).strip().lower() if row[6] else 'dosen'
                     kode_fakultas = str(row[7]).strip().upper() if row[7] else ''
                     kode_prodi = str(row[8]).strip().upper() if row[8] else ''
-                    status_kepegawaian = str(row[9]).strip() if row[9] else 'Aktif'
-                    password = str(row[10]).strip() if row[10] else 'unichsan123'
+                    password = str(row[9]).strip() if row[9] else 'unichsan123'
 
                     if not username:
                         error_list.append(f'Baris {row_num}: Username kosong')
@@ -407,7 +405,6 @@ def import_user(request):
                         role=role,
                         kode_fakultas=kode_fakultas,
                         kode_prodi=kode_prodi,
-                        status_kepegawaian=status_kepegawaian,
                         status_akun='aktif',
                         password=make_password(password),
                     )
@@ -451,7 +448,7 @@ def download_template(request):
     info_font = Font(italic=True, size=10, color='555555')
 
     # Judul
-    ws.merge_cells('A1:K1')
+    ws.merge_cells('A1:J1')
     ws['A1'] = 'TEMPLATE IMPORT DATA PENGGUNA - SIKD UNIVERSITAS ICHSAN GORONTALO'
     ws['A1'].font = Font(bold=True, size=13, color='1e3a5f')
     ws['A1'].alignment = center
@@ -461,7 +458,7 @@ def download_template(request):
     headers = [
         'Username *', 'NIDN', 'Nama Depan *', 'Nama Belakang',
         'Email', 'No. HP', 'Role *', 'Kode Fakultas',
-        'Kode Prodi', 'Status Kepegawaian', 'Password *'
+        'Kode Prodi', 'Password *'
     ]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=2, column=col, value=header)
@@ -474,11 +471,11 @@ def download_template(request):
     # Contoh data
     contoh = [
         ['dosen001', '0123456789', 'Ahmad', 'Fauzi', 'ahmad@unichsan.ac.id',
-         '081234567890', 'dosen', 'FK', 'T31', 'Aktif', 'unichsan123'],
+         '081234567890', 'dosen', 'FK', 'T31', 'unichsan123'],
         ['dosen002', '9876543210', 'Siti', 'Rahayu', 'siti@unichsan.ac.id',
-         '082345678901', 'dosen', 'FE', 'E21', 'Aktif', 'unichsan123'],
+         '082345678901', 'dosen', 'FE', 'E21', 'unichsan123'],
         ['kaprodi001', '1122334455', 'Budi', 'Santoso', 'budi@unichsan.ac.id',
-         '083456789012', 'kaprodi', 'FH', 'H11', 'Aktif', 'unichsan123'],
+         '083456789012', 'kaprodi', 'FH', 'H11', 'unichsan123'],
     ]
 
     example_fill = PatternFill(start_color='E8F5E9', end_color='E8F5E9', fill_type='solid')
@@ -492,7 +489,7 @@ def download_template(request):
 
     # Baris kosong untuk input data (10 baris)
     for row_idx in range(6, 16):
-        for col_idx in range(1, 12):
+        for col_idx in range(1, 11):
             cell = ws.cell(row=row_idx, column=col_idx, value='')
             cell.border = thin
             cell.alignment = center
@@ -500,23 +497,23 @@ def download_template(request):
 
     # Keterangan
     keterangan_row = 17
-    ws.merge_cells(f'A{keterangan_row}:K{keterangan_row}')
+    ws.merge_cells(f'A{keterangan_row}:J{keterangan_row}')
     ws[f'A{keterangan_row}'] = 'KETERANGAN:'
     ws[f'A{keterangan_row}'].font = Font(bold=True, size=10)
 
     keterangans = [
-        ('A', f'A{keterangan_row+1}:K{keterangan_row+1}',
+        ('A', f'A{keterangan_row+1}:J{keterangan_row+1}',
          '* = Wajib diisi. Baris hijau adalah contoh data — hapus sebelum import.'),
-        ('B', f'A{keterangan_row+2}:K{keterangan_row+2}',
+        ('B', f'A{keterangan_row+2}:J{keterangan_row+2}',
          'Role yang valid: admin, rektorat, biro, dekan, wadek, kaprodi, sekprodi, operator, dosen'),
-        ('C', f'A{keterangan_row+3}:K{keterangan_row+3}',
+        ('C', f'A{keterangan_row+3}:J{keterangan_row+3}',
          'Kode Fakultas: FE, FH, FISIP, FK, FP, FT, S2'),
-        ('D', f'A{keterangan_row+4}:K{keterangan_row+4}',
-         'Status Kepegawaian: Aktif, Tugas Belajar, Lanjut Studi, Keluar, Meninggal'),
-        ('E', f'A{keterangan_row+5}:K{keterangan_row+5}',
+        ('D', f'A{keterangan_row+4}:J{keterangan_row+4}',
          'Password default jika dikosongkan: unichsan123 (dapat diubah setelah login)'),
-        ('F', f'A{keterangan_row+6}:K{keterangan_row+6}',
+        ('E', f'A{keterangan_row+5}:J{keterangan_row+5}',
          'Username tidak boleh mengandung spasi dan harus unik (belum terdaftar)'),
+        ('F', f'A{keterangan_row+6}:J{keterangan_row+6}',
+         'Status Kepegawaian & Status Keaktifan diatur lewat halaman Profil Dosen (per dosen), bukan lewat import ini.'),
     ]
 
     for _, merge_range, text in keterangans:
@@ -528,7 +525,7 @@ def download_template(request):
         ws[start_cell].alignment = Alignment(horizontal='left', vertical='center')
 
     # Lebar kolom
-    col_widths = [15, 15, 18, 18, 25, 15, 12, 15, 12, 20, 15]
+    col_widths = [15, 15, 18, 18, 25, 15, 12, 15, 12, 15]
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 

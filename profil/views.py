@@ -6,7 +6,7 @@ from accounts.models import User
 from simda_dosen.models import (
     DataDosen, RiwayatJabatanFungsional, RiwayatPendidikanDosen,
     RiwayatPangkatGolongan, AgamaPublik, JabatanFungsionalPublik, GolonganPublik,
-    BidangKeahlianPublik,
+    BidangKeahlianPublik, JenisKepegawaianPublik, StatusKepegawaianPublik,
 )
 from simda_dosen.utils import get_simda_dosen_or_none
 from kinerja.utils import attach_dokumen_count
@@ -43,6 +43,7 @@ def index(request):
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
     bisa_edit = (user == target_user or user.role in ['admin', 'operator']) and input_terbuka
+    bisa_edit_kepegawaian = user.role in ['admin', 'operator'] and input_terbuka
 
     context = {
         'target_user': target_user,
@@ -53,11 +54,14 @@ def index(request):
         'dokumen_list': dokumen_list,
         'tahun_list': tahun_list,
         'bisa_edit': bisa_edit,
+        'bisa_edit_kepegawaian': bisa_edit_kepegawaian,
         'input_terbuka': input_terbuka,
         'agama_list': AgamaPublik.objects.using('simda').all(),
         'jabfung_ref_list': JabatanFungsionalPublik.objects.using('simda').all(),
         'golongan_ref_list': GolonganPublik.objects.using('simda').all(),
         'bidang_keahlian_ref_list': BidangKeahlianPublik.objects.using('simda').all(),
+        'jenis_kepegawaian_ref_list': JenisKepegawaianPublik.objects.using('simda').all(),
+        'status_kepegawaian_ref_list': StatusKepegawaianPublik.objects.using('simda').all(),
     }
     return render(request, 'profil/index.html', context)
 
@@ -108,6 +112,12 @@ def simpan_profil(request):
     profil.bidang_keahlian_id = request.POST.get('bidang_keahlian_id') or None
     profil.no_sk_pengangkatan = request.POST.get('no_sk_pengangkatan', '').strip()
     profil.tgl_sk_pengangkatan = request.POST.get('tgl_sk_pengangkatan') or None
+
+    # Status Kepegawaian & Status Keaktifan -- ADMIN/HR, dosen tidak boleh
+    # ubah status kepegawaiannya sendiri lewat form self-service ini.
+    if user.role in ['admin', 'operator']:
+        profil.jenis_kepegawaian_id = request.POST.get('jenis_kepegawaian_id') or None
+        profil.status_kepegawaian_id = request.POST.get('status_kepegawaian_id') or None
 
     if 'foto' in request.FILES:
         profil.foto = request.FILES['foto']

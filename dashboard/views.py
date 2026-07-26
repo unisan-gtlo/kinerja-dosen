@@ -2,8 +2,11 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from accounts.models import User
 from master.models import Fakultas, Prodi, TahunAkademik, Pengaturan
-from simda_dosen.models import DataDosen, RiwayatBKD, JabatanFungsionalPublik
-from simda_dosen.utils import get_simda_dosen_or_none
+from simda_dosen.models import (
+    DataDosen, RiwayatBKD, JabatanFungsionalPublik, JenisKepegawaianPublik,
+    StatusKepegawaianPublik,
+)
+from simda_dosen.utils import get_simda_dosen_or_none, filter_dosen_qs_by_kepegawaian
 from kinerja.models import DokumenKinerja
 from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
 from pengabdian.models import Pengabdian as PKM, Pembicara, PengelolaJurnal, JabatanStruktural
@@ -185,15 +188,15 @@ def index(request):
         context['grafik_jabfung_labels'] = jabfung_choices
         context['grafik_jabfung_data'] = grafik_jabfung_data
 
-        # Grafik status kepegawaian
-        status_choices = [
-            'Aktif', 'Tugas Belajar', 'Lanjut Studi', 'Keluar', 'Meninggal'
+        # Grafik status keaktifan -- sumbernya DataDosen SIMDA (mengikuti
+        # pola grafik jabfung/pendidikan di atas), bukan lagi User lokal.
+        status_ref = list(StatusKepegawaianPublik.objects.using('simda').all())
+        grafik_status_labels = [s.nama for s in status_ref]
+        grafik_status_data = [
+            DataDosen.objects.using('simda').filter(status_kepegawaian_id=s.id).count()
+            for s in status_ref
         ]
-        grafik_status_data = []
-        for s in status_choices:
-            count = User.objects.filter(role='dosen', status_kepegawaian=s).count()
-            grafik_status_data.append(count)
-        context['grafik_status_labels'] = status_choices
+        context['grafik_status_labels'] = grafik_status_labels
         context['grafik_status_data'] = grafik_status_data
 
     elif user.role in ['dekan', 'wadek']:
@@ -276,7 +279,8 @@ def rekap(request):
     filter_semester = request.GET.get('semester', '') or request.GET.get('semester_rentang', '')
     filter_prodi = request.GET.get('prodi', '')
     filter_fakultas = request.GET.get('fakultas', '')
-    filter_status = request.GET.get('status_kepegawaian', '')
+    filter_jenis_kepegawaian = request.GET.get('jenis_kepegawaian', '')
+    filter_status_kepegawaian = request.GET.get('status_kepegawaian', '')
     active_tab = request.GET.get('tab', 'dosen')
     mode_filter = request.GET.get('mode_filter', 'tunggal')
 
@@ -357,8 +361,10 @@ def rekap(request):
         hki_qs = hki_qs.filter(kode_fakultas=filter_fakultas)
         bkd_qs = bkd_qs.filter(dosen__kode_fakultas=filter_fakultas)
 
-    if filter_status:
-        dosen_qs = dosen_qs.filter(status_kepegawaian=filter_status)
+    if filter_jenis_kepegawaian or filter_status_kepegawaian:
+        dosen_qs = filter_dosen_qs_by_kepegawaian(
+            dosen_qs, filter_jenis_kepegawaian, filter_status_kepegawaian
+        )
 
     if tahun_range:
         penelitian_qs = penelitian_qs.filter(tahun_akademik__in=tahun_range)
@@ -416,6 +422,8 @@ def rekap(request):
             'jabfung': jabfung,
             'pendidikan': pendidikan,
             'kelengkapan': kelengkapan,
+            'jenis_kepegawaian': profil.jenis_kepegawaian_nama if profil else '',
+            'status_kepegawaian': profil.status_kepegawaian_nama if profil else '',
             'total_penelitian': d_penelitian.count(),
             'total_publikasi': d_publikasi.count(),
             'total_pkm': d_pkm.count(),
@@ -493,7 +501,10 @@ def rekap(request):
         'filter_semester': filter_semester,
         'filter_prodi': filter_prodi,
         'filter_fakultas': filter_fakultas,
-        'filter_status': filter_status,
+        'filter_jenis_kepegawaian': filter_jenis_kepegawaian,
+        'filter_status_kepegawaian': filter_status_kepegawaian,
+        'jenis_kepegawaian_ref_list': JenisKepegawaianPublik.objects.using('simda').all(),
+        'status_kepegawaian_ref_list': StatusKepegawaianPublik.objects.using('simda').all(),
         'total_dosen': len(rekap_data),
         'total_penelitian': penelitian_qs.count(),
         'total_publikasi': publikasi_qs.count(),

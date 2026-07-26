@@ -328,6 +328,42 @@
         </div>
       </div>
 
+      <!-- Status Kepegawaian & Status Keaktifan -->
+      <div class="form-section">
+        <div class="form-section-title"><span class="ti-badge"><span class="ti ti-id-badge-2"></span></span>Status Kepegawaian</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Status Kepegawaian</label>
+            {% if bisa_edit_kepegawaian %}
+            <select name="jenis_kepegawaian_id" class="form-select">
+              <option value="">-- Pilih --</option>
+              {% for jk in jenis_kepegawaian_ref_list %}
+              <option value="{{ jk.id }}" {% if profil.jenis_kepegawaian_id == jk.id %}selected{% endif %}>{{ jk.nama }}</option>
+              {% endfor %}
+            </select>
+            {% else %}
+            <input type="text" class="form-control" value="{{ profil.jenis_kepegawaian_nama|default:'-' }}" readonly>
+            {% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Status Keaktifan</label>
+            {% if bisa_edit_kepegawaian %}
+            <select name="status_kepegawaian_id" class="form-select">
+              <option value="">-- Pilih --</option>
+              {% for sk in status_kepegawaian_ref_list %}
+              <option value="{{ sk.id }}" {% if profil.status_kepegawaian_id == sk.id %}selected{% endif %}>{{ sk.nama }}</option>
+              {% endfor %}
+            </select>
+            {% else %}
+            <input type="text" class="form-control" value="{{ profil.status_kepegawaian_nama|default:'-' }}" readonly>
+            {% endif %}
+          </div>
+        </div>
+        {% if not bisa_edit_kepegawaian %}
+        <div class="form-text mt-2">Hanya admin yang bisa mengubah Status Kepegawaian/Keaktifan.</div>
+        {% endif %}
+      </div>
+
       <!-- Data Pengangkatan sebagai Dosen -->
       <div class="form-section">
         <div class="form-section-title"><span class="ti-badge"><span class="ti ti-certificate"></span></span>Data Pengangkatan sebagai Dosen</div>

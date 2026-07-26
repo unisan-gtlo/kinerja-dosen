@@ -123,13 +123,20 @@
           </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold">Status Kepegawaian</label>
+            <select id="filter_jenis" class="form-select">
+              <option value="">Semua</option>
+              {% for jk in jenis_kepegawaian_ref_list %}
+              <option value="{{ jk.id }}">{{ jk.nama }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Status Keaktifan</label>
             <select id="filter_status" class="form-select">
-              <option value="">Semua Status</option>
-              <option value="Aktif">Aktif</option>
-              <option value="Tugas Belajar">Tugas Belajar</option>
-              <option value="Lanjut Studi">Lanjut Studi</option>
-              <option value="Keluar">Keluar</option>
-              <option value="Meninggal">Meninggal</option>
+              <option value="">Semua</option>
+              {% for sk in status_kepegawaian_ref_list %}
+              <option value="{{ sk.id }}">{{ sk.nama }}</option>
+              {% endfor %}
             </select>
           </div>
         </div>
@@ -318,10 +325,12 @@ function getFilterParams() {
 
   const prodi = document.getElementById('filter_prodi') ? document.getElementById('filter_prodi').value : '';
   const fakultas = document.getElementById('filter_fakultas') ? document.getElementById('filter_fakultas').value : '';
+  const jenis = document.getElementById('filter_jenis').value;
   const status = document.getElementById('filter_status').value;
 
   if (prodi) params.append('prodi', prodi);
   if (fakultas) params.append('fakultas', fakultas);
+  if (jenis) params.append('jenis_kepegawaian', jenis);
   if (status) params.append('status_kepegawaian', status);
 
   return params.toString();
