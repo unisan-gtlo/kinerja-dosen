@@ -8,9 +8,9 @@ ROLE_CHOICES = [
     ('biro', 'Biro/Lembaga'),
     ('dekan', 'Dekan'),
     ('wadek', 'Wakil Dekan'),
+    ('operator', 'Operator Fakultas'),
     ('kaprodi', 'Ketua Program Studi'),
     ('sekprodi', 'Sekretaris Prodi'),
-    ('operator', 'Operator Prodi'),
     ('tendik', 'Tendik'),
     ('dosen', 'Dosen'),
 ]
@@ -45,11 +45,11 @@ class User(AbstractUser):
 
     @property
     def is_dekan_level(self):
-        return self.role in ['dekan', 'wadek']
+        return self.role in ['dekan', 'wadek', 'operator']
 
     @property
     def is_kaprodi_level(self):
-        return self.role in ['kaprodi', 'sekprodi', 'operator']
+        return self.role in ['kaprodi', 'sekprodi']
 
     @property
     def is_dosen(self):
@@ -65,18 +65,18 @@ class User(AbstractUser):
 
     def dapat_kelola(self, target_user):
         """True kalau self boleh kelola (edit/hapus akun & data kinerja)
-        target_user. Admin: semua dosen. Dekan/Wadek: dosen se-fakultas.
-        Kaprodi/Sekprodi/Operator: dosen se-prodi. Rektorat/Biro SENGAJA
-        tidak diikutkan -- baca data saja (dashboard/rekap/laporan tetap
-        lihat semua), tidak boleh edit/kelola akun. Selain itu, cuma
-        boleh kelola diri sendiri."""
+        target_user. Admin: semua dosen. Dekan/Wadek/Operator: dosen
+        se-fakultas (satu operator cukup untuk satu fakultas). Kaprodi/
+        Sekprodi: dosen se-prodi. Rektorat/Biro SENGAJA tidak diikutkan --
+        baca data saja (dashboard/rekap/laporan tetap lihat semua), tidak
+        boleh edit/kelola akun. Selain itu, cuma boleh kelola diri sendiri."""
         if self.id == target_user.id:
             return True
         if self.role == 'admin':
             return True
-        if self.role in ['dekan', 'wadek']:
+        if self.role in ['dekan', 'wadek', 'operator']:
             return bool(self.kode_fakultas) and self.kode_fakultas == target_user.kode_fakultas
-        if self.role in ['kaprodi', 'sekprodi', 'operator']:
+        if self.role in ['kaprodi', 'sekprodi']:
             return bool(self.kode_prodi) and self.kode_prodi == target_user.kode_prodi
         return False
     def get_role_display_id(self):
@@ -86,6 +86,7 @@ class User(AbstractUser):
         'biro': 'Biro/Lembaga',
         'dekan': 'Dekan',
         'wadek': 'Wakil Dekan',
+        'operator': 'Operator Fakultas',
         'kaprodi': 'Kepala Program Studi',
         'sekprodi': 'Sekretaris Prodi',
         'tendik': 'Tendik',

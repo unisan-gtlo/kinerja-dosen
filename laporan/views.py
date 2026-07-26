@@ -50,9 +50,9 @@ def get_dosen_queryset(user, filter_prodi='', filter_fakultas='', filter_status=
     """Ambil queryset dosen berdasarkan role dan filter"""
     if user.role in ['admin', 'rektorat', 'biro']:
         qs = User.objects.filter(role='dosen')
-    elif user.role in ['dekan', 'wadek']:
+    elif user.role in ['dekan', 'wadek', 'operator']:
         qs = User.objects.filter(role='dosen', kode_fakultas=user.kode_fakultas)
-    elif user.role in ['kaprodi', 'sekprodi', 'operator']:
+    elif user.role in ['kaprodi', 'sekprodi']:
         qs = User.objects.filter(role='dosen', kode_prodi=user.kode_prodi)
     else:
         qs = User.objects.none()

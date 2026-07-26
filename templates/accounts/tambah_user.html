@@ -74,7 +74,7 @@
         <input type="hidden" name="kode_fakultas" value="{{ request.user.kode_fakultas }}">
         {% endif %}
 
-        {% if is_admin or request.user.role == 'dekan' or request.user.role == 'wadek' %}
+        {% if is_admin or request.user.role == 'dekan' or request.user.role == 'wadek' or request.user.role == 'operator' %}
         <div class="col-md-4">
           <label class="form-label fw-semibold">Program Studi</label>
           <select name="kode_prodi" id="tambah_prodi" class="form-select">

@@ -78,7 +78,7 @@
         </div>
         {% endif %}
 
-        {% if is_admin or request.user.role == 'dekan' or request.user.role == 'wadek' %}
+        {% if is_admin or request.user.role == 'dekan' or request.user.role == 'wadek' or request.user.role == 'operator' %}
         <div class="col-md-4">
           <label class="form-label fw-semibold">Program Studi</label>
           <select name="kode_prodi" id="edit_prodi" class="form-select">

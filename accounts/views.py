@@ -197,11 +197,11 @@ def kelola_user(request):
 
     if request.user.role == 'admin':
         users = User.objects.all()
-    elif request.user.role in ['dekan', 'wadek']:
+    elif request.user.role in ['dekan', 'wadek', 'operator']:
         users = User.objects.filter(role='dosen', kode_fakultas=request.user.kode_fakultas)
         fakultas_list = fakultas_list.filter(kode_fakultas=request.user.kode_fakultas)
         prodi_list = prodi_list.filter(fakultas__kode_fakultas=request.user.kode_fakultas)
-    else:  # kaprodi, sekprodi, operator
+    else:  # kaprodi, sekprodi
         users = User.objects.filter(role='dosen', kode_prodi=request.user.kode_prodi)
         fakultas_list = fakultas_list.filter(kode_fakultas=request.user.kode_fakultas)
         prodi_list = prodi_list.filter(kode_prodi=request.user.kode_prodi)
@@ -283,10 +283,10 @@ def tambah_user(request):
         # saja supaya tidak bisa eskalasi (mis. kaprodi membuat akun admin).
         if not is_admin:
             role = 'dosen'
-            if request.user.role in ['kaprodi', 'sekprodi', 'operator']:
+            if request.user.role in ['kaprodi', 'sekprodi']:
                 kode_fakultas = request.user.kode_fakultas
                 kode_prodi = request.user.kode_prodi
-            elif request.user.role in ['dekan', 'wadek']:
+            elif request.user.role in ['dekan', 'wadek', 'operator']:
                 kode_fakultas = request.user.kode_fakultas
                 if not Prodi.objects.filter(kode_prodi=kode_prodi,
                                              fakultas__kode_fakultas=kode_fakultas).exists():
@@ -352,10 +352,10 @@ def edit_user(request, user_id):
             # Non-admin tidak boleh ubah role atau pindahkan dosen keluar
             # dari scope-nya sendiri (role tetap dosen, fakultas/prodi
             # tidak dipercaya begitu saja dari POST).
-            if request.user.role in ['kaprodi', 'sekprodi', 'operator']:
+            if request.user.role in ['kaprodi', 'sekprodi']:
                 target_user.kode_fakultas = request.user.kode_fakultas
                 target_user.kode_prodi = request.user.kode_prodi
-            elif request.user.role in ['dekan', 'wadek']:
+            elif request.user.role in ['dekan', 'wadek', 'operator']:
                 target_user.kode_fakultas = request.user.kode_fakultas
                 if Prodi.objects.filter(kode_prodi=kode_prodi,
                                          fakultas__kode_fakultas=request.user.kode_fakultas).exists():

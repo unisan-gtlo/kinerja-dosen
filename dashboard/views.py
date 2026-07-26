@@ -53,9 +53,9 @@ def _generic_category_queryset(cat, user, filter_prodi, filter_fakultas, tahun_r
     model = cat['model']
     if user.role in ['admin', 'rektorat', 'biro']:
         qs = model.objects.all()
-    elif user.role in ['dekan', 'wadek']:
+    elif user.role in ['dekan', 'wadek', 'operator']:
         qs = model.objects.filter(kode_fakultas=user.kode_fakultas)
-    elif user.role in ['kaprodi', 'sekprodi', 'operator']:
+    elif user.role in ['kaprodi', 'sekprodi']:
         qs = model.objects.filter(kode_prodi=user.kode_prodi)
     else:
         qs = model.objects.none()
@@ -199,7 +199,7 @@ def index(request):
         context['grafik_status_labels'] = grafik_status_labels
         context['grafik_status_data'] = grafik_status_data
 
-    elif user.role in ['dekan', 'wadek']:
+    elif user.role in ['dekan', 'wadek', 'operator']:
         context['total_dosen'] = User.objects.filter(
             role='dosen', kode_fakultas=user.kode_fakultas,
             status_akun='aktif'
@@ -220,7 +220,7 @@ def index(request):
             kode_fakultas=user.kode_fakultas
         ).count()
 
-    elif user.role in ['kaprodi', 'sekprodi', 'operator']:
+    elif user.role in ['kaprodi', 'sekprodi']:
         context['total_dosen'] = User.objects.filter(
             role='dosen', kode_prodi=user.kode_prodi,
             status_akun='aktif'
@@ -308,7 +308,7 @@ def rekap(request):
         pkm_qs = PKM.objects.all()
         hki_qs = HKI.objects.all()
         bkd_qs = RiwayatBKD.objects.using('simda').all()
-    elif user.role in ['dekan', 'wadek']:
+    elif user.role in ['dekan', 'wadek', 'operator']:
         dosen_qs = User.objects.filter(
             role='dosen', kode_fakultas=user.kode_fakultas
         )
@@ -326,7 +326,7 @@ def rekap(request):
         bkd_qs = RiwayatBKD.objects.using('simda').filter(
             dosen__kode_fakultas=user.kode_fakultas
         )
-    elif user.role in ['kaprodi', 'sekprodi', 'operator']:
+    elif user.role in ['kaprodi', 'sekprodi']:
         dosen_qs = User.objects.filter(
             role='dosen', kode_prodi=user.kode_prodi
         )
