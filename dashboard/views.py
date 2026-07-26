@@ -7,7 +7,9 @@ from simda_dosen.models import (
     DataDosen, RiwayatBKD, RiwayatPangkatGolongan, JabatanFungsionalPublik,
     GolonganPublik, JenisKepegawaianPublik, StatusKepegawaianPublik,
 )
-from simda_dosen.utils import get_simda_dosen_or_none, filter_dosen_qs_by_kepegawaian
+from simda_dosen.utils import (
+    get_simda_dosen_or_none, filter_dosen_qs_by_kepegawaian, attach_kepegawaian_labels,
+)
 from kinerja.models import DokumenKinerja
 from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
 from pengabdian.models import Pengabdian as PKM, Pembicara, PengelolaJurnal, JabatanStruktural
@@ -147,9 +149,9 @@ def index(request):
         context['total_publikasi'] = publikasi_qs.count()
         context['total_pkm'] = pkm_qs.count()
         context['total_hki'] = hki_qs.count()
-        context['dosen_list'] = User.objects.filter(
+        context['dosen_list'] = attach_kepegawaian_labels(User.objects.filter(
             role='dosen', status_akun='aktif'
-        ).order_by('kode_fakultas', 'kode_prodi', 'first_name')[:10]
+        ).order_by('kode_fakultas', 'kode_prodi', 'first_name')[:10])
 
         context['filter_tahun_awal'] = filter_tahun_awal
         context['filter_tahun_akhir'] = filter_tahun_akhir
@@ -239,10 +241,10 @@ def index(request):
         context['total_hki'] = HKI.objects.filter(
             kode_prodi=user.kode_prodi
         ).count()
-        context['dosen_list'] = User.objects.filter(
+        context['dosen_list'] = attach_kepegawaian_labels(User.objects.filter(
             role='dosen', kode_prodi=user.kode_prodi,
             status_akun='aktif'
-        ).order_by('first_name')
+        ).order_by('first_name'))
 
     elif user.role == 'dosen':
         profil = get_simda_dosen_or_none(user)
@@ -456,12 +458,14 @@ def rekap(request):
             nama_dosen = profil.nama_lengkap_gelar
             pangkat_terakhir = profil.riwayat_pangkat_golongan.first()
             golongan = pangkat_terakhir.golongan_display if pangkat_terakhir else '-'
+            foto_url = profil.foto.url if profil.foto else ''
         else:
             kelengkapan = 0
             jabfung = '-'
             pendidikan = '-'
             nama_dosen = dosen.get_full_name() or dosen.username
             golongan = '-'
+            foto_url = ''
 
         d_penelitian = penelitian_qs.filter(user=dosen)
         d_publikasi = publikasi_qs.filter(user=dosen)
@@ -472,6 +476,7 @@ def rekap(request):
         rekap_data.append({
             'dosen': dosen,
             'nama_dosen': nama_dosen,
+            'foto_url': foto_url,
             'jabfung': jabfung,
             'pendidikan': pendidikan,
             'golongan': golongan,

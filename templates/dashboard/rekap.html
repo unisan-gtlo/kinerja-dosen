@@ -432,7 +432,16 @@
         {% for r in rekap_data %}
         <tr>
           <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
-          <td><strong>{{ r.nama_dosen }}</strong></td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              {% if r.foto_url %}
+              <img src="{{ r.foto_url }}" alt="" style="width:26px; height:26px; border-radius:50%; object-fit:cover; flex-shrink:0">
+              {% else %}
+              <span class="ti ti-user-circle" style="font-size:26px; color:#adb5bd; flex-shrink:0"></span>
+              {% endif %}
+              <strong>{{ r.nama_dosen }}</strong>
+            </div>
+          </td>
           <td><code>{{ r.dosen.nidn|default:"-" }}</code></td>
           <td><span class="badge bg-teal-lt text-teal">{{ r.dosen.kode_prodi|default:"-" }}</span></td>
           <td style="font-size:12px">{{ r.jabfung }}</td>

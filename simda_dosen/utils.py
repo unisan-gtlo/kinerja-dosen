@@ -24,11 +24,12 @@ def get_simda_dosen_or_none(user):
 
 
 def attach_kepegawaian_labels(users):
-    """Tempel atribut .jenis_kepegawaian_nama, .status_kepegawaian_nama, dan
-    ID identitas riset (.id_sinta, .id_scopus, .id_google_scholar, .orcid,
-    .id_garuda) ke tiap User (role=dosen), dicocokkan lewat nidn ke DataDosen
-    SIMDA. Dipakai di Kelola User/Rekap/Laporan supaya badge status & link
-    riset bisa ditampilkan di daftar tanpa N+1 query per baris ke SIMDA.
+    """Tempel atribut .jenis_kepegawaian_nama, .status_kepegawaian_nama, ID
+    identitas riset (.id_sinta, .id_scopus, .id_google_scholar, .orcid,
+    .id_garuda), .nama_lengkap_gelar, dan .foto_url ke tiap User (role=dosen),
+    dicocokkan lewat nidn ke DataDosen SIMDA. Dipakai di Kelola User/Rekap/
+    Dashboard/Laporan supaya badge status, link riset, nama+gelar, dan foto
+    bisa ditampilkan di daftar tanpa N+1 query per baris ke SIMDA.
     Return list (bukan queryset)."""
     users = list(users)
     nidn_set = {u.nidn for u in users if u.nidn}
@@ -50,6 +51,8 @@ def attach_kepegawaian_labels(users):
         u.id_google_scholar = d.id_google_scholar if d else ''
         u.orcid = d.orcid if d else ''
         u.id_garuda = d.id_garuda if d else ''
+        u.nama_dosen = d.nama_lengkap_gelar if d else (u.get_full_name() or u.username)
+        u.foto_url = d.foto.url if d and d.foto else ''
     return users
 
 
