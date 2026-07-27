@@ -675,6 +675,12 @@ def dokumen_index(request):
 
     profil = get_simda_dosen_or_none(target_user)
     if profil:
+        if profil.foto:
+            dokumen_gabungan.append({
+                'sumber': 'profil', 'id': None, 'nama': 'Foto Profil',
+                'jenis': 'Foto Profil', 'tanggal': None,
+                'file_url': profil.foto.url, 'link': '',
+            })
         if profil.file_ktp:
             dokumen_gabungan.append({
                 'sumber': 'profil', 'id': None, 'nama': 'KTP',
