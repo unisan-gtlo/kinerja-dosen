@@ -151,6 +151,16 @@ class DataDosen(models.Model):
         return jf.nama if jf else ''
 
     @property
+    def golongan_nama(self):
+        """Golongan/Pangkat aktif (cache, disinkron dari Riwayat Pangkat/
+        Golongan yang TMT-nya paling akhir -- lihat
+        simda_dosen.utils.sync_golongan_terakhir)."""
+        if not self.golongan_id:
+            return ''
+        g = GolonganPublik.objects.using('simda').filter(id=self.golongan_id).first()
+        return f'{g.kode} ({g.pangkat})' if g else ''
+
+    @property
     def bidang_keahlian_nama(self):
         if not self.bidang_keahlian_id:
             return ''

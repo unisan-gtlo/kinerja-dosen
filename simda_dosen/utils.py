@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect
 
 from .models import (
-    DataDosen, BidangKeahlian, BidangKeahlianPublik,
+    DataDosen, BidangKeahlian, BidangKeahlianPublik, GolonganPublik,
     JenisKepegawaianPublik, StatusKepegawaianPublik,
 )
 
@@ -117,6 +117,29 @@ def sync_jabfung_aktif(profil):
     terbaru = aktif or profil.riwayat_jabfung.order_by('-tmt').first()
     profil.jabatan_fungsional_id = terbaru.jabatan_fungsional_id if terbaru else None
     profil.save(update_fields=['jabatan_fungsional_id'])
+
+
+def get_golongan_ref_list_dosen():
+    """Daftar Golongan untuk dropdown Riwayat Pangkat/Golongan DOSEN --
+    difilter mulai dari III/a ke atas (dosen minimal S1, golongan I/II
+    itu skala PNS non-sarjana/tendik, tidak relevan untuk dosen). Kalau
+    kode 'III/a' entah kenapa tidak ketemu di data referensi, aman
+    kembalikan daftar penuh (jangan sampai dropdown malah kosong)."""
+    qs = GolonganPublik.objects.using('simda').all()
+    batas = qs.filter(kode__iexact='III/a').first()
+    if not batas:
+        return qs
+    return qs.filter(urutan__gte=batas.urutan)
+
+
+def sync_golongan_terakhir(profil):
+    """Auto-update DataDosen.golongan_id dari Riwayat Pangkat/Golongan
+    dosen -- ambil yang TMT-nya paling akhir (tidak ada konsep tgl_selesai
+    di riwayat ini, beda dengan jabfung). Dipanggil tiap kali riwayat
+    pangkat/golongan ditambah/diedit/dihapus."""
+    terbaru = profil.riwayat_pangkat_golongan.order_by('-tmt').first()
+    profil.golongan_id = terbaru.golongan_id if terbaru else None
+    profil.save(update_fields=['golongan_id'])
 
 
 def sync_pendidikan_terakhir(profil):

@@ -10,7 +10,8 @@ from simda_dosen.models import (
 )
 from simda_dosen.utils import (
     get_simda_dosen_or_none, dapat_kelola_nidn, get_or_create_bidang_keahlian,
-    sync_jabfung_aktif, sync_pendidikan_terakhir,
+    sync_jabfung_aktif, sync_pendidikan_terakhir, sync_golongan_terakhir,
+    get_golongan_ref_list_dosen,
     resolve_target_user as resolve_target_user_util,
 )
 from simda_dosen.file_compress import compress_uploaded_file
@@ -53,6 +54,9 @@ def index(request):
     input_terbuka = cek_status_input()
     bisa_edit = user.dapat_kelola(target_user) and input_terbuka
     bisa_edit_kepegawaian = user.dapat_kelola(target_user) and input_terbuka
+    has_serdos = Sertifikasi.objects.filter(
+        user=target_user, jenis_sertifikasi='serdos'
+    ).exists()
 
     context = {
         'target_user': target_user,
@@ -65,9 +69,10 @@ def index(request):
         'bisa_edit': bisa_edit,
         'bisa_edit_kepegawaian': bisa_edit_kepegawaian,
         'input_terbuka': input_terbuka,
+        'has_serdos': has_serdos,
         'agama_list': AgamaPublik.objects.using('simda').all(),
         'jabfung_ref_list': JabatanFungsionalPublik.objects.using('simda').all(),
-        'golongan_ref_list': GolonganPublik.objects.using('simda').all(),
+        'golongan_ref_list': get_golongan_ref_list_dosen(),
         'bidang_keahlian_ref_list': BidangKeahlianPublik.objects.using('simda').all(),
         'jenis_kepegawaian_ref_list': JenisKepegawaianPublik.objects.using('simda').all(),
         'status_kepegawaian_ref_list': StatusKepegawaianPublik.objects.using('simda').all(),
@@ -221,6 +226,7 @@ def tambah_pangkat(request):
     if 'file_sk' in request.FILES:
         pangkat.file_sk = compress_uploaded_file(request.FILES['file_sk'])
     pangkat.save()
+    sync_golongan_terakhir(dosen)
 
     messages.success(request, 'Riwayat pangkat/golongan berhasil ditambahkan ke SIMDA.')
     return redirect('profil:index')
@@ -243,6 +249,7 @@ def edit_pangkat(request, pangkat_id):
         if 'file_sk' in request.FILES:
             pangkat.file_sk = compress_uploaded_file(request.FILES['file_sk'])
         pangkat.save()
+        sync_golongan_terakhir(pangkat.dosen)
         messages.success(request, 'Data pangkat/golongan berhasil diupdate.')
     return redirect('profil:index')
 
@@ -252,7 +259,9 @@ def hapus_pangkat(request, pangkat_id):
     if not dapat_kelola_nidn(request.user, pangkat.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
+    dosen = pangkat.dosen
     pangkat.delete()
+    sync_golongan_terakhir(dosen)
     messages.success(request, 'Data pangkat/golongan berhasil dihapus.')
     return redirect('profil:index')
 

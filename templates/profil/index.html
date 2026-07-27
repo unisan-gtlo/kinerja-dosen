@@ -196,6 +196,20 @@
             <label class="form-label fw-semibold">Pendidikan Terakhir <span class="badge-readonly"><span class="ti ti-refresh ti-xs"></span> otomatis dari Riwayat</span></label>
             <input type="text" class="form-control" readonly value="{{ profil.pendidikan_terakhir|default:'-' }}">
           </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Golongan/Pangkat <span class="badge-readonly"><span class="ti ti-refresh ti-xs"></span> otomatis dari Riwayat</span></label>
+            <input type="text" class="form-control" readonly value="{{ profil.golongan_nama|default:'-' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Status Serdos (Sertifikasi Dosen)</label>
+            <div>
+              {% if has_serdos %}
+              <span class="badge bg-success-lt text-success">Sudah</span>
+              {% else %}
+              <span class="badge bg-secondary-lt text-secondary">Belum</span>
+              {% endif %}
+            </div>
+          </div>
         </div>
       </div>
 
