@@ -184,16 +184,16 @@
         </div>
       </div>
 
-      <!-- Status Akademik (diverifikasi admin) -->
+      <!-- Status Akademik (otomatis dari Riwayat Jabfung/Pendidikan) -->
       <div class="form-section">
         <div class="form-section-title"><span class="ti-badge"><span class="ti ti-school"></span></span>Status Akademik</div>
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label fw-semibold">Jabfung Aktif <span class="badge-readonly"><span class="ti ti-lock ti-xs"></span> diverifikasi admin</span></label>
+            <label class="form-label fw-semibold">Jabfung Aktif <span class="badge-readonly"><span class="ti ti-refresh ti-xs"></span> otomatis dari Riwayat</span></label>
             <input type="text" class="form-control" readonly value="{{ profil.jabatan_fungsional_nama|default:'-' }}">
           </div>
           <div class="col-md-6">
-            <label class="form-label fw-semibold">Pendidikan Terakhir <span class="badge-readonly"><span class="ti ti-lock ti-xs"></span> diverifikasi admin</span></label>
+            <label class="form-label fw-semibold">Pendidikan Terakhir <span class="badge-readonly"><span class="ti ti-refresh ti-xs"></span> otomatis dari Riwayat</span></label>
             <input type="text" class="form-control" readonly value="{{ profil.pendidikan_terakhir|default:'-' }}">
           </div>
         </div>
@@ -547,7 +547,6 @@
                       '{{ j.no_sk|default:''|escapejs }}',
                       '{{ j.tgl_sk|date:'Y-m-d'|default:'' }}',
                       '{{ j.tmt|date:'Y-m-d'|default:'' }}',
-                      '{{ j.tgl_selesai|date:'Y-m-d'|default:'' }}',
                       '{{ j.url_sk|default:''|escapejs }}',
                       '{{ j.keterangan|default:''|escapejs }}'
                     )">
@@ -839,13 +838,12 @@ if (hash) {
   if (tab) { new bootstrap.Tab(tab).show(); }
 }
 
-function editJabfung(id, jabfungId, noSk, tglSk, tmt, tglSelesai, urlSk, keterangan) {
+function editJabfung(id, jabfungId, noSk, tglSk, tmt, urlSk, keterangan) {
   document.getElementById('formEditJabfung').action = `/profil/edit-jabfung/${id}/`;
   document.getElementById('ej_jabatan').value = jabfungId;
   document.getElementById('ej_no_sk').value = noSk;
   document.getElementById('ej_tgl_sk').value = tglSk;
   document.getElementById('ej_tmt').value = tmt;
-  document.getElementById('ej_tgl_selesai').value = tglSelesai;
   document.getElementById('ej_url_sk').value = urlSk;
   document.getElementById('ej_keterangan').value = keterangan;
   new bootstrap.Modal(document.getElementById('modalEditJabfung')).show();
@@ -977,10 +975,6 @@ function editPendidikan(id, jenjang, bidang, pt, masuk, lulus, no_ij) {
             <div class="col-md-4">
               <label class="form-label">TMT</label>
               <input type="date" name="tmt" id="ej_tmt" class="form-control">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Tgl Selesai <small class="text-muted">(kosong = masih aktif)</small></label>
-              <input type="date" name="tgl_selesai" id="ej_tgl_selesai" class="form-control">
             </div>
             <div class="col-md-6">
               <label class="form-label">Upload SK Baru (PDF/JPG, otomatis dikompres jika >500KB)</label>

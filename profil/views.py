@@ -10,6 +10,7 @@ from simda_dosen.models import (
 )
 from simda_dosen.utils import (
     get_simda_dosen_or_none, dapat_kelola_nidn, get_or_create_bidang_keahlian,
+    sync_jabfung_aktif, sync_pendidikan_terakhir,
     resolve_target_user as resolve_target_user_util,
 )
 from simda_dosen.file_compress import compress_uploaded_file
@@ -171,6 +172,7 @@ def tambah_jabfung(request):
     if 'file_sk' in request.FILES:
         jabfung.file_sk = compress_uploaded_file(request.FILES['file_sk'])
     jabfung.save()
+    sync_jabfung_aktif(dosen)
 
     messages.success(request, 'Riwayat jabatan fungsional berhasil ditambahkan ke SIMDA.')
     return redirect('profil:index')
@@ -181,7 +183,9 @@ def hapus_jabfung(request, jabfung_id):
     if not dapat_kelola_nidn(request.user, jabfung.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
+    dosen = jabfung.dosen
     jabfung.delete()
+    sync_jabfung_aktif(dosen)
     messages.success(request, 'Data jabatan berhasil dihapus.')
     return redirect('profil:index')
 
@@ -285,6 +289,7 @@ def tambah_pendidikan(request):
     if 'file_transkrip' in request.FILES:
         pend.file_transkrip = compress_uploaded_file(request.FILES['file_transkrip'])
     pend.save()
+    sync_pendidikan_terakhir(dosen)
     messages.success(request, 'Data pendidikan berhasil ditambahkan ke SIMDA.')
     return redirect('profil:index')
 
@@ -294,7 +299,9 @@ def hapus_pendidikan(request, pend_id):
     if not dapat_kelola_nidn(request.user, pend.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
         return redirect('profil:index')
+    dosen = pend.dosen
     pend.delete()
+    sync_pendidikan_terakhir(dosen)
     messages.success(request, 'Data pendidikan berhasil dihapus.')
     return redirect('profil:index')
 
@@ -309,12 +316,12 @@ def edit_jabfung(request, jabfung_id):
         jabfung.no_sk = request.POST.get('no_sk', '').strip()
         jabfung.tgl_sk = request.POST.get('tgl_sk') or None
         jabfung.tmt = request.POST.get('tmt') or None
-        jabfung.tgl_selesai = request.POST.get('tgl_selesai') or None
         jabfung.url_sk = request.POST.get('url_sk', '').strip()
         jabfung.keterangan = request.POST.get('keterangan', '').strip()
         if 'file_sk' in request.FILES:
             jabfung.file_sk = compress_uploaded_file(request.FILES['file_sk'])
         jabfung.save()
+        sync_jabfung_aktif(jabfung.dosen)
         messages.success(request, 'Data jabatan berhasil diupdate.')
     return redirect('profil:index')
 
@@ -337,6 +344,7 @@ def edit_pendidikan(request, pend_id):
         if 'file_transkrip' in request.FILES:
             pend.file_transkrip = compress_uploaded_file(request.FILES['file_transkrip'])
         pend.save()
+        sync_pendidikan_terakhir(pend.dosen)
         messages.success(request, 'Data pendidikan berhasil diupdate.')
     return redirect('profil:index')
 

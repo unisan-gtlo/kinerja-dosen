@@ -105,6 +105,32 @@ def get_or_create_bidang_keahlian(nama):
     return baru.id
 
 
+def sync_jabfung_aktif(profil):
+    """Auto-update DataDosen.jabatan_fungsional_id dari Riwayat Jabatan
+    Fungsional dosen -- pilih yang masih aktif (tgl_selesai kosong) dengan
+    tmt paling akhir; kalau semua sudah ada tgl_selesai (tidak ada yang
+    ongoing), pakai yang tmt-nya paling akhir. Dipanggil tiap kali riwayat
+    jabfung ditambah/diedit/dihapus -- field ringkasan ini tidak perlu
+    diverifikasi admin manual (beda dengan BKD yang memang butuh
+    pengesahan berjenjang)."""
+    aktif = profil.riwayat_jabfung.filter(tgl_selesai__isnull=True).order_by('-tmt').first()
+    terbaru = aktif or profil.riwayat_jabfung.order_by('-tmt').first()
+    profil.jabatan_fungsional_id = terbaru.jabatan_fungsional_id if terbaru else None
+    profil.save(update_fields=['jabatan_fungsional_id'])
+
+
+def sync_pendidikan_terakhir(profil):
+    """Auto-update DataDosen.pendidikan_terakhir dari Riwayat Pendidikan
+    dosen -- ambil jenjang dengan tahun_lulus paling akhir (harus sudah
+    lulus, tahun_lulus terisi). Dipanggil tiap kali riwayat pendidikan
+    ditambah/diedit/dihapus."""
+    terbaru = profil.riwayat_pendidikan.filter(
+        tahun_lulus__isnull=False
+    ).order_by('-tahun_lulus').first()
+    profil.pendidikan_terakhir = terbaru.jenjang if terbaru else ''
+    profil.save(update_fields=['pendidikan_terakhir'])
+
+
 def dapat_kelola_nidn(user, nidn):
     """Sama seperti User.dapat_kelola(), tapi target ditentukan lewat nidn --
     dipakai di record SIMDA (RiwayatJabatanFungsional/Pangkat/Pendidikan/BKD)
