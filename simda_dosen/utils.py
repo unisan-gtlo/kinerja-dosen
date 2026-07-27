@@ -121,12 +121,13 @@ def sync_jabfung_aktif(profil):
 
 def get_golongan_ref_list_dosen():
     """Daftar Golongan untuk dropdown Riwayat Pangkat/Golongan DOSEN --
-    difilter mulai dari III/a ke atas (dosen minimal S1, golongan I/II
-    itu skala PNS non-sarjana/tendik, tidak relevan untuk dosen). Kalau
-    kode 'III/a' entah kenapa tidak ketemu di data referensi, aman
-    kembalikan daftar penuh (jangan sampai dropdown malah kosong)."""
+    difilter mulai dari IIIa ke atas (dosen minimal S1, golongan I/II
+    itu skala PNS non-sarjana/tendik, tidak relevan untuk dosen). Kode
+    di data referensi formatnya tanpa garis miring (mis. 'IIIa', bukan
+    'III/a') -- kalau entah kenapa tidak ketemu, aman kembalikan daftar
+    penuh (jangan sampai dropdown malah kosong)."""
     qs = GolonganPublik.objects.using('simda').all()
-    batas = qs.filter(kode__iexact='III/a').first()
+    batas = qs.filter(kode__iexact='IIIa').first()
     if not batas:
         return qs
     return qs.filter(urutan__gte=batas.urutan)

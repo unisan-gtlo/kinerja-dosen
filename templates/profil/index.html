@@ -386,6 +386,28 @@
         </div>
       </div>
 
+      <!-- Rekening Bank -->
+      <div class="form-section">
+        <div class="form-section-title"><span class="ti-badge"><span class="ti ti-building-bank"></span></span>Rekening Bank</div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Nama Bank</label>
+            <input type="text" name="nama_bank" class="form-control"
+                   value="{{ profil.nama_bank|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">No. Rekening</label>
+            <input type="text" name="no_rekening" class="form-control"
+                   value="{{ profil.no_rekening|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Atas Nama Rekening</label>
+            <input type="text" name="atas_nama_rekening" class="form-control"
+                   value="{{ profil.atas_nama_rekening|default:'' }}" {% if not bisa_edit %}readonly{% endif %}>
+          </div>
+        </div>
+      </div>
+
       <!-- Status Kepegawaian & Status Keaktifan -->
       <div class="form-section">
         <div class="form-section-title"><span class="ti-badge"><span class="ti ti-id-badge-2"></span></span>Status Kepegawaian</div>

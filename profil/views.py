@@ -122,6 +122,9 @@ def simpan_profil(request):
     profil.nira = request.POST.get('nira', '').strip()
     profil.minat_penelitian = request.POST.get('minat_penelitian', '').strip()
     profil.npwp = request.POST.get('npwp', '').strip()
+    profil.nama_bank = request.POST.get('nama_bank', '').strip()
+    profil.no_rekening = request.POST.get('no_rekening', '').strip()
+    profil.atas_nama_rekening = request.POST.get('atas_nama_rekening', '').strip()
     profil.bidang_keahlian_id = get_or_create_bidang_keahlian(
         request.POST.get('bidang_keahlian_nama', '')
     )
