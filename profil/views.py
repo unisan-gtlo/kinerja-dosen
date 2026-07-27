@@ -9,7 +9,7 @@ from simda_dosen.models import (
     BidangKeahlianPublik, JenisKepegawaianPublik, StatusKepegawaianPublik,
 )
 from simda_dosen.utils import (
-    get_simda_dosen_or_none, dapat_kelola_nidn,
+    get_simda_dosen_or_none, dapat_kelola_nidn, get_or_create_bidang_keahlian,
     resolve_target_user as resolve_target_user_util,
 )
 from simda_dosen.file_compress import compress_uploaded_file
@@ -116,7 +116,9 @@ def simpan_profil(request):
     profil.nira = request.POST.get('nira', '').strip()
     profil.minat_penelitian = request.POST.get('minat_penelitian', '').strip()
     profil.npwp = request.POST.get('npwp', '').strip()
-    profil.bidang_keahlian_id = request.POST.get('bidang_keahlian_id') or None
+    profil.bidang_keahlian_id = get_or_create_bidang_keahlian(
+        request.POST.get('bidang_keahlian_nama', '')
+    )
     profil.no_sk_pengangkatan = request.POST.get('no_sk_pengangkatan', '').strip()
     profil.tgl_sk_pengangkatan = request.POST.get('tgl_sk_pengangkatan') or None
 

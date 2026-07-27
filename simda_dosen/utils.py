@@ -1,7 +1,12 @@
+import re
+
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect
 
-from .models import DataDosen, JenisKepegawaianPublik, StatusKepegawaianPublik
+from .models import (
+    DataDosen, BidangKeahlian, BidangKeahlianPublik,
+    JenisKepegawaianPublik, StatusKepegawaianPublik,
+)
 
 
 def get_simda_dosen(user):
@@ -71,6 +76,33 @@ def filter_dosen_qs_by_kepegawaian(qs, jenis_kepegawaian_id='', status_kepegawai
         DataDosen.objects.using('simda').filter(**dosen_filter).values_list('nidn', flat=True)
     )
     return qs.filter(nidn__in=nidn_list)
+
+
+def get_or_create_bidang_keahlian(nama):
+    """Cari BidangKeahlian di SIMDA berdasarkan nama (case-insensitive) --
+    kalau belum ada, buat baru otomatis (self-service, dipicu dosen
+    mengetik nilai yang belum ada di daftar dropdown Bidang Keahlian/
+    Keilmuan di Profil Dosen). Return id (int), atau None kalau nama
+    kosong."""
+    nama = (nama or '').strip()
+    if not nama:
+        return None
+
+    existing = BidangKeahlianPublik.objects.using('simda').filter(nama__iexact=nama).first()
+    if existing:
+        return existing.id
+
+    base_kode = re.sub(r'[^A-Z0-9]', '', nama.upper())[:16] or 'BK'
+    kode = base_kode
+    suffix = 1
+    while BidangKeahlian.objects.using('simda').filter(kode=kode).exists():
+        suffix += 1
+        kode = f'{base_kode}{suffix}'[:20]
+
+    baru = BidangKeahlian.objects.using('simda').create(
+        kode=kode, nama=nama, rumpun_ilmu='', status=True
+    )
+    return baru.id
 
 
 def dapat_kelola_nidn(user, nidn):

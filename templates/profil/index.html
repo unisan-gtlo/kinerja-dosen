@@ -235,12 +235,16 @@
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label fw-semibold">Bidang Keahlian/Keilmuan</label>
-            <select name="bidang_keahlian_id" class="form-select" {% if not bisa_edit %}disabled{% endif %}>
-              <option value="">-- Pilih --</option>
+            <input type="text" name="bidang_keahlian_nama" class="form-control" list="bidang_keahlian_datalist"
+                   value="{{ profil.bidang_keahlian_nama|default:'' }}"
+                   placeholder="Pilih dari daftar atau ketik baru"
+                   {% if not bisa_edit %}readonly{% endif %}>
+            <datalist id="bidang_keahlian_datalist">
               {% for bk in bidang_keahlian_ref_list %}
-              <option value="{{ bk.id }}" {% if profil.bidang_keahlian_id == bk.id %}selected{% endif %}>{{ bk.nama }}</option>
+              <option value="{{ bk.nama }}"></option>
               {% endfor %}
-            </select>
+            </datalist>
+            <div class="form-text">Tidak ada di daftar? Ketik langsung, otomatis tersimpan sebagai opsi baru.</div>
           </div>
           <div class="col-md-3">
             <label class="form-label fw-semibold">ID SINTA</label>

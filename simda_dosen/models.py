@@ -396,6 +396,30 @@ class GolonganPublik(models.Model):
         return f'{self.kode} ({self.pangkat})'
 
 
+class BidangKeahlian(models.Model):
+    """Writable, tabel mentah master.bidang_keahlian (bukan view) -- dipakai
+    untuk auto-create entri baru saat dosen mengetik Bidang Keahlian yang
+    belum ada di daftar (self-service, lihat
+    simda_dosen.utils.get_or_create_bidang_keahlian & profil/views.py
+    simpan_profil). sikd_rw cuma dikasih SELECT+INSERT ke tabel ini (bukan
+    UPDATE/DELETE) supaya tidak bisa mengubah/menghapus entri kurasi admin
+    yang sudah ada -- lihat buat_grant_bidang_keahlian_selfservice.sql."""
+    kode = models.CharField(max_length=20, unique=True)
+    nama = models.CharField(max_length=150)
+    rumpun_ilmu = models.CharField(max_length=50, blank=True)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = 'master"."bidang_keahlian'
+        verbose_name = 'Bidang Keahlian (tulis)'
+        verbose_name_plural = 'Bidang Keahlian (tulis)'
+        ordering = ['nama']
+
+    def __str__(self):
+        return self.nama
+
+
 class BidangKeahlianPublik(models.Model):
     """Read-only, sumbernya master.v_bidang_keahlian_publik (view SIMDA).
     Dipakai untuk dropdown Bidang Keahlian/Keilmuan di tab Profil Dasar --
