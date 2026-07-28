@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Data Presensi — SIKD{% endblock %}
+{% block page_title %}Data Presensi Harian{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-2 mb-3">
+      <div class="col-auto">
+        <input type="date" name="tanggal" value="{{ tanggal|date:'Y-m-d' }}" class="form-control" style="color:#333;">
+      </div>
+      <div class="col-auto">
+        <input type="text" name="fakultas" value="{{ filter_fakultas }}" placeholder="Kode Fakultas" class="form-control" style="color:#333;">
+      </div>
+      <div class="col-auto">
+        <input type="text" name="prodi" value="{{ filter_prodi }}" placeholder="Kode Prodi" class="form-control" style="color:#333;">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Terapkan</button>
+      </div>
+      <div class="col-auto ms-auto">
+        <a class="btn btn-outline-success"
+           href="{% url 'presensi_web:data_ekspor' %}?tanggal={{ tanggal|date:'Y-m-d' }}&fakultas={{ filter_fakultas }}&prodi={{ filter_prodi }}">
+          <span class="ti ti-file-spreadsheet me-1"></span> Ekspor Excel
+        </a>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>NIDN</th>
+            <th>Fakultas</th>
+            <th>Prodi</th>
+            <th>Masuk</th>
+            <th>Pulang</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in halaman %}
+          <tr>
+            <td>{{ item.dosen.get_full_name|default:item.dosen.username }}</td>
+            <td>{{ item.dosen.nidn }}</td>
+            <td>{{ item.dosen.kode_fakultas|default:"—" }}</td>
+            <td>{{ item.dosen.kode_prodi|default:"—" }}</td>
+            <td>{{ item.presensi.waktu_masuk|date:"H:i"|default:"—" }}</td>
+            <td>{{ item.presensi.waktu_pulang|date:"H:i"|default:"—" }}</td>
+            <td>
+              {% if item.presensi %}
+                <span class="badge bg-{% if item.presensi.status == 'hadir' %}success{% elif item.presensi.status == 'telat' %}warning{% else %}secondary{% endif %}-lt">
+                  {{ item.presensi.get_status_display }}
+                </span>
+              {% else %}
+                <span class="badge bg-secondary-lt">Belum Absen</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-muted text-center">Tidak ada data untuk filter ini.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if halaman.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center mt-3">
+      <span class="text-muted fs-13">Halaman {{ halaman.number }} dari {{ halaman.paginator.num_pages }}</span>
+      <div class="d-flex gap-2">
+        {% if halaman.has_previous %}
+        <a class="btn btn-sm btn-outline-secondary" href="?tanggal={{ tanggal|date:'Y-m-d' }}&fakultas={{ filter_fakultas }}&prodi={{ filter_prodi }}&halaman={{ halaman.previous_page_number }}">‹ Sebelumnya</a>
+        {% endif %}
+        {% if halaman.has_next %}
+        <a class="btn btn-sm btn-outline-secondary" href="?tanggal={{ tanggal|date:'Y-m-d' }}&fakultas={{ filter_fakultas }}&prodi={{ filter_prodi }}&halaman={{ halaman.next_page_number }}">Berikutnya ›</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

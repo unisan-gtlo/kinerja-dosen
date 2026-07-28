@@ -1,4 +1,5 @@
 import io
+from datetime import datetime as dt, time as dt_time
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
@@ -17,6 +18,7 @@ from .geo import dalam_radius, jarak_meter
 from .models import (
     EnrolmentWajah, LogKecurangan, LokasiKantor, Perangkat, Presensi, StatusPresensi, TingkatRisiko,
 )
+from .rekap import data_presensi_harian, ringkasan_hari_ini, top_telat_hari_ini, tren_mingguan
 from .utils import get_dosen_by_nidn
 
 
@@ -494,3 +496,125 @@ class TinjauPresensiViewTest(TestCase):
         self.assertEqual(resp.status_code, 403)
         self.presensi_b.refresh_from_db()
         self.assertTrue(self.presensi_b.ditandai)
+
+
+class RekapPresensiTest(TestCase):
+    """Logika presensi/rekap.py -- dipakai dashboard admin & ekspor data.
+    Cakupan dosen saja untuk sekarang (lihat catatan di rekap.py)."""
+
+    def setUp(self):
+        self.dosen_a = User.objects.create_user(
+            username="rekapA", password="testpass123", role="dosen",
+            nidn="3333333333", kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.dosen_b = User.objects.create_user(
+            username="rekapB", password="testpass123", role="dosen",
+            nidn="4444444444", kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.lokasi = LokasiKantor.objects.create(
+            nama="Kampus Utama", latitude=0.0, longitude=0.0, radius_meter=100,
+            jam_masuk=dt_time(8, 0), toleransi_menit=15,
+        )
+        self.nidn_list = [self.dosen_a.nidn, self.dosen_b.nidn]
+        self.hari_ini = timezone.localdate()
+
+    def test_ringkasan_menghitung_hadir_telat_belum_absen(self):
+        Presensi.objects.create(
+            nidn=self.dosen_a.nidn, tanggal=self.hari_ini, status=StatusPresensi.HADIR,
+            waktu_masuk=timezone.now(),
+        )
+        Presensi.objects.create(
+            nidn=self.dosen_b.nidn, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
+            waktu_masuk=timezone.now(),
+        )
+        ringkasan = ringkasan_hari_ini(self.nidn_list, tanggal=self.hari_ini)
+        self.assertEqual(ringkasan["total"], 2)
+        self.assertEqual(ringkasan["hadir"], 1)
+        self.assertEqual(ringkasan["telat"], 1)
+        self.assertEqual(ringkasan["belum_absen"], 0)
+
+    def test_ringkasan_belum_absen_kalau_tidak_ada_presensi(self):
+        ringkasan = ringkasan_hari_ini(self.nidn_list, tanggal=self.hari_ini)
+        self.assertEqual(ringkasan["belum_absen"], 2)
+
+    def test_tren_mingguan_hitung_per_hari(self):
+        Presensi.objects.create(
+            nidn=self.dosen_a.nidn, tanggal=self.hari_ini, status=StatusPresensi.HADIR,
+            waktu_masuk=timezone.now(),
+        )
+        tren = tren_mingguan(self.nidn_list, jumlah_hari=3, tanggal_akhir=self.hari_ini)
+        self.assertEqual(len(tren), 3)
+        self.assertEqual(tren[-1]["tanggal"], self.hari_ini)
+        self.assertEqual(tren[-1]["jumlah"], 1)
+
+    def test_top_telat_urut_dari_paling_telat(self):
+        waktu_a = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 10)))
+        waktu_b = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 40)))
+        Presensi.objects.create(
+            nidn=self.dosen_a.nidn, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
+            waktu_masuk=waktu_a, lokasi=self.lokasi,
+        )
+        Presensi.objects.create(
+            nidn=self.dosen_b.nidn, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
+            waktu_masuk=waktu_b, lokasi=self.lokasi,
+        )
+        top = top_telat_hari_ini(self.nidn_list, tanggal=self.hari_ini)
+        self.assertEqual(len(top), 2)
+        self.assertEqual(top[0]["presensi"].nidn, self.dosen_b.nidn)  # paling telat duluan
+        self.assertGreater(top[0]["menit_telat"], top[1]["menit_telat"])
+
+    def test_data_presensi_harian_sertakan_yang_belum_absen(self):
+        Presensi.objects.create(
+            nidn=self.dosen_a.nidn, tanggal=self.hari_ini, status=StatusPresensi.HADIR,
+            waktu_masuk=timezone.now(),
+        )
+        dosen_qs = User.objects.filter(nidn__in=self.nidn_list)
+        daftar = data_presensi_harian(dosen_qs, self.hari_ini)
+        self.assertEqual(len(daftar), 2)
+        by_nidn = {d["dosen"].nidn: d["presensi"] for d in daftar}
+        self.assertIsNotNone(by_nidn[self.dosen_a.nidn])
+        self.assertIsNone(by_nidn[self.dosen_b.nidn])
+
+
+class DashboardDataPresensiViewTest(TestCase):
+    """Halaman /presensi/dashboard/, /presensi/data/, dan ekspor Excel --
+    akses dibatasi sama seperti /presensi/tinjau/."""
+
+    def setUp(self):
+        self.dosen = User.objects.create_user(
+            username="dashdosen", password="testpass123", role="dosen",
+            nidn="5555555555", kode_fakultas="FT", kode_prodi="TI",
+        )
+
+    def test_dosen_biasa_tidak_bisa_akses_dashboard(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/dashboard/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_bisa_akses_dashboard(self):
+        admin = User.objects.create_user(username="dashadmin", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.get("/presensi/dashboard/")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_admin_bisa_akses_data_presensi(self):
+        admin = User.objects.create_user(username="dataadmin", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.get("/presensi/data/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, self.dosen.nidn)
+
+    def test_dosen_biasa_tidak_bisa_ekspor(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/data/ekspor/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_bisa_ekspor_excel(self):
+        admin = User.objects.create_user(username="ekspoladmin", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.get("/presensi/data/ekspor/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )

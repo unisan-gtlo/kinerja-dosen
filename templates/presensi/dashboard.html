@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard Presensi — SIKD{% endblock %}
+{% block page_title %}Dashboard Presensi{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <span class="text-muted fs-6">{{ ringkasan.tanggal|date:"l, d F Y" }} · cakupan dosen dalam wewenang Anda</span>
+</div>
+
+<div class="row row-deck row-cards mb-2">
+  <div class="col-6 col-md-4 col-lg">
+    <div class="card card-sm">
+      <div class="card-body">
+        <div class="text-muted fs-13">Total Dosen</div>
+        <div class="fs-2 fw-bold">{{ ringkasan.total }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg">
+    <div class="card card-sm">
+      <div class="card-body">
+        <div class="text-muted fs-13"><span class="badge bg-success-lt">●</span> Hadir</div>
+        <div class="fs-2 fw-bold text-success">{{ ringkasan.hadir }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg">
+    <div class="card card-sm">
+      <div class="card-body">
+        <div class="text-muted fs-13"><span class="badge bg-warning-lt">●</span> Telat</div>
+        <div class="fs-2 fw-bold text-warning">{{ ringkasan.telat }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg">
+    <div class="card card-sm">
+      <div class="card-body">
+        <div class="text-muted fs-13"><span class="badge bg-secondary-lt">●</span> Belum Absen</div>
+        <div class="fs-2 fw-bold text-secondary">{{ ringkasan.belum_absen }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg">
+    <div class="card card-sm" style="border-color:#f3c6c6;background:#fef7f7;">
+      <div class="card-body">
+        <div class="text-muted fs-13"><span class="badge bg-danger-lt">●</span> Ditandai</div>
+        <div class="fs-2 fw-bold text-danger">{{ ringkasan.ditandai }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row row-deck row-cards mb-2">
+  <div class="col-12 col-lg-7">
+    <div class="card">
+      <div class="card-body">
+        <h3 class="card-title">Tren Kehadiran 6 Hari Terakhir</h3>
+        <div class="text-muted fs-13 mb-2">Jumlah dosen hadir (tepat waktu + telat)</div>
+        <div style="height:220px;"><canvas id="chartTren"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-5">
+    <div class="card">
+      <div class="card-body">
+        <h3 class="card-title">Keterlambatan Teratas Hari Ini</h3>
+        {% if not top_telat %}
+        <div class="text-muted fs-13">Tidak ada yang telat hari ini.</div>
+        {% else %}
+        <div class="divide-y">
+          {% for item in top_telat %}
+          <div class="row py-2">
+            <div class="col">{{ item.presensi.nidn }}</div>
+            <div class="col-auto">
+              <span class="badge bg-warning-lt">
+                {% if item.menit_telat %}+{{ item.menit_telat }} menit{% else %}telat{% endif %}
+              </span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12 d-flex gap-2">
+    <a href="{% url 'presensi_web:data' %}" class="btn btn-primary">
+      <span class="ti ti-table me-1"></span> Data Presensi Harian
+    </a>
+    <a href="{% url 'presensi_web:tinjau' %}" class="btn btn-outline-danger">
+      <span class="ti ti-shield-check me-1"></span> Presensi Ditandai
+    </a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('chartTren'), {
+  type: 'bar',
+  data: {
+    labels: {{ tren_labels|safe }},
+    datasets: [{
+      label: 'Hadir',
+      data: {{ tren_data|safe }},
+      backgroundColor: '#2E5496',
+      borderRadius: 5,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  }
+});
+</script>
+{% endblock %}

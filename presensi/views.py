@@ -1,18 +1,26 @@
+from datetime import datetime
+
+import openpyxl
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
 from accounts.models import User
+from laporan.views import get_dosen_queryset
 from simda_dosen.utils import dapat_kelola_nidn
 from .decision import cek_lokasi, tentukan_status_waktu, verifikasi_wajah
 from .face import VERSI_MODEL_WAJAH, ekstrak_satu_wajah, enkripsi_embedding, rata_rata_embedding
 from .models import EnrolmentWajah, LogKecurangan, Perangkat, Presensi, StatusPresensi, TingkatRisiko
+from .rekap import data_presensi_harian, ringkasan_hari_ini, top_telat_hari_ini, tren_mingguan
 from .serializers import AbsenSerializer, EnrolmentWajahSerializer
 
 # Sama seperti accounts/views.py::ROLE_PENGELOLA_SCOPED -- peran yang boleh
@@ -62,6 +70,139 @@ def service_worker_presensi(request):
 
 def _bisa_tinjau_presensi(user):
     return user.role == "admin" or user.role in ROLE_PENGELOLA_SCOPED
+
+
+def _tanggal_dari_request(request):
+    tanggal_str = request.GET.get("tanggal")
+    if tanggal_str:
+        try:
+            return datetime.strptime(tanggal_str, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    return timezone.localdate()
+
+
+@login_required
+def dashboard_presensi(request):
+    """Dashboard admin/HR: KPI hari ini, tren 6 hari, dan daftar paling
+    telat. Cakupan DOSEN SAJA untuk sekarang -- lihat catatan di
+    presensi/rekap.py soal staf yang belum tercakup."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    dosen_qs = get_dosen_queryset(request.user)
+    nidn_list = list(dosen_qs.exclude(nidn__isnull=True).exclude(nidn="").values_list("nidn", flat=True))
+
+    ringkasan = ringkasan_hari_ini(nidn_list)
+    tren = tren_mingguan(nidn_list)
+    top_telat = top_telat_hari_ini(nidn_list)
+
+    return render(request, "presensi/dashboard.html", {
+        "ringkasan": ringkasan,
+        "tren_labels": [t["label"] for t in tren],
+        "tren_data": [t["jumlah"] for t in tren],
+        "top_telat": top_telat,
+    })
+
+
+@login_required
+def data_presensi(request):
+    """Tabel data presensi harian (1 baris per dosen dalam cakupan,
+    termasuk yang belum absen), dengan filter tanggal/fakultas/prodi."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    tanggal = _tanggal_dari_request(request)
+    filter_fakultas = request.GET.get("fakultas", "")
+    filter_prodi = request.GET.get("prodi", "")
+
+    dosen_qs = get_dosen_queryset(request.user, filter_prodi=filter_prodi, filter_fakultas=filter_fakultas)
+    daftar = data_presensi_harian(dosen_qs, tanggal)
+
+    halaman = Paginator(daftar, 25).get_page(request.GET.get("halaman"))
+
+    return render(request, "presensi/data.html", {
+        "halaman": halaman,
+        "tanggal": tanggal,
+        "filter_fakultas": filter_fakultas,
+        "filter_prodi": filter_prodi,
+    })
+
+
+@login_required
+def export_excel_presensi(request):
+    """Ekspor Excel data presensi harian -- style & pola sama dengan
+    laporan/views.py supaya konsisten dengan ekspor lain di portal ini."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    tanggal = _tanggal_dari_request(request)
+    filter_fakultas = request.GET.get("fakultas", "")
+    filter_prodi = request.GET.get("prodi", "")
+
+    dosen_qs = get_dosen_queryset(request.user, filter_prodi=filter_prodi, filter_fakultas=filter_fakultas)
+    daftar = data_presensi_harian(dosen_qs, tanggal)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Data Presensi"
+
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    left = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    thin = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+
+    ws.merge_cells("A1:H1")
+    ws["A1"] = "DATA PRESENSI HARIAN"
+    ws["A1"].font = Font(bold=True, size=14)
+    ws["A1"].alignment = center
+
+    ws.merge_cells("A2:H2")
+    ws["A2"] = f"Universitas Ichsan Gorontalo · {tanggal.strftime('%d %B %Y')}"
+    ws["A2"].font = Font(bold=True, size=12)
+    ws["A2"].alignment = center
+
+    headers = ["No", "Nama", "NIDN", "Fakultas", "Prodi", "Masuk", "Pulang", "Status"]
+    row_header = 4
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=row_header, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center
+        cell.border = thin
+    ws.row_dimensions[row_header].height = 26
+
+    for idx, item in enumerate(daftar, 1):
+        dosen = item["dosen"]
+        p = item["presensi"]
+        row_data = [
+            idx,
+            dosen.get_full_name() or dosen.username,
+            dosen.nidn,
+            dosen.kode_fakultas or "-",
+            dosen.kode_prodi or "-",
+            timezone.localtime(p.waktu_masuk).strftime("%H:%M") if p and p.waktu_masuk else "-",
+            timezone.localtime(p.waktu_pulang).strftime("%H:%M") if p and p.waktu_pulang else "-",
+            p.get_status_display() if p else "Belum Absen",
+        ]
+        row_num = row_header + idx
+        for col, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col, value=value)
+            cell.border = thin
+            cell.alignment = center if col != 2 else left
+
+    col_widths = [5, 28, 15, 10, 8, 10, 10, 14]
+    for col, width in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+
+    response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response["Content-Disposition"] = f'attachment; filename="Presensi_{tanggal.isoformat()}.xlsx"'
+    wb.save(response)
+    return response
 
 
 @login_required

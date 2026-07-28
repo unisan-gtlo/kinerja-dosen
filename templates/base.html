@@ -417,6 +417,13 @@
             </a>
           </li>
           <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+               href="{% url 'presensi_web:dashboard' %}">
+              <span class="nav-link-icon"><span class="ti ti-chart-bar"></span></span>
+              <span class="nav-link-title">Dashboard Presensi</span>
+            </a>
+          </li>
+          <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.url_name == 'tinjau' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
                href="{% url 'presensi_web:tinjau' %}">
               <span class="nav-link-icon"><span class="ti ti-shield-check"></span></span>
