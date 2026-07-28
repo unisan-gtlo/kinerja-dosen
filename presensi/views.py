@@ -1,3 +1,5 @@
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -7,6 +9,14 @@ from rest_framework.views import APIView
 from .decision import cek_lokasi, tentukan_status_waktu
 from .models import LogKecurangan, Perangkat, Presensi, TingkatRisiko
 from .serializers import AbsenSerializer
+
+
+@login_required
+def halaman_absen(request):
+    """Halaman web untuk dosen absen masuk/pulang (Tabler UI + JS geolocation,
+    memanggil API /api/presensi/masuk & /pulang lewat sesi Django yang sudah
+    login -- lihat SessionAuthentication di REST_FRAMEWORK settings)."""
+    return render(request, "presensi/absen.html")
 
 # Skor risiko sementara untuk presensi yang lolos cek lokasi (syarat 1),
 # selama syarat 2 (verifikasi wajah) belum aktif -- lihat presensi/decision.py.

@@ -162,3 +162,28 @@ class AbsenPulangAPITest(APITestCase):
         self.assertTrue(
             Presensi.objects.filter(nidn=self.user.nidn, waktu_pulang__isnull=False).exists()
         )
+
+
+class HalamanAbsenViewTest(TestCase):
+    """Halaman web /presensi/ -- harus login dulu, dan API di belakangnya
+    bisa dipanggil lewat sesi Django (bukan cuma JWT)."""
+
+    def test_tanpa_login_dialihkan_ke_halaman_login(self):
+        resp = self.client.get("/presensi/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/accounts/login/", resp.url)
+
+    def test_sudah_login_bisa_akses_halaman(self):
+        User.objects.create_user(username="dosen2", password="testpass123", role="dosen", nidn="1234567891")
+        self.client.login(username="dosen2", password="testpass123")
+        resp = self.client.get("/presensi/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "presensi/absen.html")
+
+    def test_status_hari_ini_bisa_dipanggil_lewat_sesi_login(self):
+        """API DRF harus menerima sesi Django (SessionAuthentication),
+        bukan cuma token JWT -- dipakai oleh templates/presensi/absen.html."""
+        User.objects.create_user(username="dosen3", password="testpass123", role="dosen", nidn="1234567892")
+        self.client.login(username="dosen3", password="testpass123")
+        resp = self.client.get("/api/presensi/status-hari-ini")
+        self.assertEqual(resp.status_code, 200)

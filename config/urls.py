@@ -17,6 +17,8 @@ urlpatterns = [
     path('reward/', include('reward.urls')),
     path('laporan/', include('laporan.urls')),
     path('simda-dosen/', include('simda_dosen.urls')),
+    # Halaman web presensi (absen masuk/pulang lewat browser).
+    path('presensi/', include('presensi.web_urls')),
     # API modul presensi (JWT, dipakai klien mobile/PWA -- lihat
     # docs/presensi/spesifikasiapipresensi.md).
     path('api/auth/login', TokenObtainPairView.as_view(), name='api_login'),

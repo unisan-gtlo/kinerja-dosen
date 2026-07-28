@@ -294,6 +294,17 @@
             </a>
           </li>
 
+          <!-- Presensi — dosen -->
+          {% if user.role == 'dosen' %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+               href="{% url 'presensi_web:index' %}">
+              <span class="nav-link-icon"><span class="ti ti-map-pin-check"></span></span>
+              <span class="nav-link-title">Presensi</span>
+            </a>
+          </li>
+          {% endif %}
+
           <!-- Data Dosen — dosen, operator, admin -->
           {% if user.role == 'dosen' or user.role == 'operator' or user.role == 'admin' %}
           <li class="nav-item">

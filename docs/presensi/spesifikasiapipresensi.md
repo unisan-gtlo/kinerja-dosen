@@ -1,11 +1,19 @@
 # Spesifikasi API — Modul Presensi (Portal Kinerja UNISAN)
 
-Versi 1.0 · Django REST Framework. Semua endpoint:
-- **Wajib autentikasi (JWT)** kecuali login.
+Versi 1.1 · Django REST Framework. Semua endpoint:
+- **Wajib autentikasi** — JWT (klien mobile/PWA) atau sesi Django (halaman web
+  `/presensi/`, lihat catatan di bawah) — kecuali login.
 - **Divalidasi & diputuskan di server** (klien hanya kirim data mentah).
-- Kena **rate-limiting**. Waktu memakai **jam server**.
+- Kena **rate-limiting** (6x/menit per user, scope `presensi`). Waktu memakai
+  **jam server**.
 
-Base URL: `/api/presensi/`
+Base URL API: `/api/presensi/`
+
+**Halaman web:** `/presensi/` — tombol Absen Masuk/Pulang untuk dosen yang
+sudah login di portal (Tabler UI + JS geolocation, lihat
+`templates/presensi/absen.html`). Memanggil API yang sama lewat sesi Django
+(`SessionAuthentication`), bukan token JWT — JWT tetap dipakai khusus untuk
+klien mobile terpisah (lihat status MVP di CLAUDE.md § 9).
 
 ---
 

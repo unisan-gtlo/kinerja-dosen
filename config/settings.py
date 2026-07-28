@@ -145,6 +145,10 @@ from datetime import timedelta  # noqa: E402
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # Fallback untuk halaman web presensi (templates/presensi/absen.html)
+        # yang dipanggil dari browser dengan sesi Django yang sudah login,
+        # bukan token JWT (itu untuk klien mobile/PWA terpisah).
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

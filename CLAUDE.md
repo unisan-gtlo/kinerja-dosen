@@ -149,3 +149,5 @@ Baru setelah itu lanjut ke Tahap 2 (Model & DB) pada panduan coding.
 Model & DB → API + Cek Lokasi (syarat 1) → Verifikasi Wajah (syarat 2) → Gerbang 2 syarat + skor risiko → Opsi QR & Wi-Fi (feature flag) → PWA (alur 2 langkah) → Dashboard admin/HR → Test, keamanan, deploy.
 
 **MVP dulu:** absen dengan cek lokasi saja agar cepat bisa dicoba, baru tambahkan verifikasi wajah.
+
+**[STATUS per 2026-07-28]** Model & DB ✅, API + Cek Lokasi ✅ (sudah dites live di `kinerja.unisan-g.id`, endpoint `POST /api/presensi/masuk|pulang`, `GET /api/presensi/status-hari-ini`, JWT via `djangorestframework-simplejwt`), halaman web dasar untuk coba-coba ✅ (`/presensi/`, `templates/presensi/absen.html` — bukan PWA installable, cuma halaman biasa dalam portal, dipanggil lewat sesi Django). Belum: Verifikasi Wajah (syarat 2 — sampai ini ada, semua presensi yang lolos cek lokasi tetap `tingkat_risiko=sedang` + `ditandai=True` untuk tinjauan HR, belum otomatis sah penuh), opsi QR/Wi-Fi, PWA installable (manifest + service worker), dashboard admin/HR untuk meninjau presensi yang ditandai.
