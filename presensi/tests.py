@@ -133,30 +133,31 @@ class VerifikasiWajahTest(TestCase):
     enrolment DAN wajah cocok). ekstrak_satu_wajah di-mock."""
 
     def setUp(self):
-        self.nidn = "1234567890"
+        self.user = _buat_dosen_user()
+        self.user_lain = _buat_dosen_user(nidn="9999999999", username="belum_enrolment")
         self.embedding_asli = np.array([1.0, 0.0, 0.0], dtype=np.float32)
         EnrolmentWajah.objects.create(
-            nidn=self.nidn,
+            user=self.user,
             embedding_terenkripsi=enkripsi_embedding(self.embedding_asli),
             versi_model="tes", consent_disetujui=True, consent_pada=timezone.now(),
         )
 
     def test_belum_enrolment_gagal(self):
-        hasil = verifikasi_wajah("nidn_belum_enrolment", _foto_palsu())
+        hasil = verifikasi_wajah(self.user_lain, _foto_palsu())
         self.assertFalse(hasil.lolos)
         self.assertEqual(hasil.alasan, "belum_enrolment_wajah")
 
     @patch("presensi.decision.ekstrak_satu_wajah")
     def test_liveness_gagal_diteruskan(self, mock_ekstrak):
         mock_ekstrak.return_value = (None, "liveness_gagal")
-        hasil = verifikasi_wajah(self.nidn, _foto_palsu())
+        hasil = verifikasi_wajah(self.user, _foto_palsu())
         self.assertFalse(hasil.lolos)
         self.assertEqual(hasil.alasan, "liveness_gagal")
 
     @patch("presensi.decision.ekstrak_satu_wajah")
     def test_wajah_cocok_lolos(self, mock_ekstrak):
         mock_ekstrak.return_value = (SimpleNamespace(embedding=self.embedding_asli), None)
-        hasil = verifikasi_wajah(self.nidn, _foto_palsu())
+        hasil = verifikasi_wajah(self.user, _foto_palsu())
         self.assertTrue(hasil.lolos)
         self.assertGreater(hasil.skor_kemiripan, 0.9)
 
@@ -164,29 +165,31 @@ class VerifikasiWajahTest(TestCase):
     def test_wajah_tidak_cocok_gagal(self, mock_ekstrak):
         embedding_beda = np.array([0.0, 1.0, 0.0], dtype=np.float32)
         mock_ekstrak.return_value = (SimpleNamespace(embedding=embedding_beda), None)
-        hasil = verifikasi_wajah(self.nidn, _foto_palsu())
+        hasil = verifikasi_wajah(self.user, _foto_palsu())
         self.assertFalse(hasil.lolos)
         self.assertEqual(hasil.alasan, "wajah_tidak_cocok")
 
 
 class PresensiUniqueTogetherTest(TestCase):
-    """Satu dosen tidak boleh punya dua baris Presensi di tanggal yang sama."""
+    """Satu orang tidak boleh punya dua baris Presensi di tanggal yang sama."""
 
-    def test_presensi_duplikat_nidn_tanggal_ditolak(self):
-        Presensi.objects.create(nidn="1234567890", tanggal="2026-07-28")
+    def test_presensi_duplikat_user_tanggal_ditolak(self):
+        user = _buat_dosen_user()
+        Presensi.objects.create(user=user, tanggal="2026-07-28")
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Presensi.objects.create(nidn="1234567890", tanggal="2026-07-28")
+                Presensi.objects.create(user=user, tanggal="2026-07-28")
 
 
 class PerangkatUniqueTogetherTest(TestCase):
-    """Satu device_id tidak boleh didaftarkan dua kali untuk dosen yang sama."""
+    """Satu device_id tidak boleh didaftarkan dua kali untuk orang yang sama."""
 
     def test_perangkat_duplikat_ditolak(self):
-        Perangkat.objects.create(nidn="1234567890", device_id="device-a")
+        user = _buat_dosen_user()
+        Perangkat.objects.create(user=user, device_id="device-a")
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                Perangkat.objects.create(nidn="1234567890", device_id="device-a")
+                Perangkat.objects.create(user=user, device_id="device-a")
 
 
 class GetDosenByNidnTest(TestCase):
@@ -249,7 +252,7 @@ class AbsenMasukAPITest(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.data["diterima"])
         self.assertEqual(resp.data["tingkat_risiko"], TingkatRisiko.RENDAH)
-        presensi = Presensi.objects.get(nidn=self.user.nidn)
+        presensi = Presensi.objects.get(user=self.user)
         self.assertFalse(presensi.ditandai)
         self.assertEqual(presensi.tingkat_risiko, TingkatRisiko.RENDAH)
 
@@ -260,9 +263,9 @@ class AbsenMasukAPITest(APITestCase):
         self.assertFalse(resp.data["diterima"])
         self.assertEqual(resp.data["alasan"], "di_luar_radius")
         self.assertTrue(
-            LogKecurangan.objects.filter(nidn=self.user.nidn, jenis_anomali="di_luar_radius").exists()
+            LogKecurangan.objects.filter(user=self.user, jenis_anomali="di_luar_radius").exists()
         )
-        self.assertFalse(Presensi.objects.filter(nidn=self.user.nidn).exists())
+        self.assertFalse(Presensi.objects.filter(user=self.user).exists())
 
     def test_akurasi_gps_buruk_ditolak(self):
         resp = self.client.post("/api/presensi/masuk", _payload_absen(akurasi_m=999), format="multipart")
@@ -277,9 +280,9 @@ class AbsenMasukAPITest(APITestCase):
         self.assertFalse(resp.data["diterima"])
         self.assertEqual(resp.data["alasan"], "wajah_tidak_cocok")
         self.assertTrue(
-            LogKecurangan.objects.filter(nidn=self.user.nidn, jenis_anomali="wajah_tidak_cocok").exists()
+            LogKecurangan.objects.filter(user=self.user, jenis_anomali="wajah_tidak_cocok").exists()
         )
-        self.assertFalse(Presensi.objects.filter(nidn=self.user.nidn).exists())
+        self.assertFalse(Presensi.objects.filter(user=self.user).exists())
 
     @patch("presensi.views.verifikasi_wajah")
     def test_belum_enrolment_wajah_ditolak_tanpa_log_kecurangan(self, mock_verifikasi):
@@ -290,7 +293,7 @@ class AbsenMasukAPITest(APITestCase):
         self.assertFalse(resp.data["diterima"])
         self.assertEqual(resp.data["alasan"], "belum_enrolment_wajah")
         self.assertFalse(
-            LogKecurangan.objects.filter(nidn=self.user.nidn, jenis_anomali="belum_enrolment_wajah").exists()
+            LogKecurangan.objects.filter(user=self.user, jenis_anomali="belum_enrolment_wajah").exists()
         )
 
     @patch("presensi.views.verifikasi_wajah")
@@ -330,7 +333,7 @@ class AbsenPulangAPITest(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.data["diterima"])
         self.assertTrue(
-            Presensi.objects.filter(nidn=self.user.nidn, waktu_pulang__isnull=False).exists()
+            Presensi.objects.filter(user=self.user, waktu_pulang__isnull=False).exists()
         )
 
 
@@ -352,7 +355,7 @@ class EnrolmentWajahAPITest(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["status"], "ok")
         self.assertTrue(
-            EnrolmentWajah.objects.filter(nidn=self.user.nidn, consent_disetujui=True).exists()
+            EnrolmentWajah.objects.filter(user=self.user, consent_disetujui=True).exists()
         )
 
     @patch("presensi.views.ekstrak_satu_wajah")
@@ -435,11 +438,11 @@ class TinjauPresensiViewTest(TestCase):
             nidn="2222222222", kode_prodi="SI", kode_fakultas="FT",
         )
         self.presensi_a = Presensi.objects.create(
-            nidn=self.dosen_a.nidn, tanggal="2026-07-28", ditandai=True,
+            user=self.dosen_a, tanggal="2026-07-28", ditandai=True,
             tingkat_risiko=TingkatRisiko.SEDANG,
         )
         self.presensi_b = Presensi.objects.create(
-            nidn=self.dosen_b.nidn, tanggal="2026-07-28", ditandai=True,
+            user=self.dosen_b, tanggal="2026-07-28", ditandai=True,
             tingkat_risiko=TingkatRisiko.SEDANG,
         )
 
@@ -484,7 +487,7 @@ class TinjauPresensiViewTest(TestCase):
         self.assertFalse(self.presensi_a.ditandai)
         self.assertEqual(self.presensi_a.status, StatusPresensi.DITOLAK)
         self.assertTrue(
-            LogKecurangan.objects.filter(nidn=self.dosen_a.nidn, jenis_anomali="ditolak_hr").exists()
+            LogKecurangan.objects.filter(user=self.dosen_a, jenis_anomali="ditolak_hr").exists()
         )
 
     def test_kaprodi_tidak_bisa_putuskan_presensi_di_luar_prodi(self):
@@ -500,7 +503,9 @@ class TinjauPresensiViewTest(TestCase):
 
 class RekapPresensiTest(TestCase):
     """Logika presensi/rekap.py -- dipakai dashboard admin & ekspor data.
-    Cakupan dosen saja untuk sekarang (lihat catatan di rekap.py)."""
+    Skema presensi sudah generik (kunci user), fungsi-fungsi ini menerima
+    daftar user_id -- cakupan dosen-only saat ini datang dari
+    get_dosen_queryset di views.py, bukan dari rekap.py sendiri."""
 
     def setUp(self):
         self.dosen_a = User.objects.create_user(
@@ -515,34 +520,34 @@ class RekapPresensiTest(TestCase):
             nama="Kampus Utama", latitude=0.0, longitude=0.0, radius_meter=100,
             jam_masuk=dt_time(8, 0), toleransi_menit=15,
         )
-        self.nidn_list = [self.dosen_a.nidn, self.dosen_b.nidn]
+        self.user_ids = [self.dosen_a.id, self.dosen_b.id]
         self.hari_ini = timezone.localdate()
 
     def test_ringkasan_menghitung_hadir_telat_belum_absen(self):
         Presensi.objects.create(
-            nidn=self.dosen_a.nidn, tanggal=self.hari_ini, status=StatusPresensi.HADIR,
+            user=self.dosen_a, tanggal=self.hari_ini, status=StatusPresensi.HADIR,
             waktu_masuk=timezone.now(),
         )
         Presensi.objects.create(
-            nidn=self.dosen_b.nidn, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
+            user=self.dosen_b, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
             waktu_masuk=timezone.now(),
         )
-        ringkasan = ringkasan_hari_ini(self.nidn_list, tanggal=self.hari_ini)
+        ringkasan = ringkasan_hari_ini(self.user_ids, tanggal=self.hari_ini)
         self.assertEqual(ringkasan["total"], 2)
         self.assertEqual(ringkasan["hadir"], 1)
         self.assertEqual(ringkasan["telat"], 1)
         self.assertEqual(ringkasan["belum_absen"], 0)
 
     def test_ringkasan_belum_absen_kalau_tidak_ada_presensi(self):
-        ringkasan = ringkasan_hari_ini(self.nidn_list, tanggal=self.hari_ini)
+        ringkasan = ringkasan_hari_ini(self.user_ids, tanggal=self.hari_ini)
         self.assertEqual(ringkasan["belum_absen"], 2)
 
     def test_tren_mingguan_hitung_per_hari(self):
         Presensi.objects.create(
-            nidn=self.dosen_a.nidn, tanggal=self.hari_ini, status=StatusPresensi.HADIR,
+            user=self.dosen_a, tanggal=self.hari_ini, status=StatusPresensi.HADIR,
             waktu_masuk=timezone.now(),
         )
-        tren = tren_mingguan(self.nidn_list, jumlah_hari=3, tanggal_akhir=self.hari_ini)
+        tren = tren_mingguan(self.user_ids, jumlah_hari=3, tanggal_akhir=self.hari_ini)
         self.assertEqual(len(tren), 3)
         self.assertEqual(tren[-1]["tanggal"], self.hari_ini)
         self.assertEqual(tren[-1]["jumlah"], 1)
@@ -551,29 +556,29 @@ class RekapPresensiTest(TestCase):
         waktu_a = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 10)))
         waktu_b = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 40)))
         Presensi.objects.create(
-            nidn=self.dosen_a.nidn, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
+            user=self.dosen_a, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
             waktu_masuk=waktu_a, lokasi=self.lokasi,
         )
         Presensi.objects.create(
-            nidn=self.dosen_b.nidn, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
+            user=self.dosen_b, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
             waktu_masuk=waktu_b, lokasi=self.lokasi,
         )
-        top = top_telat_hari_ini(self.nidn_list, tanggal=self.hari_ini)
+        top = top_telat_hari_ini(self.user_ids, tanggal=self.hari_ini)
         self.assertEqual(len(top), 2)
-        self.assertEqual(top[0]["presensi"].nidn, self.dosen_b.nidn)  # paling telat duluan
+        self.assertEqual(top[0]["presensi"].user_id, self.dosen_b.id)  # paling telat duluan
         self.assertGreater(top[0]["menit_telat"], top[1]["menit_telat"])
 
     def test_data_presensi_harian_sertakan_yang_belum_absen(self):
         Presensi.objects.create(
-            nidn=self.dosen_a.nidn, tanggal=self.hari_ini, status=StatusPresensi.HADIR,
+            user=self.dosen_a, tanggal=self.hari_ini, status=StatusPresensi.HADIR,
             waktu_masuk=timezone.now(),
         )
-        dosen_qs = User.objects.filter(nidn__in=self.nidn_list)
+        dosen_qs = User.objects.filter(id__in=self.user_ids)
         daftar = data_presensi_harian(dosen_qs, self.hari_ini)
         self.assertEqual(len(daftar), 2)
-        by_nidn = {d["dosen"].nidn: d["presensi"] for d in daftar}
-        self.assertIsNotNone(by_nidn[self.dosen_a.nidn])
-        self.assertIsNone(by_nidn[self.dosen_b.nidn])
+        by_id = {d["dosen"].id: d["presensi"] for d in daftar}
+        self.assertIsNotNone(by_id[self.dosen_a.id])
+        self.assertIsNone(by_id[self.dosen_b.id])
 
 
 class DashboardDataPresensiViewTest(TestCase):

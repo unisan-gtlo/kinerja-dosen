@@ -1,17 +1,22 @@
 """
 Model modul Presensi — Portal Kinerja UNISAN.
 
-Tahap 2 (Model & DB), hasil audit repositori (lihat CLAUDE.md).
+Kunci identitas: `user` (ForeignKey ke accounts.User) -- BUKAN NIDN.
+NIDN cuma dimiliki dosen, sedangkan presensi juga berlaku untuk staf/
+tendik (lihat CLAUDE.md). Karena accounts.User ada di database yang SAMA
+(sikd_db) dengan presensi, FK biasa aman dipakai di sini -- beda dengan
+data dosen di simda_dosen (lihat catatan di bawah).
 
-Catatan integrasi data dosen:
-- Data dosen TIDAK diduplikasi di sini. Setiap tabel yang butuh dosen
-  menyimpan field `nidn` (CharField biasa), BUKAN ForeignKey ke
-  simda_dosen.DataDosen: sikd_db dan unisan_db adalah database Postgres
-  yang berbeda, dan config/db_router.py::SimdaRouter.allow_relation()
-  sengaja melarang relasi lintas-app ke simda_dosen (Postgres tidak
-  mendukung FK/JOIN lintas database). Pola ini sama dengan yang sudah
-  dipakai app `profil` (lihat simda_dosen/utils.py::get_simda_dosen_or_none).
-- Untuk mengambil data dosen dari NIDN, pakai presensi.utils.get_dosen_by_nidn.
+Untuk dosen, NIDN tetap bisa diambil lewat `user.nidn` kalau perlu
+mengayakan data dari SIMDA (nama lengkap, gelar, fakultas/prodi versi
+SIMDA, dst) lewat presensi.utils.get_dosen_by_nidn -- staf tidak punya
+NIDN jadi cukup pakai field accounts.User langsung (nama, kode_fakultas,
+kode_prodi sudah ada di sana untuk semua role).
+
+Catatan integrasi data dosen (tidak berubah dari sebelumnya):
+- Data dosen TIDAK diduplikasi di sini. Presensi tidak menyimpan salinan
+  data SIMDA, cuma mereferensikan lewat NIDN yang tersimpan di
+  accounts.User.nidn.
 - Presensi hanya MEMBACA data dosen (read-only); jangan pernah menulis ke sana.
 
 Catatan lokasi/geofence:
@@ -26,6 +31,7 @@ from datetime import time
 from django.db import models
 from django.utils import timezone
 
+from accounts.models import User
 from .utils import get_dosen_by_nidn
 
 
@@ -73,8 +79,10 @@ class LokasiKantor(models.Model):
 
 
 class JadwalKerja(models.Model):
-    """Jadwal per dosen atau default per lokasi. Sederhana; bisa diperluas ke shift."""
-    nidn = models.CharField("NIDN Dosen", max_length=20, db_index=True, blank=True)
+    """Jadwal per orang atau default per lokasi. Sederhana; bisa diperluas ke shift."""
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True, related_name="jadwal_presensi_set",
+    )
     lokasi = models.ForeignKey(LokasiKantor, on_delete=models.PROTECT, related_name="jadwal")
     hari = models.PositiveSmallIntegerField("Hari (0=Senin..6=Minggu)", default=0)
     jam_masuk = models.TimeField(default=time(8, 0))
@@ -87,12 +95,12 @@ class JadwalKerja(models.Model):
 
     @property
     def dosen(self):
-        return get_dosen_by_nidn(self.nidn)
+        return get_dosen_by_nidn(self.user.nidn) if self.user else None
 
 
 class Perangkat(models.Model):
     """Device binding: 1 akun terikat perangkat terdaftar."""
-    nidn = models.CharField("NIDN Dosen", max_length=20, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="perangkat_presensi_set")
     device_id = models.CharField("ID perangkat", max_length=200)
     platform = models.CharField(max_length=40, blank=True)  # android/ios/web
     terpercaya = models.BooleanField("Disetujui admin", default=False)
@@ -103,11 +111,11 @@ class Perangkat(models.Model):
     class Meta:
         verbose_name = "Perangkat"
         verbose_name_plural = "Perangkat"
-        unique_together = ("nidn", "device_id")
+        unique_together = ("user", "device_id")
 
     @property
     def dosen(self):
-        return get_dosen_by_nidn(self.nidn)
+        return get_dosen_by_nidn(self.user.nidn) if self.user else None
 
 
 class EnrolmentWajah(models.Model):
@@ -115,7 +123,7 @@ class EnrolmentWajah(models.Model):
     Data biometrik. Simpan EMBEDDING TERENKRIPSI, bukan foto mentah.
     Enkripsi memakai kunci di env (mis. FIELD_ENCRYPTION_KEY / Fernet).
     """
-    nidn = models.CharField("NIDN Dosen", max_length=20, unique=True, db_index=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="enrolment_wajah")
     embedding_terenkripsi = models.BinaryField("Embedding wajah (terenkripsi)")
     versi_model = models.CharField(max_length=40, blank=True)  # mis. arcface-r100
     consent_disetujui = models.BooleanField("Persetujuan biometrik (UU PDP)", default=False)
@@ -129,12 +137,12 @@ class EnrolmentWajah(models.Model):
 
     @property
     def dosen(self):
-        return get_dosen_by_nidn(self.nidn)
+        return get_dosen_by_nidn(self.user.nidn) if self.user else None
 
 
 class Presensi(models.Model):
-    """Satu baris = satu hari presensi seorang dosen (masuk + pulang)."""
-    nidn = models.CharField("NIDN Dosen", max_length=20, db_index=True)
+    """Satu baris = satu hari presensi seorang dosen/staf (masuk + pulang)."""
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="presensi_set")
     tanggal = models.DateField(default=timezone.localdate)
 
     # Waktu SELALU dari server (bukan dari perangkat).
@@ -158,15 +166,15 @@ class Presensi(models.Model):
     class Meta:
         verbose_name = "Presensi"
         verbose_name_plural = "Presensi"
-        unique_together = ("nidn", "tanggal")
+        unique_together = ("user", "tanggal")
         indexes = [models.Index(fields=["tanggal", "status"])]
 
     def __str__(self):
-        return f"{self.nidn} · {self.tanggal} · {self.status}"
+        return f"{self.user_id} · {self.tanggal} · {self.status}"
 
     @property
     def dosen(self):
-        return get_dosen_by_nidn(self.nidn)
+        return get_dosen_by_nidn(self.user.nidn) if self.user else None
 
 
 class FotoPresensi(models.Model):
@@ -208,25 +216,26 @@ class IzinCuti(models.Model):
         DISETUJUI = "disetujui", "Disetujui"
         DITOLAK = "ditolak", "Ditolak"
 
-    nidn = models.CharField("NIDN Dosen", max_length=20, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="izin_cuti_set")
     tipe = models.CharField(max_length=6, choices=Tipe.choices)
     tanggal_mulai = models.DateField()
     tanggal_selesai = models.DateField()
     alasan = models.TextField(blank=True)
     lampiran = models.FileField(upload_to="presensi/izin/%Y/%m/", blank=True)
     status = models.CharField(max_length=10, choices=StatusApproval.choices, default=StatusApproval.MENUNGGU)
-    # approver bisa merujuk user portal kinerja; sesuaikan saat audit.
-    approver = models.CharField("NIDN/ID atasan", max_length=50, blank=True)
+    approver = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="izin_cuti_disetujui_set",
+    )
     dibuat = models.DateTimeField(auto_now_add=True)
 
     @property
     def dosen(self):
-        return get_dosen_by_nidn(self.nidn)
+        return get_dosen_by_nidn(self.user.nidn) if self.user else None
 
 
 class LogKecurangan(models.Model):
     """Catatan anomali/kecurangan untuk audit & tinjauan."""
-    nidn = models.CharField("NIDN Dosen", max_length=20, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="log_kecurangan_set")
     presensi = models.ForeignKey(Presensi, on_delete=models.SET_NULL, null=True, blank=True)
     jenis_anomali = models.CharField(max_length=100)   # mis. "mock_location", "wajah_tidak_cocok"
     detail = models.JSONField(default=dict, blank=True)
@@ -239,4 +248,4 @@ class LogKecurangan(models.Model):
 
     @property
     def dosen(self):
-        return get_dosen_by_nidn(self.nidn)
+        return get_dosen_by_nidn(self.user.nidn) if self.user else None

@@ -70,7 +70,7 @@
         <div class="divide-y">
           {% for item in top_telat %}
           <div class="row py-2">
-            <div class="col">{{ item.presensi.nidn }}</div>
+            <div class="col">{{ item.presensi.user.get_full_name|default:item.presensi.user.username }}</div>
             <div class="col-auto">
               <span class="badge bg-warning-lt">
                 {% if item.menit_telat %}+{{ item.menit_telat }} menit{% else %}telat{% endif %}

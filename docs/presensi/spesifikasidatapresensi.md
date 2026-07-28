@@ -1,19 +1,28 @@
 # Spesifikasi Data — Modul Presensi (Portal Kinerja UNISAN)
 
-Versi 1.1 · basis PostgreSQL biasa (tanpa PostGIS/GDAL — lihat catatan di bawah).
+Versi 1.2 · basis PostgreSQL biasa (tanpa PostGIS/GDAL — lihat catatan di bawah).
 Semua tabel berada di app Django `presensi`.
 
-## Prinsip relasi dosen
-- **Data dosen tidak diduplikasi.** Setiap tabel yang butuh dosen menyimpan field
-  **`nidn`** (`CharField` biasa, BUKAN `ForeignKey`), dicocokkan ke model dosen di
-  app **`simda_dosen`** (model `DataDosen`, field `nidn`).
-- **Kenapa bukan `ForeignKey`:** tabel `simda_dosen.DataDosen` fisiknya ada di
-  database Postgres terpisah (`unisan_db`, koneksi alias `simda`), sedangkan tabel
-  presensi ada di `sikd_db` (koneksi `default`). Postgres tidak mendukung FK/JOIN
-  lintas database, dan `config/db_router.py::SimdaRouter.allow_relation()` memang
-  sengaja melarang relasi lintas-app ke `simda_dosen`. Resolusi dilakukan manual di
-  kode lewat `presensi.utils.get_dosen_by_nidn(nidn)` — pola yang sama sudah dipakai
-  app `profil` (lihat `simda_dosen/utils.py::get_simda_dosen_or_none`).
+## Prinsip relasi identitas (dosen & staf)
+- **Kunci identitas presensi adalah `user`** (`ForeignKey` ke `accounts.User`,
+  BUKAN `nidn` lagi) — supaya presensi berlaku untuk **dosen maupun staf/tendik**
+  (staf tidak punya NIDN). `accounts.User` ada di database yang SAMA (`sikd_db`)
+  dengan presensi, jadi FK biasa aman dipakai (beda dengan data dosen di
+  `simda_dosen`, lihat poin berikutnya).
+- **Data dosen tetap tidak diduplikasi.** Untuk mengayakan data dosen (nama
+  lengkap+gelar, fakultas/prodi versi SIMDA, dst), ambil NIDN dosen lewat
+  `user.nidn` (field yang sudah ada di `accounts.User`), lalu panggil
+  `presensi.utils.get_dosen_by_nidn(user.nidn)` untuk resolve ke
+  `simda_dosen.DataDosen` — pola yang sama dipakai app `profil` (lihat
+  `simda_dosen/utils.py::get_simda_dosen_or_none`). Staf tidak punya NIDN,
+  cukup pakai field `accounts.User` langsung (nama, kode_fakultas, kode_prodi
+  sudah ada untuk semua role).
+- **Kenapa bukan `ForeignKey` langsung ke `simda_dosen.DataDosen`:** tabel itu
+  fisiknya ada di database Postgres terpisah (`unisan_db`, koneksi alias
+  `simda`). Postgres tidak mendukung FK/JOIN lintas database, dan
+  `config/db_router.py::SimdaRouter.allow_relation()` memang sengaja melarang
+  relasi lintas-app ke `simda_dosen`. Ini alasan kenapa presensi mereferensikan
+  dosen lewat NIDN (via `accounts.User.nidn`), bukan FK langsung ke SIMDA.
 - Presensi hanya **membaca** data dosen (read-only).
 
 ---
@@ -40,7 +49,7 @@ Titik kantor/kampus + geofence. Mendukung banyak lokasi.
 ### JadwalKerja
 | Field | Tipe | Keterangan |
 |---|---|---|
-| nidn | varchar(20), blank | Jadwal khusus dosen; kosong = pakai default lokasi |
+| user | FK → accounts.User, nullable | Jadwal khusus orang ini; kosong = pakai default lokasi |
 | lokasi | FK → LokasiKantor | |
 | hari | smallint | 0=Senin .. 6=Minggu |
 | jam_masuk / jam_pulang | time | |
@@ -48,27 +57,27 @@ Titik kantor/kampus + geofence. Mendukung banyak lokasi.
 ### Perangkat (device binding)
 | Field | Tipe | Keterangan |
 |---|---|---|
-| nidn | varchar(20) | |
+| user | FK → accounts.User | |
 | device_id | varchar(200) | ID unik perangkat |
 | platform | varchar | android/ios/web |
 | terpercaya | bool | Disetujui admin |
 | is_rooted | bool | Terdeteksi root/emulator |
 | terakhir_dipakai | datetime | |
-| *unik* | (nidn, device_id) | |
+| *unik* | (user, device_id) | |
 
 ### EnrolmentWajah (biometrik)
 | Field | Tipe | Keterangan |
 |---|---|---|
-| nidn | varchar(20), unik | |
+| user | OneToOne → accounts.User | |
 | embedding_terenkripsi | binary | **Embedding terenkripsi**, bukan foto mentah |
-| versi_model | varchar | mis. arcface-r100 |
+| versi_model | varchar | mis. insightface-buffalo_l |
 | consent_disetujui | bool | Persetujuan biometrik (UU PDP) |
 | consent_pada | datetime | |
 
 ### Presensi (inti)
 | Field | Tipe | Keterangan |
 |---|---|---|
-| nidn | varchar(20) | |
+| user | FK → accounts.User | |
 | tanggal | date | |
 | waktu_masuk / waktu_pulang | datetime | **Selalu waktu server** |
 | lokasi | FK → LokasiKantor | |
@@ -79,7 +88,7 @@ Titik kantor/kampus + geofence. Mendukung banyak lokasi.
 | skor_risiko | int (0–100) | Hasil mesin skoring |
 | tingkat_risiko | enum | rendah / sedang / tinggi |
 | ditandai | bool | Perlu tinjauan HR |
-| *unik* | (nidn, tanggal) | |
+| *unik* | (user, tanggal) | |
 
 ### FotoPresensi (bukti)
 | Field | Tipe | Keterangan |
@@ -102,20 +111,20 @@ Titik kantor/kampus + geofence. Mendukung banyak lokasi.
 ### IzinCuti
 | Field | Tipe | Keterangan |
 |---|---|---|
-| nidn | varchar(20) | |
+| user | FK → accounts.User | |
 | tipe | enum | izin / sakit / cuti / dinas |
 | tanggal_mulai / tanggal_selesai | date | |
 | alasan | text | |
 | lampiran | file | |
 | status | enum | menunggu / disetujui / ditolak |
-| approver | varchar | NIDN/ID atasan |
+| approver | FK → accounts.User, nullable | Atasan yang menyetujui/menolak |
 
 ### LogKecurangan (audit anti-fraud)
 | Field | Tipe | Keterangan |
 |---|---|---|
-| nidn | varchar(20) | |
+| user | FK → accounts.User | |
 | presensi | FK → Presensi (nullable) | |
-| jenis_anomali | varchar | mis. mock_location, wajah_tidak_cocok |
+| jenis_anomali | varchar | mis. di_luar_radius, wajah_tidak_cocok, liveness_gagal |
 | detail | JSON | Data pendukung |
 | skor | int | |
 | waktu | datetime | |

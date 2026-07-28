@@ -35,7 +35,7 @@
           {% for item in daftar %}
           <tr>
             <td>{{ item.presensi.tanggal }}</td>
-            <td>{{ item.presensi.nidn }}</td>
+            <td>{{ item.presensi.user.nidn|default:"—" }}</td>
             <td>{{ item.nama_dosen }}</td>
             <td>{{ item.presensi.lokasi.nama|default:"—" }}</td>
             <td><span class="badge bg-orange-lt">{{ item.presensi.get_status_display }}</span></td>
@@ -52,7 +52,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="aksi" value="tolak">
                 <button type="submit" class="btn btn-sm btn-outline-danger"
-                        onclick="return confirm('Tolak presensi {{ item.presensi.nidn }} tanggal {{ item.presensi.tanggal }}?');">
+                        onclick="return confirm('Tolak presensi {{ item.nama_dosen }} tanggal {{ item.presensi.tanggal }}?');">
                   Tolak
                 </button>
               </form>

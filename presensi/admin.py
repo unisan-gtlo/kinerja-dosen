@@ -15,33 +15,33 @@ class LokasiKantorAdmin(admin.ModelAdmin):
 
 @admin.register(JadwalKerja)
 class JadwalKerjaAdmin(admin.ModelAdmin):
-    list_display = ['nidn', 'lokasi', 'hari', 'jam_masuk', 'jam_pulang', 'aktif']
+    list_display = ['user', 'lokasi', 'hari', 'jam_masuk', 'jam_pulang', 'aktif']
     list_filter = ['hari', 'aktif', 'lokasi']
-    search_fields = ['nidn']
+    search_fields = ['user__username', 'user__first_name', 'user__last_name', 'user__nidn']
 
 
 @admin.register(Perangkat)
 class PerangkatAdmin(admin.ModelAdmin):
-    list_display = ['nidn', 'device_id', 'platform', 'terpercaya', 'is_rooted', 'terakhir_dipakai']
+    list_display = ['user', 'device_id', 'platform', 'terpercaya', 'is_rooted', 'terakhir_dipakai']
     list_filter = ['platform', 'terpercaya', 'is_rooted']
-    search_fields = ['nidn', 'device_id']
+    search_fields = ['user__username', 'user__nidn', 'device_id']
 
 
 @admin.register(EnrolmentWajah)
 class EnrolmentWajahAdmin(admin.ModelAdmin):
     # embedding_terenkripsi sengaja tidak ditampilkan/diedit lewat admin.
-    list_display = ['nidn', 'versi_model', 'consent_disetujui', 'consent_pada']
+    list_display = ['user', 'versi_model', 'consent_disetujui', 'consent_pada']
     list_filter = ['consent_disetujui']
-    search_fields = ['nidn']
+    search_fields = ['user__username', 'user__nidn']
     exclude = ['embedding_terenkripsi']
     readonly_fields = ['dibuat', 'diperbarui']
 
 
 @admin.register(Presensi)
 class PresensiAdmin(admin.ModelAdmin):
-    list_display = ['nidn', 'tanggal', 'status', 'tingkat_risiko', 'ditandai', 'lokasi']
+    list_display = ['user', 'tanggal', 'status', 'tingkat_risiko', 'ditandai', 'lokasi']
     list_filter = ['status', 'tingkat_risiko', 'ditandai', 'lokasi']
-    search_fields = ['nidn']
+    search_fields = ['user__username', 'user__nidn']
     date_hierarchy = 'tanggal'
 
 
@@ -59,13 +59,13 @@ class QRTokenAdmin(admin.ModelAdmin):
 
 @admin.register(IzinCuti)
 class IzinCutiAdmin(admin.ModelAdmin):
-    list_display = ['nidn', 'tipe', 'tanggal_mulai', 'tanggal_selesai', 'status']
+    list_display = ['user', 'tipe', 'tanggal_mulai', 'tanggal_selesai', 'status']
     list_filter = ['tipe', 'status']
-    search_fields = ['nidn']
+    search_fields = ['user__username', 'user__nidn']
 
 
 @admin.register(LogKecurangan)
 class LogKecuranganAdmin(admin.ModelAdmin):
-    list_display = ['nidn', 'jenis_anomali', 'skor', 'waktu']
+    list_display = ['user', 'jenis_anomali', 'skor', 'waktu']
     list_filter = ['jenis_anomali']
-    search_fields = ['nidn']
+    search_fields = ['user__username', 'user__nidn']

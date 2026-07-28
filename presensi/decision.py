@@ -64,10 +64,10 @@ class HasilCekWajah:
     skor_kemiripan: Optional[float]
 
 
-def verifikasi_wajah(nidn, berkas_selfie) -> HasilCekWajah:
+def verifikasi_wajah(user, berkas_selfie) -> HasilCekWajah:
     """Syarat 2: selfie saat absen harus cocok dengan embedding hasil
     enrolment (presensi/face.py) DAN lolos pemeriksaan liveness dasar."""
-    enrolment = EnrolmentWajah.objects.filter(nidn=nidn, consent_disetujui=True).first()
+    enrolment = EnrolmentWajah.objects.filter(user=user, consent_disetujui=True).first()
     if enrolment is None:
         return HasilCekWajah(False, "belum_enrolment_wajah", None)
 

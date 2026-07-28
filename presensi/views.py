@@ -14,9 +14,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
-from accounts.models import User
 from laporan.views import get_dosen_queryset
-from simda_dosen.utils import dapat_kelola_nidn
 from .decision import cek_lokasi, tentukan_status_waktu, verifikasi_wajah
 from .face import VERSI_MODEL_WAJAH, ekstrak_satu_wajah, enkripsi_embedding, rata_rata_embedding
 from .models import EnrolmentWajah, LogKecurangan, Perangkat, Presensi, StatusPresensi, TingkatRisiko
@@ -31,12 +29,10 @@ ROLE_PENGELOLA_SCOPED = ("dekan", "wadek", "kaprodi", "sekprodi", "operator")
 
 @login_required
 def halaman_absen(request):
-    """Halaman web untuk dosen absen masuk/pulang (Tabler UI + JS geolocation,
+    """Halaman web untuk absen masuk/pulang (Tabler UI + JS geolocation,
     memanggil API /api/presensi/masuk & /pulang lewat sesi Django yang sudah
     login -- lihat SessionAuthentication di REST_FRAMEWORK settings)."""
-    sudah_enrolment = EnrolmentWajah.objects.filter(
-        nidn=request.user.nidn, consent_disetujui=True,
-    ).exists() if request.user.nidn else False
+    sudah_enrolment = EnrolmentWajah.objects.filter(user=request.user, consent_disetujui=True).exists()
     return render(request, "presensi/absen.html", {"sudah_enrolment": sudah_enrolment})
 
 
@@ -85,17 +81,17 @@ def _tanggal_dari_request(request):
 @login_required
 def dashboard_presensi(request):
     """Dashboard admin/HR: KPI hari ini, tren 6 hari, dan daftar paling
-    telat. Cakupan DOSEN SAJA untuk sekarang -- lihat catatan di
-    presensi/rekap.py soal staf yang belum tercakup."""
+    telat. Cakupan DOSEN SAJA untuk sekarang (lewat get_dosen_queryset) --
+    skema presensi sendiri sudah mendukung staf, lihat presensi/rekap.py."""
     if not _bisa_tinjau_presensi(request.user):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
 
     dosen_qs = get_dosen_queryset(request.user)
-    nidn_list = list(dosen_qs.exclude(nidn__isnull=True).exclude(nidn="").values_list("nidn", flat=True))
+    user_ids = list(dosen_qs.values_list("id", flat=True))
 
-    ringkasan = ringkasan_hari_ini(nidn_list)
-    tren = tren_mingguan(nidn_list)
-    top_telat = top_telat_hari_ini(nidn_list)
+    ringkasan = ringkasan_hari_ini(user_ids)
+    tren = tren_mingguan(user_ids)
+    top_telat = top_telat_hari_ini(user_ids)
 
     return render(request, "presensi/dashboard.html", {
         "ringkasan": ringkasan,
@@ -209,20 +205,21 @@ def export_excel_presensi(request):
 def tinjau_presensi(request):
     """Halaman HR/admin: daftar presensi yang ditandai (tingkat_risiko
     sedang/tinggi) untuk ditinjau manual -- lihat CLAUDE.md § 3. Dibatasi ke
-    dosen dalam cakupan reviewer (fakultas/prodi), sama seperti pola
-    dapat_kelola_nidn yang sudah dipakai app profil."""
+    orang dalam cakupan reviewer (fakultas/prodi) lewat
+    accounts.User.dapat_kelola, sama seperti pola yang sudah dipakai app
+    profil (dulu lewat wrapper dapat_kelola_nidn -- sekarang bisa langsung
+    karena Presensi.user adalah FK asli ke accounts.User)."""
     if not _bisa_tinjau_presensi(request.user):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
 
-    semua_ditandai = Presensi.objects.filter(ditandai=True).select_related("lokasi").order_by("-tanggal", "nidn")
-    antrian = [p for p in semua_ditandai if dapat_kelola_nidn(request.user, p.nidn)]
+    semua_ditandai = (
+        Presensi.objects.filter(ditandai=True)
+        .select_related("lokasi", "user")
+        .order_by("-tanggal", "user__username")
+    )
+    antrian = [p for p in semua_ditandai if request.user.dapat_kelola(p.user)]
 
-    nama_dosen = {
-        u.nidn: u.get_full_name() or u.username
-        for u in User.objects.filter(nidn__in=[p.nidn for p in antrian])
-    }
-
-    daftar = [{"presensi": p, "nama_dosen": nama_dosen.get(p.nidn, "—")} for p in antrian]
+    daftar = [{"presensi": p, "nama_dosen": p.user.get_full_name() or p.user.username} for p in antrian]
 
     return render(request, "presensi/tinjau.html", {"daftar": daftar})
 
@@ -235,25 +232,25 @@ def putuskan_presensi(request, presensi_id):
     if request.method != "POST":
         return redirect("presensi_web:tinjau")
 
-    presensi = get_object_or_404(Presensi, id=presensi_id, ditandai=True)
-    if not dapat_kelola_nidn(request.user, presensi.nidn):
-        return HttpResponseForbidden("Anda tidak memiliki akses ke presensi dosen ini.")
+    presensi = get_object_or_404(Presensi.objects.select_related("user"), id=presensi_id, ditandai=True)
+    if not request.user.dapat_kelola(presensi.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke presensi orang ini.")
 
     aksi = request.POST.get("aksi")
     if aksi == "setujui":
         presensi.ditandai = False
         presensi.tingkat_risiko = TingkatRisiko.RENDAH
         presensi.save(update_fields=["ditandai", "tingkat_risiko"])
-        messages.success(request, f"Presensi {presensi.nidn} tanggal {presensi.tanggal} disetujui.")
+        messages.success(request, f"Presensi {presensi.user} tanggal {presensi.tanggal} disetujui.")
     elif aksi == "tolak":
         presensi.status = StatusPresensi.DITOLAK
         presensi.ditandai = False
         presensi.save(update_fields=["status", "ditandai"])
         LogKecurangan.objects.create(
-            nidn=presensi.nidn, presensi=presensi, jenis_anomali="ditolak_hr",
+            user=presensi.user, presensi=presensi, jenis_anomali="ditolak_hr",
             skor=100, detail={"oleh": request.user.username},
         )
-        messages.warning(request, f"Presensi {presensi.nidn} tanggal {presensi.tanggal} ditolak.")
+        messages.warning(request, f"Presensi {presensi.user} tanggal {presensi.tanggal} ditolak.")
     else:
         messages.error(request, "Aksi tidak dikenal.")
 
@@ -280,17 +277,17 @@ class PresensiRateThrottle(UserRateThrottle):
     scope = "presensi"
 
 
-def _catat_perangkat(nidn, device_id, waktu):
+def _catat_perangkat(user, device_id, waktu):
     Perangkat.objects.update_or_create(
-        nidn=nidn, device_id=device_id,
+        user=user, device_id=device_id,
         defaults={"terakhir_dipakai": waktu},
     )
 
 
-def _catat_jika_anomali(nidn, presensi, alasan, detail):
+def _catat_jika_anomali(user, presensi, alasan, detail):
     if alasan in SKOR_ANOMALI:
         LogKecurangan.objects.create(
-            nidn=nidn, presensi=presensi, jenis_anomali=alasan,
+            user=user, presensi=presensi, jenis_anomali=alasan,
             skor=SKOR_ANOMALI[alasan], detail=detail,
         )
 
@@ -299,21 +296,21 @@ def _respon_ditolak(alasan):
     return Response({"diterima": False, "alasan": alasan, "tingkat_risiko": TingkatRisiko.TINGGI})
 
 
-def _jalankan_gerbang(nidn, data, presensi=None):
+def _jalankan_gerbang(user, data, presensi=None):
     """Gerbang-DAN: cek_lokasi lalu (kalau lolos) verifikasi_wajah. Return
     (hasil_lokasi, None) kalau dua-duanya lolos, atau (None, Response) kalau
     salah satu gagal -- lihat presensi/decision.py."""
     hasil_lokasi = cek_lokasi(data["lat"], data["lng"], data["akurasi_m"])
     if not hasil_lokasi.lolos:
         _catat_jika_anomali(
-            nidn, presensi, hasil_lokasi.alasan,
+            user, presensi, hasil_lokasi.alasan,
             {"lat": data["lat"], "lng": data["lng"], "akurasi_m": data["akurasi_m"]},
         )
         return None, _respon_ditolak(hasil_lokasi.alasan)
 
-    hasil_wajah = verifikasi_wajah(nidn, data["selfie"])
+    hasil_wajah = verifikasi_wajah(user, data["selfie"])
     if not hasil_wajah.lolos:
-        _catat_jika_anomali(nidn, presensi, hasil_wajah.alasan, {"skor_kemiripan": hasil_wajah.skor_kemiripan})
+        _catat_jika_anomali(user, presensi, hasil_wajah.alasan, {"skor_kemiripan": hasil_wajah.skor_kemiripan})
         return None, _respon_ditolak(hasil_wajah.alasan)
 
     return hasil_lokasi, None
@@ -327,33 +324,27 @@ class AbsenMasukView(APIView):
         serializer = AbsenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-
-        nidn = request.user.nidn
-        if not nidn:
-            return Response(
-                {"diterima": False, "alasan": "nidn_tidak_terdaftar"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        user = request.user
 
         waktu_server = timezone.localtime(timezone.now())
         tanggal = waktu_server.date()
 
-        if Presensi.objects.filter(nidn=nidn, tanggal=tanggal, waktu_masuk__isnull=False).exists():
+        if Presensi.objects.filter(user=user, tanggal=tanggal, waktu_masuk__isnull=False).exists():
             return Response(
                 {"diterima": False, "alasan": "sudah_absen_masuk"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        _catat_perangkat(nidn, data["device_id"], waktu_server)
+        _catat_perangkat(user, data["device_id"], waktu_server)
 
-        hasil_lokasi, response_gagal = _jalankan_gerbang(nidn, data)
+        hasil_lokasi, response_gagal = _jalankan_gerbang(user, data)
         if response_gagal is not None:
             return response_gagal
 
         status_kehadiran = tentukan_status_waktu(hasil_lokasi.lokasi, waktu_server.time())
 
         presensi, _ = Presensi.objects.update_or_create(
-            nidn=nidn, tanggal=tanggal,
+            user=user, tanggal=tanggal,
             defaults={
                 "waktu_masuk": waktu_server,
                 "lokasi": hasil_lokasi.lokasi,
@@ -385,19 +376,13 @@ class AbsenPulangView(APIView):
         serializer = AbsenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-
-        nidn = request.user.nidn
-        if not nidn:
-            return Response(
-                {"diterima": False, "alasan": "nidn_tidak_terdaftar"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        user = request.user
 
         waktu_server = timezone.localtime(timezone.now())
         tanggal = waktu_server.date()
 
         try:
-            presensi = Presensi.objects.get(nidn=nidn, tanggal=tanggal)
+            presensi = Presensi.objects.get(user=user, tanggal=tanggal)
         except Presensi.DoesNotExist:
             return Response(
                 {"diterima": False, "alasan": "belum_absen_masuk"},
@@ -410,9 +395,9 @@ class AbsenPulangView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        _catat_perangkat(nidn, data["device_id"], waktu_server)
+        _catat_perangkat(user, data["device_id"], waktu_server)
 
-        hasil_lokasi, response_gagal = _jalankan_gerbang(nidn, data, presensi=presensi)
+        hasil_lokasi, response_gagal = _jalankan_gerbang(user, data, presensi=presensi)
         if response_gagal is not None:
             return response_gagal
 
@@ -431,7 +416,7 @@ class AbsenPulangView(APIView):
 
 
 class EnrolmentWajahView(APIView):
-    """POST /api/presensi/enrolment-wajah — daftarkan wajah dosen (sekali di
+    """POST /api/presensi/enrolment-wajah — daftarkan wajah (sekali di
     awal, sebelum bisa lolos syarat 2 saat absen)."""
     throttle_classes = [PresensiRateThrottle]
 
@@ -439,13 +424,6 @@ class EnrolmentWajahView(APIView):
         serializer = EnrolmentWajahSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-
-        nidn = request.user.nidn
-        if not nidn:
-            return Response(
-                {"status": "gagal", "alasan": "nidn_tidak_terdaftar"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         embeddings = []
         for foto in data["foto"]:
@@ -463,7 +441,7 @@ class EnrolmentWajahView(APIView):
         waktu = timezone.now()
 
         EnrolmentWajah.objects.update_or_create(
-            nidn=nidn,
+            user=request.user,
             defaults={
                 "embedding_terenkripsi": enkripsi_embedding(embedding_rata),
                 "versi_model": VERSI_MODEL_WAJAH,
@@ -476,14 +454,10 @@ class EnrolmentWajahView(APIView):
 
 
 class StatusHariIniView(APIView):
-    """GET /api/presensi/status-hari-ini — status presensi dosen hari ini."""
+    """GET /api/presensi/status-hari-ini — status presensi hari ini."""
 
     def get(self, request):
-        nidn = request.user.nidn
-        if not nidn:
-            return Response({"diterima": False, "alasan": "nidn_tidak_terdaftar"}, status=status.HTTP_400_BAD_REQUEST)
-
-        presensi = Presensi.objects.filter(nidn=nidn, tanggal=timezone.localdate()).first()
+        presensi = Presensi.objects.filter(user=request.user, tanggal=timezone.localdate()).first()
         if not presensi:
             return Response({"sudah_absen_masuk": False, "sudah_absen_pulang": False})
 
