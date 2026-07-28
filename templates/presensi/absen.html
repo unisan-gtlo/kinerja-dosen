@@ -5,6 +5,15 @@
 {% block content %}
 <div class="row row-deck row-cards">
   <div class="col-12 col-md-8 col-lg-6 mx-auto">
+
+    {% if not sudah_enrolment %}
+    <div class="alert alert-warning">
+      <span class="ti ti-face-id me-1"></span>
+      Anda belum mendaftarkan wajah untuk verifikasi presensi.
+      <a href="{% url 'presensi_web:enrolment' %}" class="alert-link">Daftarkan sekarang</a>.
+    </div>
+    {% endif %}
+
     <div class="card">
       <div class="card-body">
         <h3 class="card-title">Absen Hari Ini</h3>
@@ -12,7 +21,7 @@
 
         <div id="presensi-pesan" class="alert d-none" role="alert"></div>
 
-        <div class="d-flex gap-2">
+        <div id="area-tombol" class="d-flex gap-2">
           <button id="btn-masuk" class="btn btn-primary" disabled>
             <span class="ti ti-login me-1"></span> Absen Masuk
           </button>
@@ -21,10 +30,22 @@
           </button>
         </div>
 
+        <div id="area-kamera" class="mt-3 d-none">
+          <video id="video-kamera" autoplay playsinline class="w-100 rounded bg-dark" style="max-height:320px;"></video>
+          <canvas id="kanvas-tangkap" class="d-none"></canvas>
+          <div class="d-flex gap-2 mt-2">
+            <button id="btn-ambil" class="btn btn-success">
+              <span class="ti ti-camera me-1"></span> Ambil Foto & Kirim
+            </button>
+            <button id="btn-batal-kamera" class="btn btn-outline-secondary">Batal</button>
+          </div>
+        </div>
+
         <div class="mt-3 small text-muted">
-          Pastikan lokasi/GPS perangkat Anda aktif dan izinkan akses lokasi saat
-          diminta browser. Presensi hanya diterima jika Anda berada di sekitar
-          lokasi kantor/kampus.
+          Pastikan lokasi/GPS perangkat Anda aktif dan izinkan akses lokasi &amp;
+          kamera saat diminta browser. Presensi hanya diterima jika Anda berada
+          di sekitar lokasi kantor/kampus <strong>dan</strong> wajah Anda cocok
+          dengan data yang sudah didaftarkan.
         </div>
       </div>
     </div>
@@ -38,6 +59,12 @@
   const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]').value;
   const btnMasuk = document.getElementById('btn-masuk');
   const btnPulang = document.getElementById('btn-pulang');
+  const areaTombol = document.getElementById('area-tombol');
+  const areaKamera = document.getElementById('area-kamera');
+  const video = document.getElementById('video-kamera');
+  const kanvas = document.getElementById('kanvas-tangkap');
+  const btnAmbil = document.getElementById('btn-ambil');
+  const btnBatalKamera = document.getElementById('btn-batal-kamera');
   const statusEl = document.getElementById('presensi-status');
   const pesanEl = document.getElementById('presensi-pesan');
 
@@ -48,7 +75,15 @@
     sudah_absen_masuk: 'Anda sudah absen masuk hari ini.',
     sudah_absen_pulang: 'Anda sudah absen pulang hari ini.',
     belum_absen_masuk: 'Anda belum absen masuk hari ini.',
+    belum_enrolment_wajah: 'Anda belum mendaftarkan wajah. Buka menu Presensi > Daftarkan Wajah.',
+    liveness_gagal: 'Foto wajah tidak jelas -- pastikan hanya wajah Anda yang terlihat, di tempat terang.',
+    wajah_tidak_cocok: 'Wajah tidak cocok dengan data terdaftar.',
+    foto_tidak_valid: 'Foto tidak valid, coba ambil ulang.',
   };
+
+  let streamKamera = null;
+  let aksiTertunda = null; // 'masuk' | 'pulang'
+  let lokasiTertunda = null;
 
   function getDeviceId() {
     let id = localStorage.getItem('presensi_device_id');
@@ -79,23 +114,36 @@
     });
   }
 
-  async function panggilAPI(path) {
-    const coords = await ambilLokasi();
-    const resp = await fetch('/api/presensi/' + path, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken,
-      },
-      body: JSON.stringify({
-        lat: coords.latitude,
-        lng: coords.longitude,
-        akurasi_m: coords.accuracy,
-        device_id: getDeviceId(),
-      }),
-    });
-    return resp.json();
+  async function bukaKamera(aksi) {
+    try {
+      lokasiTertunda = await ambilLokasi();
+    } catch (e) {
+      tampilkanPesan(e.message, 'danger');
+      return;
+    }
+
+    try {
+      streamKamera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    } catch (e) {
+      tampilkanPesan('Tidak bisa akses kamera: ' + e.message, 'danger');
+      return;
+    }
+
+    aksiTertunda = aksi;
+    video.srcObject = streamKamera;
+    areaTombol.classList.add('d-none');
+    areaKamera.classList.remove('d-none');
+  }
+
+  function tutupKamera() {
+    if (streamKamera) {
+      streamKamera.getTracks().forEach((t) => t.stop());
+      streamKamera = null;
+    }
+    aksiTertunda = null;
+    lokasiTertunda = null;
+    areaKamera.classList.add('d-none');
+    areaTombol.classList.remove('d-none');
   }
 
   function tampilkanHasil(data) {
@@ -125,26 +173,42 @@
     }
   }
 
-  btnMasuk.addEventListener('click', async function () {
-    btnMasuk.disabled = true;
-    try {
-      tampilkanHasil(await panggilAPI('masuk'));
-    } catch (e) {
-      tampilkanPesan(e.message, 'danger');
-    } finally {
-      muatStatus();
-    }
-  });
+  btnMasuk.addEventListener('click', () => bukaKamera('masuk'));
+  btnPulang.addEventListener('click', () => bukaKamera('pulang'));
+  btnBatalKamera.addEventListener('click', tutupKamera);
 
-  btnPulang.addEventListener('click', async function () {
-    btnPulang.disabled = true;
-    try {
-      tampilkanHasil(await panggilAPI('pulang'));
-    } catch (e) {
-      tampilkanPesan(e.message, 'danger');
-    } finally {
-      muatStatus();
-    }
+  btnAmbil.addEventListener('click', function () {
+    kanvas.width = video.videoWidth;
+    kanvas.height = video.videoHeight;
+    kanvas.getContext('2d').drawImage(video, 0, 0);
+    kanvas.toBlob(async function (blob) {
+      const aksi = aksiTertunda;
+      const coords = lokasiTertunda;
+      btnAmbil.disabled = true;
+
+      const formData = new FormData();
+      formData.append('lat', coords.latitude);
+      formData.append('lng', coords.longitude);
+      formData.append('akurasi_m', coords.accuracy);
+      formData.append('device_id', getDeviceId());
+      formData.append('selfie', blob, 'selfie.jpg');
+
+      try {
+        const resp = await fetch('/api/presensi/' + aksi, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'X-CSRFToken': csrfToken },
+          body: formData,
+        });
+        tampilkanHasil(await resp.json());
+      } catch (e) {
+        tampilkanPesan(e.message, 'danger');
+      } finally {
+        btnAmbil.disabled = false;
+        tutupKamera();
+        muatStatus();
+      }
+    }, 'image/jpeg', 0.9);
   });
 
   muatStatus();

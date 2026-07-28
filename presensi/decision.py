@@ -1,22 +1,21 @@
 """Mesin keputusan presensi.
 
-Dirancang modular per syarat: MVP ini baru mengaktifkan **Cek Lokasi**
-(syarat 1). Verifikasi Wajah (syarat 2), opsi QR, dan opsi Wi-Fi menyusul —
-tambahkan fungsi cek baru di sini dan panggil dari presensi/views.py, tanpa
-perlu mengubah cara syarat lokasi bekerja.
+Dirancang modular per syarat: opsi QR dan Wi-Fi menyusul -- tambahkan
+fungsi cek baru di sini dan panggil dari presensi/views.py, tanpa perlu
+mengubah cara syarat lokasi/wajah bekerja.
 
-Catatan penting: karena syarat 2 (wajah) belum aktif, hasil "lolos cek
-lokasi" TIDAK langsung dianggap presensi final/terverifikasi penuh sesuai
-aturan gerbang-DAN di CLAUDE.md. Presensi tetap dibuat (supaya MVP bisa
-dicoba), tapi ditandai tingkat_risiko=SEDANG + ditandai=True untuk tinjauan
-HR, sampai syarat wajah ditambahkan.
+Gerbang-DAN (lihat CLAUDE.md § 3): presensi diterima HANYA kalau cek_lokasi
+DAN verifikasi_wajah dua-duanya lolos. Kalau salah satu gagal, presensi
+DITOLAK (bukan cuma ditandai) dan dicatat ke LogKecurangan -- lihat
+presensi/views.py untuk penggabungan gerbangnya.
 """
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
 
+from .face import SKOR_KEMIRIPAN_MINIMUM, dekripsi_embedding, ekstrak_satu_wajah, kemiripan_kosinus
 from .geo import jarak_meter
-from .models import LokasiKantor, StatusPresensi
+from .models import EnrolmentWajah, LokasiKantor, StatusPresensi
 
 AKURASI_GPS_MAKSIMAL_M = 50
 
@@ -56,3 +55,30 @@ def tentukan_status_waktu(lokasi: LokasiKantor, jam_saat_ini) -> str:
         datetime.combine(datetime.min, lokasi.jam_masuk) + timedelta(minutes=lokasi.toleransi_menit)
     ).time()
     return StatusPresensi.TELAT if jam_saat_ini > batas_telat else StatusPresensi.HADIR
+
+
+@dataclass
+class HasilCekWajah:
+    lolos: bool
+    alasan: Optional[str]
+    skor_kemiripan: Optional[float]
+
+
+def verifikasi_wajah(nidn, berkas_selfie) -> HasilCekWajah:
+    """Syarat 2: selfie saat absen harus cocok dengan embedding hasil
+    enrolment (presensi/face.py) DAN lolos pemeriksaan liveness dasar."""
+    enrolment = EnrolmentWajah.objects.filter(nidn=nidn, consent_disetujui=True).first()
+    if enrolment is None:
+        return HasilCekWajah(False, "belum_enrolment_wajah", None)
+
+    wajah, alasan = ekstrak_satu_wajah(berkas_selfie)
+    if wajah is None:
+        return HasilCekWajah(False, alasan, None)
+
+    embedding_tersimpan = dekripsi_embedding(bytes(enrolment.embedding_terenkripsi))
+    skor = kemiripan_kosinus(embedding_tersimpan, wajah.embedding)
+
+    if skor < SKOR_KEMIRIPAN_MINIMUM:
+        return HasilCekWajah(False, "wajah_tidak_cocok", skor)
+
+    return HasilCekWajah(True, None, skor)

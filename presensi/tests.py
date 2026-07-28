@@ -1,13 +1,32 @@
+import io
+from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
+import numpy as np
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.utils import timezone
+from PIL import Image
 from rest_framework.test import APITestCase
 
 from accounts.models import User
+from .decision import HasilCekWajah, verifikasi_wajah
+from .face import dekripsi_embedding, ekstrak_satu_wajah, enkripsi_embedding, kemiripan_kosinus
 from .geo import dalam_radius, jarak_meter
-from .models import LogKecurangan, LokasiKantor, Perangkat, Presensi, StatusPresensi, TingkatRisiko
+from .models import (
+    EnrolmentWajah, LogKecurangan, LokasiKantor, Perangkat, Presensi, StatusPresensi, TingkatRisiko,
+)
 from .utils import get_dosen_by_nidn
+
+
+def _foto_palsu(nama="selfie.jpg"):
+    """Gambar JPEG kecil yang VALID (supaya lolos validasi ImageField DRF),
+    tapi tidak ada wajah asli di dalamnya -- deteksi wajah selalu di-mock
+    di test ini (model InsightFace berat, tidak perlu diunduh saat test)."""
+    buf = io.BytesIO()
+    Image.new("RGB", (100, 100), color=(120, 120, 120)).save(buf, format="JPEG")
+    return SimpleUploadedFile(nama, buf.getvalue(), content_type="image/jpeg")
 
 
 class JarakMeterTest(TestCase):
@@ -37,6 +56,115 @@ class DalamRadiusTest(TestCase):
     def test_titik_di_luar_radius_ditolak(self):
         # ~1.1 km dari pusat (0.01 derajat lintang) -- kasus "di_luar_radius"
         self.assertFalse(dalam_radius(0.01, 0.0, self.lokasi))
+
+
+class KemiripanEnkripsiEmbeddingTest(TestCase):
+    """Matematika murni (kemiripan kosinus) & roundtrip enkripsi Fernet --
+    tidak butuh model InsightFace sama sekali."""
+
+    def test_vektor_identik_kemiripan_satu(self):
+        a = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+        self.assertAlmostEqual(kemiripan_kosinus(a, a), 1.0, places=5)
+
+    def test_vektor_ortogonal_kemiripan_nol(self):
+        a = np.array([1.0, 0.0], dtype=np.float32)
+        b = np.array([0.0, 1.0], dtype=np.float32)
+        self.assertAlmostEqual(kemiripan_kosinus(a, b), 0.0, places=5)
+
+    def test_roundtrip_enkripsi_dekripsi_embedding(self):
+        embedding = np.random.rand(512).astype(np.float32)
+        terenkripsi = enkripsi_embedding(embedding)
+        hasil = dekripsi_embedding(terenkripsi)
+        self.assertTrue(np.allclose(embedding, hasil))
+
+
+class EkstrakSatuWajahTest(TestCase):
+    """presensi.face.ekstrak_satu_wajah -- heuristik liveness sederhana
+    (persis 1 wajah, skor deteksi cukup, ukuran wajah wajar). Model
+    InsightFace di-mock lewat get_face_app."""
+
+    def _wajah(self, det_score=0.9, bbox=(10, 10, 90, 90)):
+        return SimpleNamespace(
+            det_score=det_score, bbox=list(bbox),
+            embedding=np.array([1.0, 0.0], dtype=np.float32),
+        )
+
+    @patch("presensi.face.get_face_app")
+    def test_satu_wajah_jelas_lolos(self, mock_get_app):
+        mock_get_app.return_value.get.return_value = [self._wajah()]
+        wajah, alasan = ekstrak_satu_wajah(_foto_palsu())
+        self.assertIsNotNone(wajah)
+        self.assertIsNone(alasan)
+
+    @patch("presensi.face.get_face_app")
+    def test_tidak_ada_wajah_gagal(self, mock_get_app):
+        mock_get_app.return_value.get.return_value = []
+        wajah, alasan = ekstrak_satu_wajah(_foto_palsu())
+        self.assertIsNone(wajah)
+        self.assertEqual(alasan, "liveness_gagal")
+
+    @patch("presensi.face.get_face_app")
+    def test_lebih_dari_satu_wajah_gagal(self, mock_get_app):
+        mock_get_app.return_value.get.return_value = [self._wajah(), self._wajah()]
+        wajah, alasan = ekstrak_satu_wajah(_foto_palsu())
+        self.assertIsNone(wajah)
+        self.assertEqual(alasan, "liveness_gagal")
+
+    @patch("presensi.face.get_face_app")
+    def test_skor_deteksi_rendah_gagal(self, mock_get_app):
+        mock_get_app.return_value.get.return_value = [self._wajah(det_score=0.1)]
+        wajah, alasan = ekstrak_satu_wajah(_foto_palsu())
+        self.assertIsNone(wajah)
+        self.assertEqual(alasan, "liveness_gagal")
+
+    @patch("presensi.face.get_face_app")
+    def test_wajah_terlalu_kecil_gagal(self, mock_get_app):
+        # foto 100x100, tinggi kotak wajah cuma 5px (rasio 0.05 < 0.15)
+        mock_get_app.return_value.get.return_value = [self._wajah(bbox=(45, 45, 55, 50))]
+        wajah, alasan = ekstrak_satu_wajah(_foto_palsu())
+        self.assertIsNone(wajah)
+        self.assertEqual(alasan, "liveness_gagal")
+
+
+class VerifikasiWajahTest(TestCase):
+    """presensi.decision.verifikasi_wajah -- syarat 2 lengkap (harus sudah
+    enrolment DAN wajah cocok). ekstrak_satu_wajah di-mock."""
+
+    def setUp(self):
+        self.nidn = "1234567890"
+        self.embedding_asli = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+        EnrolmentWajah.objects.create(
+            nidn=self.nidn,
+            embedding_terenkripsi=enkripsi_embedding(self.embedding_asli),
+            versi_model="tes", consent_disetujui=True, consent_pada=timezone.now(),
+        )
+
+    def test_belum_enrolment_gagal(self):
+        hasil = verifikasi_wajah("nidn_belum_enrolment", _foto_palsu())
+        self.assertFalse(hasil.lolos)
+        self.assertEqual(hasil.alasan, "belum_enrolment_wajah")
+
+    @patch("presensi.decision.ekstrak_satu_wajah")
+    def test_liveness_gagal_diteruskan(self, mock_ekstrak):
+        mock_ekstrak.return_value = (None, "liveness_gagal")
+        hasil = verifikasi_wajah(self.nidn, _foto_palsu())
+        self.assertFalse(hasil.lolos)
+        self.assertEqual(hasil.alasan, "liveness_gagal")
+
+    @patch("presensi.decision.ekstrak_satu_wajah")
+    def test_wajah_cocok_lolos(self, mock_ekstrak):
+        mock_ekstrak.return_value = (SimpleNamespace(embedding=self.embedding_asli), None)
+        hasil = verifikasi_wajah(self.nidn, _foto_palsu())
+        self.assertTrue(hasil.lolos)
+        self.assertGreater(hasil.skor_kemiripan, 0.9)
+
+    @patch("presensi.decision.ekstrak_satu_wajah")
+    def test_wajah_tidak_cocok_gagal(self, mock_ekstrak):
+        embedding_beda = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+        mock_ekstrak.return_value = (SimpleNamespace(embedding=embedding_beda), None)
+        hasil = verifikasi_wajah(self.nidn, _foto_palsu())
+        self.assertFalse(hasil.lolos)
+        self.assertEqual(hasil.alasan, "wajah_tidak_cocok")
 
 
 class PresensiUniqueTogetherTest(TestCase):
@@ -86,8 +214,24 @@ def _buat_dosen_user(nidn="1234567890", username="dosen1"):
     )
 
 
+def _payload_absen(**override):
+    """Payload multipart untuk /api/presensi/masuk|pulang -- selfie foto
+    BARU tiap panggilan (bukan objek yang dipakai ulang), supaya aman
+    dipakai berkali-kali dalam satu test (file upload cuma bisa dibaca
+    sekali per request)."""
+    data = {
+        "lat": 0.0005, "lng": 0.0, "akurasi_m": 10, "device_id": "dev-1",
+        "selfie": _foto_palsu(),
+    }
+    data.update(override)
+    return data
+
+
 class AbsenMasukAPITest(APITestCase):
-    """Endpoint POST /api/presensi/masuk -- kasus normal & kasus kecurangan."""
+    """Endpoint POST /api/presensi/masuk -- gerbang-DAN cek lokasi + wajah,
+    kasus normal & kasus kecurangan. verifikasi_wajah di-mock supaya tidak
+    perlu model InsightFace sungguhan (sudah diuji terpisah, lihat
+    VerifikasiWajahTest & EkstrakSatuWajahTest)."""
 
     def setUp(self):
         self.user = _buat_dosen_user()
@@ -95,22 +239,21 @@ class AbsenMasukAPITest(APITestCase):
         self.lokasi = LokasiKantor.objects.create(
             nama="Kampus Utama", latitude=0.0, longitude=0.0, radius_meter=100,
         )
-        self.payload_dalam_radius = {
-            "lat": 0.0005, "lng": 0.0, "akurasi_m": 10, "device_id": "dev-1",
-        }
 
-    def test_dalam_radius_diterima_dan_tersimpan(self):
-        resp = self.client.post("/api/presensi/masuk", self.payload_dalam_radius)
+    @patch("presensi.views.verifikasi_wajah")
+    def test_dalam_radius_dan_wajah_cocok_diterima_rendah(self, mock_verifikasi):
+        mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
+        resp = self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.data["diterima"])
-        self.assertTrue(
-            Presensi.objects.filter(nidn=self.user.nidn, waktu_masuk__isnull=False).exists()
-        )
+        self.assertEqual(resp.data["tingkat_risiko"], TingkatRisiko.RENDAH)
+        presensi = Presensi.objects.get(nidn=self.user.nidn)
+        self.assertFalse(presensi.ditandai)
+        self.assertEqual(presensi.tingkat_risiko, TingkatRisiko.RENDAH)
 
     def test_di_luar_radius_ditolak_dan_dicatat_kecurangan(self):
-        resp = self.client.post("/api/presensi/masuk", {
-            "lat": 0.01, "lng": 0.0, "akurasi_m": 10, "device_id": "dev-1",
-        })
+        # Gerbang berhenti di cek lokasi -- verifikasi_wajah tidak perlu di-mock.
+        resp = self.client.post("/api/presensi/masuk", _payload_absen(lat=0.01), format="multipart")
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.data["diterima"])
         self.assertEqual(resp.data["alasan"], "di_luar_radius")
@@ -120,21 +263,45 @@ class AbsenMasukAPITest(APITestCase):
         self.assertFalse(Presensi.objects.filter(nidn=self.user.nidn).exists())
 
     def test_akurasi_gps_buruk_ditolak(self):
-        resp = self.client.post("/api/presensi/masuk", {
-            "lat": 0.0, "lng": 0.0, "akurasi_m": 999, "device_id": "dev-1",
-        })
+        resp = self.client.post("/api/presensi/masuk", _payload_absen(akurasi_m=999), format="multipart")
         self.assertFalse(resp.data["diterima"])
         self.assertEqual(resp.data["alasan"], "akurasi_buruk")
 
-    def test_absen_masuk_dobel_di_hari_sama_ditolak(self):
-        self.client.post("/api/presensi/masuk", self.payload_dalam_radius)
-        resp = self.client.post("/api/presensi/masuk", self.payload_dalam_radius)
+    @patch("presensi.views.verifikasi_wajah")
+    def test_wajah_tidak_cocok_ditolak_dan_dicatat_kecurangan(self, mock_verifikasi):
+        mock_verifikasi.return_value = HasilCekWajah(False, "wajah_tidak_cocok", 0.1)
+        resp = self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.data["diterima"])
+        self.assertEqual(resp.data["alasan"], "wajah_tidak_cocok")
+        self.assertTrue(
+            LogKecurangan.objects.filter(nidn=self.user.nidn, jenis_anomali="wajah_tidak_cocok").exists()
+        )
+        self.assertFalse(Presensi.objects.filter(nidn=self.user.nidn).exists())
+
+    @patch("presensi.views.verifikasi_wajah")
+    def test_belum_enrolment_wajah_ditolak_tanpa_log_kecurangan(self, mock_verifikasi):
+        # "Belum enrolment" itu soal kesiapan data, bukan indikasi curang --
+        # jangan dicatat sebagai LogKecurangan (lihat SKOR_ANOMALI di views.py).
+        mock_verifikasi.return_value = HasilCekWajah(False, "belum_enrolment_wajah", None)
+        resp = self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+        self.assertFalse(resp.data["diterima"])
+        self.assertEqual(resp.data["alasan"], "belum_enrolment_wajah")
+        self.assertFalse(
+            LogKecurangan.objects.filter(nidn=self.user.nidn, jenis_anomali="belum_enrolment_wajah").exists()
+        )
+
+    @patch("presensi.views.verifikasi_wajah")
+    def test_absen_masuk_dobel_di_hari_sama_ditolak(self, mock_verifikasi):
+        mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
+        self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+        resp = self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.data["alasan"], "sudah_absen_masuk")
 
     def test_tanpa_autentikasi_ditolak(self):
         self.client.force_authenticate(user=None)
-        resp = self.client.post("/api/presensi/masuk", self.payload_dalam_radius)
+        resp = self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
         self.assertEqual(resp.status_code, 401)
 
 
@@ -147,21 +314,71 @@ class AbsenPulangAPITest(APITestCase):
         LokasiKantor.objects.create(
             nama="Kampus Utama", latitude=0.0, longitude=0.0, radius_meter=100,
         )
-        self.payload = {"lat": 0.0005, "lng": 0.0, "akurasi_m": 10, "device_id": "dev-1"}
 
     def test_pulang_tanpa_absen_masuk_ditolak(self):
-        resp = self.client.post("/api/presensi/pulang", self.payload)
+        resp = self.client.post("/api/presensi/pulang", _payload_absen(), format="multipart")
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.data["alasan"], "belum_absen_masuk")
 
-    def test_pulang_setelah_masuk_diterima(self):
-        self.client.post("/api/presensi/masuk", self.payload)
-        resp = self.client.post("/api/presensi/pulang", self.payload)
+    @patch("presensi.views.verifikasi_wajah")
+    def test_pulang_setelah_masuk_diterima(self, mock_verifikasi):
+        mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
+        self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+        resp = self.client.post("/api/presensi/pulang", _payload_absen(), format="multipart")
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.data["diterima"])
         self.assertTrue(
             Presensi.objects.filter(nidn=self.user.nidn, waktu_pulang__isnull=False).exists()
         )
+
+
+class EnrolmentWajahAPITest(APITestCase):
+    """Endpoint POST /api/presensi/enrolment-wajah."""
+
+    def setUp(self):
+        self.user = _buat_dosen_user()
+        self.client.force_authenticate(user=self.user)
+
+    @patch("presensi.views.ekstrak_satu_wajah")
+    def test_enrolment_berhasil(self, mock_ekstrak):
+        mock_ekstrak.return_value = (SimpleNamespace(embedding=np.array([1.0, 0.0], dtype=np.float32)), None)
+        resp = self.client.post(
+            "/api/presensi/enrolment-wajah",
+            {"foto": [_foto_palsu("a.jpg"), _foto_palsu("b.jpg")], "consent": True},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["status"], "ok")
+        self.assertTrue(
+            EnrolmentWajah.objects.filter(nidn=self.user.nidn, consent_disetujui=True).exists()
+        )
+
+    @patch("presensi.views.ekstrak_satu_wajah")
+    def test_enrolment_gagal_kalau_wajah_tidak_konsisten_terdeteksi(self, mock_ekstrak):
+        mock_ekstrak.return_value = (None, "liveness_gagal")
+        resp = self.client.post(
+            "/api/presensi/enrolment-wajah",
+            {"foto": [_foto_palsu("a.jpg"), _foto_palsu("b.jpg")], "consent": True},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.data["alasan"], "wajah_tidak_terdeteksi_konsisten")
+
+    def test_enrolment_tanpa_consent_ditolak(self):
+        resp = self.client.post(
+            "/api/presensi/enrolment-wajah",
+            {"foto": [_foto_palsu("a.jpg"), _foto_palsu("b.jpg")], "consent": False},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_enrolment_kurang_dari_dua_foto_ditolak(self):
+        resp = self.client.post(
+            "/api/presensi/enrolment-wajah",
+            {"foto": [_foto_palsu("a.jpg")], "consent": True},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 400)
 
 
 class HalamanAbsenViewTest(TestCase):

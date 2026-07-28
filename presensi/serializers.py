@@ -4,11 +4,29 @@ from rest_framework import serializers
 class AbsenSerializer(serializers.Serializer):
     """Dipakai untuk POST /api/presensi/masuk dan /api/presensi/pulang.
 
-    MVP ini hanya mengaktifkan syarat 1 (cek lokasi) — field selfie,
-    qr_token, ssid/ip belum dipakai (menyusul saat verifikasi wajah & opsi
-    QR/Wi-Fi diaktifkan, lihat docs/presensi/spesifikasiapipresensi.md).
+    Sekarang wajib multipart (ada `selfie`) karena syarat 2 (verifikasi
+    wajah) sudah aktif -- lihat presensi/decision.py::verifikasi_wajah.
+    Field qr_token, ssid/ip belum dipakai (menyusul saat opsi QR/Wi-Fi
+    diaktifkan, lihat docs/presensi/spesifikasiapipresensi.md).
     """
     lat = serializers.FloatField(min_value=-90, max_value=90)
     lng = serializers.FloatField(min_value=-180, max_value=180)
     akurasi_m = serializers.FloatField(min_value=0)
     device_id = serializers.CharField(max_length=200)
+    selfie = serializers.ImageField()
+
+
+class EnrolmentWajahSerializer(serializers.Serializer):
+    """Dipakai untuk POST /api/presensi/enrolment-wajah -- pendaftaran wajah
+    sekali di awal, sebelum dosen bisa lolos syarat 2 saat absen."""
+    foto = serializers.ListField(
+        child=serializers.ImageField(), min_length=2, max_length=5,
+    )
+    consent = serializers.BooleanField()
+
+    def validate_consent(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "Persetujuan pemrosesan data wajah (consent) wajib disetujui untuk mendaftarkan wajah."
+            )
+        return value

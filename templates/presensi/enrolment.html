@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block title %}Pendaftaran Wajah — SIKD{% endblock %}
+{% block page_title %}Pendaftaran Wajah{% endblock %}
+
+{% block content %}
+<div class="row row-deck row-cards">
+  <div class="col-12 col-md-8 col-lg-6 mx-auto">
+    <div class="card">
+      <div class="card-body">
+        <h3 class="card-title">Daftarkan Wajah untuk Presensi</h3>
+        <p class="text-muted">
+          Ambil 2–5 foto wajah Anda dari beberapa sudut berbeda (lurus, sedikit
+          kiri, sedikit kanan) di tempat terang. Ini hanya perlu dilakukan
+          sekali; setelah itu Anda bisa absen dengan verifikasi wajah otomatis.
+        </p>
+
+        <video id="video-kamera" autoplay playsinline class="w-100 rounded bg-dark mb-3" style="max-height:320px;"></video>
+        <canvas id="kanvas-tangkap" class="d-none"></canvas>
+
+        <div class="d-flex gap-2 align-items-center mb-3">
+          <button id="btn-ambil-foto" class="btn btn-primary">
+            <span class="ti ti-camera me-1"></span> Ambil Foto
+          </button>
+          <span id="jumlah-foto" class="text-muted">0 foto diambil (minimal 2)</span>
+        </div>
+
+        <div id="pratinjau-foto" class="d-flex gap-2 flex-wrap mb-3"></div>
+
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="consent-wajah">
+          <label class="form-check-label" for="consent-wajah">
+            Saya setuju data wajah saya dikumpulkan dan diproses (sebagai embedding
+            terenkripsi) semata-mata untuk verifikasi kehadiran presensi, sesuai
+            kebijakan privasi data biometrik.
+          </label>
+        </div>
+
+        <div id="enrolment-pesan" class="alert d-none" role="alert"></div>
+
+        <button id="btn-daftarkan" class="btn btn-success" disabled>
+          <span class="ti ti-check me-1"></span> Daftarkan Wajah
+        </button>
+        <a href="{% url 'presensi_web:index' %}" class="btn btn-link">Kembali ke Absen</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% csrf_token %}
+
+<script>
+(function () {
+  const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+  const video = document.getElementById('video-kamera');
+  const kanvas = document.getElementById('kanvas-tangkap');
+  const btnAmbil = document.getElementById('btn-ambil-foto');
+  const btnDaftarkan = document.getElementById('btn-daftarkan');
+  const jumlahFotoEl = document.getElementById('jumlah-foto');
+  const pratinjauEl = document.getElementById('pratinjau-foto');
+  const consentEl = document.getElementById('consent-wajah');
+  const pesanEl = document.getElementById('enrolment-pesan');
+
+  const MIN_FOTO = 2;
+  const MAKS_FOTO = 5;
+  let fotoBlobs = [];
+
+  function tampilkanPesan(teks, jenis) {
+    pesanEl.className = 'alert alert-' + jenis;
+    pesanEl.textContent = teks;
+    pesanEl.classList.remove('d-none');
+  }
+
+  function perbaruiTombol() {
+    jumlahFotoEl.textContent = fotoBlobs.length + ' foto diambil (minimal ' + MIN_FOTO + ', maksimal ' + MAKS_FOTO + ')';
+    btnAmbil.disabled = fotoBlobs.length >= MAKS_FOTO;
+    btnDaftarkan.disabled = !(fotoBlobs.length >= MIN_FOTO && consentEl.checked);
+  }
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+    .then((stream) => { video.srcObject = stream; })
+    .catch((err) => tampilkanPesan('Tidak bisa akses kamera: ' + err.message, 'danger'));
+
+  btnAmbil.addEventListener('click', function () {
+    kanvas.width = video.videoWidth;
+    kanvas.height = video.videoHeight;
+    kanvas.getContext('2d').drawImage(video, 0, 0);
+    kanvas.toBlob(function (blob) {
+      fotoBlobs.push(blob);
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(blob);
+      img.className = 'rounded';
+      img.style.width = '72px';
+      img.style.height = '72px';
+      img.style.objectFit = 'cover';
+      pratinjauEl.appendChild(img);
+      perbaruiTombol();
+    }, 'image/jpeg', 0.9);
+  });
+
+  consentEl.addEventListener('change', perbaruiTombol);
+
+  btnDaftarkan.addEventListener('click', async function () {
+    btnDaftarkan.disabled = true;
+    const formData = new FormData();
+    fotoBlobs.forEach((blob, i) => formData.append('foto', blob, 'selfie-' + i + '.jpg'));
+    formData.append('consent', 'true');
+
+    try {
+      const resp = await fetch('/api/presensi/enrolment-wajah', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-CSRFToken': csrfToken },
+        body: formData,
+      });
+      const data = await resp.json();
+      if (resp.ok && data.status === 'ok') {
+        tampilkanPesan('Wajah berhasil didaftarkan. Sekarang Anda bisa absen dengan verifikasi wajah.', 'success');
+      } else {
+        tampilkanPesan('Gagal mendaftarkan wajah: ' + (data.alasan || 'coba lagi.'), 'danger');
+        btnDaftarkan.disabled = false;
+      }
+    } catch (e) {
+      tampilkanPesan('Terjadi kesalahan: ' + e.message, 'danger');
+      btnDaftarkan.disabled = false;
+    }
+  });
+
+  perbaruiTombol();
+})();
+</script>
+{% endblock %}

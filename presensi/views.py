@@ -10,9 +10,10 @@ from rest_framework.views import APIView
 
 from accounts.models import User
 from simda_dosen.utils import dapat_kelola_nidn
-from .decision import cek_lokasi, tentukan_status_waktu
-from .models import LogKecurangan, Perangkat, Presensi, StatusPresensi, TingkatRisiko
-from .serializers import AbsenSerializer
+from .decision import cek_lokasi, tentukan_status_waktu, verifikasi_wajah
+from .face import VERSI_MODEL_WAJAH, ekstrak_satu_wajah, enkripsi_embedding, rata_rata_embedding
+from .models import EnrolmentWajah, LogKecurangan, Perangkat, Presensi, StatusPresensi, TingkatRisiko
+from .serializers import AbsenSerializer, EnrolmentWajahSerializer
 
 # Sama seperti accounts/views.py::ROLE_PENGELOLA_SCOPED -- peran yang boleh
 # mengelola dosen dalam cakupannya sendiri (fakultas/prodi), dipakai di sini
@@ -25,7 +26,18 @@ def halaman_absen(request):
     """Halaman web untuk dosen absen masuk/pulang (Tabler UI + JS geolocation,
     memanggil API /api/presensi/masuk & /pulang lewat sesi Django yang sudah
     login -- lihat SessionAuthentication di REST_FRAMEWORK settings)."""
-    return render(request, "presensi/absen.html")
+    sudah_enrolment = EnrolmentWajah.objects.filter(
+        nidn=request.user.nidn, consent_disetujui=True,
+    ).exists() if request.user.nidn else False
+    return render(request, "presensi/absen.html", {"sudah_enrolment": sudah_enrolment})
+
+
+@login_required
+def halaman_enrolment(request):
+    """Halaman web pendaftaran wajah (sekali di awal) -- ambil 2-5 selfie
+    lewat kamera browser + persetujuan (consent), kirim ke
+    /api/presensi/enrolment-wajah lewat sesi Django yang sudah login."""
+    return render(request, "presensi/enrolment.html")
 
 
 def _bisa_tinjau_presensi(user):
@@ -87,10 +99,20 @@ def putuskan_presensi(request, presensi_id):
     return redirect("presensi_web:tinjau")
 
 
-# Skor risiko sementara untuk presensi yang lolos cek lokasi (syarat 1),
-# selama syarat 2 (verifikasi wajah) belum aktif -- lihat presensi/decision.py.
-SKOR_RISIKO_LOKASI_SAJA = 40
-SKOR_ANOMALI_LOKASI = 70
+# Skor risiko presensi yang lolos KEDUA syarat (lokasi & wajah) -- rendah
+# tapi tidak nol, sisakan ruang untuk sinyal tambahan (QR/Wi-Fi) nanti.
+SKOR_RISIKO_TERVERIFIKASI = 8
+
+# Skor risiko dicatat ke LogKecurangan per jenis alasan gagal. Alasan yang
+# TIDAK ada di sini (mis. "belum_enrolment_wajah", "foto_tidak_valid") sengaja
+# tidak dicatat sebagai kecurangan -- itu soal kesiapan data, bukan indikasi
+# curang.
+SKOR_ANOMALI = {
+    "akurasi_buruk": 60,
+    "di_luar_radius": 70,
+    "liveness_gagal": 75,
+    "wajah_tidak_cocok": 90,
+}
 
 
 class PresensiRateThrottle(UserRateThrottle):
@@ -104,8 +126,40 @@ def _catat_perangkat(nidn, device_id, waktu):
     )
 
 
+def _catat_jika_anomali(nidn, presensi, alasan, detail):
+    if alasan in SKOR_ANOMALI:
+        LogKecurangan.objects.create(
+            nidn=nidn, presensi=presensi, jenis_anomali=alasan,
+            skor=SKOR_ANOMALI[alasan], detail=detail,
+        )
+
+
+def _respon_ditolak(alasan):
+    return Response({"diterima": False, "alasan": alasan, "tingkat_risiko": TingkatRisiko.TINGGI})
+
+
+def _jalankan_gerbang(nidn, data, presensi=None):
+    """Gerbang-DAN: cek_lokasi lalu (kalau lolos) verifikasi_wajah. Return
+    (hasil_lokasi, None) kalau dua-duanya lolos, atau (None, Response) kalau
+    salah satu gagal -- lihat presensi/decision.py."""
+    hasil_lokasi = cek_lokasi(data["lat"], data["lng"], data["akurasi_m"])
+    if not hasil_lokasi.lolos:
+        _catat_jika_anomali(
+            nidn, presensi, hasil_lokasi.alasan,
+            {"lat": data["lat"], "lng": data["lng"], "akurasi_m": data["akurasi_m"]},
+        )
+        return None, _respon_ditolak(hasil_lokasi.alasan)
+
+    hasil_wajah = verifikasi_wajah(nidn, data["selfie"])
+    if not hasil_wajah.lolos:
+        _catat_jika_anomali(nidn, presensi, hasil_wajah.alasan, {"skor_kemiripan": hasil_wajah.skor_kemiripan})
+        return None, _respon_ditolak(hasil_wajah.alasan)
+
+    return hasil_lokasi, None
+
+
 class AbsenMasukView(APIView):
-    """POST /api/presensi/masuk — absen masuk, cek lokasi (syarat 1)."""
+    """POST /api/presensi/masuk — absen masuk, gerbang-DAN cek lokasi + wajah."""
     throttle_classes = [PresensiRateThrottle]
 
     def post(self, request):
@@ -131,34 +185,24 @@ class AbsenMasukView(APIView):
 
         _catat_perangkat(nidn, data["device_id"], waktu_server)
 
-        hasil = cek_lokasi(data["lat"], data["lng"], data["akurasi_m"])
-        if not hasil.lolos:
-            LogKecurangan.objects.create(
-                nidn=nidn,
-                jenis_anomali=hasil.alasan,
-                skor=SKOR_ANOMALI_LOKASI,
-                detail={"lat": data["lat"], "lng": data["lng"], "akurasi_m": data["akurasi_m"]},
-            )
-            return Response({
-                "diterima": False,
-                "alasan": hasil.alasan,
-                "tingkat_risiko": TingkatRisiko.TINGGI,
-            })
+        hasil_lokasi, response_gagal = _jalankan_gerbang(nidn, data)
+        if response_gagal is not None:
+            return response_gagal
 
-        status_kehadiran = tentukan_status_waktu(hasil.lokasi, waktu_server.time())
+        status_kehadiran = tentukan_status_waktu(hasil_lokasi.lokasi, waktu_server.time())
 
         presensi, _ = Presensi.objects.update_or_create(
             nidn=nidn, tanggal=tanggal,
             defaults={
                 "waktu_masuk": waktu_server,
-                "lokasi": hasil.lokasi,
+                "lokasi": hasil_lokasi.lokasi,
                 "latitude_masuk": data["lat"],
                 "longitude_masuk": data["lng"],
                 "akurasi_masuk_m": data["akurasi_m"],
                 "status": status_kehadiran,
-                "skor_risiko": SKOR_RISIKO_LOKASI_SAJA,
-                "tingkat_risiko": TingkatRisiko.SEDANG,
-                "ditandai": True,
+                "skor_risiko": SKOR_RISIKO_TERVERIFIKASI,
+                "tingkat_risiko": TingkatRisiko.RENDAH,
+                "ditandai": False,
             },
         )
 
@@ -166,14 +210,14 @@ class AbsenMasukView(APIView):
             "diterima": True,
             "status": presensi.status,
             "waktu_masuk": presensi.waktu_masuk,
-            "lokasi": hasil.lokasi.nama,
+            "lokasi": hasil_lokasi.lokasi.nama,
             "skor_risiko": presensi.skor_risiko,
             "tingkat_risiko": presensi.tingkat_risiko,
         })
 
 
 class AbsenPulangView(APIView):
-    """POST /api/presensi/pulang — absen pulang, cek lokasi (syarat 1)."""
+    """POST /api/presensi/pulang — absen pulang, gerbang-DAN cek lokasi + wajah."""
     throttle_classes = [PresensiRateThrottle]
 
     def post(self, request):
@@ -207,23 +251,12 @@ class AbsenPulangView(APIView):
 
         _catat_perangkat(nidn, data["device_id"], waktu_server)
 
-        hasil = cek_lokasi(data["lat"], data["lng"], data["akurasi_m"])
-        if not hasil.lolos:
-            LogKecurangan.objects.create(
-                nidn=nidn,
-                presensi=presensi,
-                jenis_anomali=hasil.alasan,
-                skor=SKOR_ANOMALI_LOKASI,
-                detail={"lat": data["lat"], "lng": data["lng"], "akurasi_m": data["akurasi_m"]},
-            )
-            return Response({
-                "diterima": False,
-                "alasan": hasil.alasan,
-                "tingkat_risiko": TingkatRisiko.TINGGI,
-            })
+        hasil_lokasi, response_gagal = _jalankan_gerbang(nidn, data, presensi=presensi)
+        if response_gagal is not None:
+            return response_gagal
 
         presensi.waktu_pulang = waktu_server
-        presensi.lokasi = presensi.lokasi or hasil.lokasi
+        presensi.lokasi = presensi.lokasi or hasil_lokasi.lokasi
         presensi.latitude_pulang = data["lat"]
         presensi.longitude_pulang = data["lng"]
         presensi.save()
@@ -232,8 +265,53 @@ class AbsenPulangView(APIView):
             "diterima": True,
             "status": presensi.status,
             "waktu_pulang": presensi.waktu_pulang,
-            "lokasi": hasil.lokasi.nama,
+            "lokasi": hasil_lokasi.lokasi.nama,
         })
+
+
+class EnrolmentWajahView(APIView):
+    """POST /api/presensi/enrolment-wajah — daftarkan wajah dosen (sekali di
+    awal, sebelum bisa lolos syarat 2 saat absen)."""
+    throttle_classes = [PresensiRateThrottle]
+
+    def post(self, request):
+        serializer = EnrolmentWajahSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        nidn = request.user.nidn
+        if not nidn:
+            return Response(
+                {"status": "gagal", "alasan": "nidn_tidak_terdaftar"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        embeddings = []
+        for foto in data["foto"]:
+            wajah, _alasan = ekstrak_satu_wajah(foto)
+            if wajah is not None:
+                embeddings.append(wajah.embedding)
+
+        if len(embeddings) < 2:
+            return Response(
+                {"status": "gagal", "alasan": "wajah_tidak_terdeteksi_konsisten"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        embedding_rata = rata_rata_embedding(embeddings)
+        waktu = timezone.now()
+
+        EnrolmentWajah.objects.update_or_create(
+            nidn=nidn,
+            defaults={
+                "embedding_terenkripsi": enkripsi_embedding(embedding_rata),
+                "versi_model": VERSI_MODEL_WAJAH,
+                "consent_disetujui": True,
+                "consent_pada": waktu,
+            },
+        )
+
+        return Response({"status": "ok", "versi_model": VERSI_MODEL_WAJAH, "consent_pada": waktu})
 
 
 class StatusHariIniView(APIView):

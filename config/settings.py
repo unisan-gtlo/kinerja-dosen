@@ -14,6 +14,11 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# Kunci Fernet untuk enkripsi embedding wajah presensi (lihat
+# presensi/face.py). WAJIB diisi di .env sebelum enrolment wajah dipakai --
+# generate dengan: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default='')
+
 # ============================================================
 # APPLICATIONS
 # ============================================================
