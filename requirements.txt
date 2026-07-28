@@ -14,6 +14,8 @@ dj-database-url==3.1.2
 Django==6.0.4
 django-axes==8.3.1
 django-ratelimit==4.1.0
+djangorestframework==3.17.1
+djangorestframework-simplejwt==5.5.1
 et_xmlfile==2.0.0
 gitdb==4.0.12
 GitPython==3.1.46
@@ -46,6 +48,7 @@ pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==3.0
 pydeck==0.9.1
+PyJWT==2.13.0
 pyparsing==3.3.2
 python-dateutil==2.9.0.post0
 pymupdf==1.28.0

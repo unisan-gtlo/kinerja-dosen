@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'axes',
+    'rest_framework',
     'accounts',
     'master',
     'profil',
@@ -37,6 +38,7 @@ INSTALLED_APPS = [
     'dashboard',
     'laporan',
     'simda_dosen',
+    'presensi',
 ]
 
 MIDDLEWARE = [
@@ -132,6 +134,35 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
+
+# ============================================================
+# API PRESENSI — Django REST Framework + JWT
+# ============================================================
+# Login web (session/SSO) tetap seperti semula, ini khusus untuk klien
+# mobile/PWA presensi yang butuh token, bukan cookie sesi.
+from datetime import timedelta  # noqa: E402
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'user': '30/minute',
+        'presensi': '6/minute',
+    },
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+}
 
 # ============================================================
 # SESSION & SECURITY

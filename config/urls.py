@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -16,6 +17,11 @@ urlpatterns = [
     path('reward/', include('reward.urls')),
     path('laporan/', include('laporan.urls')),
     path('simda-dosen/', include('simda_dosen.urls')),
+    # API modul presensi (JWT, dipakai klien mobile/PWA -- lihat
+    # docs/presensi/spesifikasiapipresensi.md).
+    path('api/auth/login', TokenObtainPairView.as_view(), name='api_login'),
+    path('api/auth/refresh', TokenRefreshView.as_view(), name='api_refresh'),
+    path('api/presensi/', include('presensi.urls')),
 ]
 
 # Protected media — hanya bisa diakses saat login
