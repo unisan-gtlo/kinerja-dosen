@@ -174,8 +174,8 @@ class HalamanAbsenViewTest(TestCase):
         self.assertIn("/accounts/login/", resp.url)
 
     def test_sudah_login_bisa_akses_halaman(self):
-        User.objects.create_user(username="dosen2", password="testpass123", role="dosen", nidn="1234567891")
-        self.client.login(username="dosen2", password="testpass123")
+        user = User.objects.create_user(username="dosen2", password="testpass123", role="dosen", nidn="1234567891")
+        self.client.force_login(user)
         resp = self.client.get("/presensi/")
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "presensi/absen.html")
@@ -183,8 +183,8 @@ class HalamanAbsenViewTest(TestCase):
     def test_status_hari_ini_bisa_dipanggil_lewat_sesi_login(self):
         """API DRF harus menerima sesi Django (SessionAuthentication),
         bukan cuma token JWT -- dipakai oleh templates/presensi/absen.html."""
-        User.objects.create_user(username="dosen3", password="testpass123", role="dosen", nidn="1234567892")
-        self.client.login(username="dosen3", password="testpass123")
+        user = User.objects.create_user(username="dosen3", password="testpass123", role="dosen", nidn="1234567892")
+        self.client.force_login(user)
         resp = self.client.get("/api/presensi/status-hari-ini")
         self.assertEqual(resp.status_code, 200)
 
@@ -212,31 +212,31 @@ class TinjauPresensiViewTest(TestCase):
         )
 
     def test_dosen_biasa_tidak_bisa_akses(self):
-        self.client.login(username="dosenA", password="testpass123")
+        self.client.force_login(self.dosen_a)
         resp = self.client.get("/presensi/tinjau/")
         self.assertEqual(resp.status_code, 403)
 
     def test_admin_melihat_semua_presensi_ditandai(self):
-        User.objects.create_user(username="admin1", password="testpass123", role="admin")
-        self.client.login(username="admin1", password="testpass123")
+        admin = User.objects.create_user(username="admin1", password="testpass123", role="admin")
+        self.client.force_login(admin)
         resp = self.client.get("/presensi/tinjau/")
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, self.dosen_a.nidn)
         self.assertContains(resp, self.dosen_b.nidn)
 
     def test_kaprodi_hanya_melihat_prodi_sendiri(self):
-        User.objects.create_user(
+        kaprodi = User.objects.create_user(
             username="kaprodiTI", password="testpass123", role="kaprodi", kode_prodi="TI",
         )
-        self.client.login(username="kaprodiTI", password="testpass123")
+        self.client.force_login(kaprodi)
         resp = self.client.get("/presensi/tinjau/")
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, self.dosen_a.nidn)
         self.assertNotContains(resp, self.dosen_b.nidn)
 
     def test_setujui_presensi_menghapus_tanda(self):
-        User.objects.create_user(username="admin2", password="testpass123", role="admin")
-        self.client.login(username="admin2", password="testpass123")
+        admin = User.objects.create_user(username="admin2", password="testpass123", role="admin")
+        self.client.force_login(admin)
         resp = self.client.post(f"/presensi/tinjau/{self.presensi_a.id}/putuskan/", {"aksi": "setujui"})
         self.assertEqual(resp.status_code, 302)
         self.presensi_a.refresh_from_db()
@@ -244,8 +244,8 @@ class TinjauPresensiViewTest(TestCase):
         self.assertEqual(self.presensi_a.tingkat_risiko, TingkatRisiko.RENDAH)
 
     def test_tolak_presensi_tercatat_di_log_kecurangan(self):
-        User.objects.create_user(username="admin3", password="testpass123", role="admin")
-        self.client.login(username="admin3", password="testpass123")
+        admin = User.objects.create_user(username="admin3", password="testpass123", role="admin")
+        self.client.force_login(admin)
         resp = self.client.post(f"/presensi/tinjau/{self.presensi_a.id}/putuskan/", {"aksi": "tolak"})
         self.assertEqual(resp.status_code, 302)
         self.presensi_a.refresh_from_db()
@@ -256,10 +256,10 @@ class TinjauPresensiViewTest(TestCase):
         )
 
     def test_kaprodi_tidak_bisa_putuskan_presensi_di_luar_prodi(self):
-        User.objects.create_user(
+        kaprodi = User.objects.create_user(
             username="kaprodiTI2", password="testpass123", role="kaprodi", kode_prodi="TI",
         )
-        self.client.login(username="kaprodiTI2", password="testpass123")
+        self.client.force_login(kaprodi)
         resp = self.client.post(f"/presensi/tinjau/{self.presensi_b.id}/putuskan/", {"aksi": "setujui"})
         self.assertEqual(resp.status_code, 403)
         self.presensi_b.refresh_from_db()
