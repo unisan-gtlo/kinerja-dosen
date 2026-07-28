@@ -396,11 +396,17 @@ class HalamanAbsenViewTest(TestCase):
         self.assertIn("/accounts/login/", resp.url)
 
     def test_sudah_login_bisa_akses_halaman(self):
-        user = User.objects.create_user(username="dosen2", password="testpass123", role="dosen", nidn="1234567891")
+        user = User.objects.create_user(
+            username="dosen2", password="testpass123", role="dosen", nidn="1234567891",
+            first_name="Budi", last_name="Santoso",
+        )
         self.client.force_login(user)
         resp = self.client.get("/presensi/")
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "presensi/absen.html")
+        self.assertEqual(resp.context["nama_tampil"], "Budi Santoso")
+        self.assertEqual(resp.context["inisial"], "BS")
+        self.assertIn(resp.context["sapaan"], ["Selamat pagi", "Selamat siang", "Selamat sore", "Selamat malam"])
 
     def test_status_hari_ini_bisa_dipanggil_lewat_sesi_login(self):
         """API DRF harus menerima sesi Django (SessionAuthentication),

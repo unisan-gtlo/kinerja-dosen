@@ -27,13 +27,36 @@ from .serializers import AbsenSerializer, EnrolmentWajahSerializer
 ROLE_PENGELOLA_SCOPED = ("dekan", "wadek", "kaprodi", "sekprodi", "operator")
 
 
+def _sapaan_waktu(jam):
+    if jam < 11:
+        return "Selamat pagi"
+    if jam < 15:
+        return "Selamat siang"
+    if jam < 19:
+        return "Selamat sore"
+    return "Selamat malam"
+
+
+def _inisial_nama(nama):
+    bagian = nama.split()
+    if len(bagian) > 1:
+        return (bagian[0][0] + bagian[-1][0]).upper()
+    return nama[:2].upper() if nama else "?"
+
+
 @login_required
 def halaman_absen(request):
     """Halaman web untuk absen masuk/pulang (Tabler UI + JS geolocation,
     memanggil API /api/presensi/masuk & /pulang lewat sesi Django yang sudah
     login -- lihat SessionAuthentication di REST_FRAMEWORK settings)."""
     sudah_enrolment = EnrolmentWajah.objects.filter(user=request.user, consent_disetujui=True).exists()
-    return render(request, "presensi/absen.html", {"sudah_enrolment": sudah_enrolment})
+    nama = request.user.get_full_name() or request.user.username
+    return render(request, "presensi/absen.html", {
+        "sudah_enrolment": sudah_enrolment,
+        "sapaan": _sapaan_waktu(timezone.localtime(timezone.now()).hour),
+        "nama_tampil": nama,
+        "inisial": _inisial_nama(nama),
+    })
 
 
 @login_required
