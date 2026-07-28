@@ -44,6 +44,11 @@ numpy==2.4.4
 oauthlib==3.3.1
 onnx==1.22.0
 onnxruntime==1.28.0
+# insightface menarik opencv-python (versi lengkap, butuh libGL) sebagai
+# dependensinya sendiri -- ini bisa menimpa opencv-python-headless di
+# instalasi baru/`pip install -r requirements.txt` ulang. Kalau import cv2
+# gagal dengan "libGL.so.1: cannot open shared object file", perbaiki dengan:
+#   pip install --force-reinstall --no-deps opencv-python-headless
 opencv-python-headless==5.0.0.93
 openpyxl==3.1.5
 packaging==26.0
