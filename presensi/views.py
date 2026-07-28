@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from rest_framework import status
@@ -38,6 +38,26 @@ def halaman_enrolment(request):
     lewat kamera browser + persetujuan (consent), kirim ke
     /api/presensi/enrolment-wajah lewat sesi Django yang sudah login."""
     return render(request, "presensi/enrolment.html")
+
+
+# Service worker minimal, sengaja TANPA caching berat -- halaman presensi
+# butuh GPS/kamera live saat itu juga, jadi presensi offline tidak masuk
+# akal. Isinya cuma cukup supaya browser menganggap /presensi/ "installable"
+# (PWA Add to Home Screen).
+_SERVICE_WORKER_JS = """
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', () => {});
+""".strip()
+
+
+def service_worker_presensi(request):
+    """Sengaja disajikan lewat view (BUKAN file statis WhiteNoise): service
+    worker cuma boleh mengontrol path yang sama atau di bawah lokasi
+    skripnya sendiri, kecuali server mengirim header Service-Worker-Allowed.
+    Dengan disajikan di /presensi/sw.js, cakupannya otomatis mencakup
+    seluruh /presensi/ tanpa perlu konfigurasi header tambahan di Nginx."""
+    return HttpResponse(_SERVICE_WORKER_JS, content_type="application/javascript")
 
 
 def _bisa_tinjau_presensi(user):

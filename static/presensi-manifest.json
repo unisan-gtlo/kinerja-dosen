@@ -1,0 +1,15 @@
+{
+  "name": "Presensi SIKD - Universitas Ichsan Gorontalo",
+  "short_name": "Presensi",
+  "description": "Absen masuk/pulang dengan cek lokasi & verifikasi wajah.",
+  "start_url": "/presensi/",
+  "scope": "/presensi/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a5f",
+  "icons": [
+    {"src": "/static/img/presensi-icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/static/img/presensi-icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}

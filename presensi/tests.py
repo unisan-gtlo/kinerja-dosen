@@ -406,6 +406,19 @@ class HalamanAbsenViewTest(TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+class ServiceWorkerPresensiTest(TestCase):
+    """Service worker PWA disajikan di /presensi/sw.js (BUKAN lewat
+    WhiteNoise/static) supaya cakupannya otomatis /presensi/* tanpa perlu
+    header Service-Worker-Allowed tambahan di Nginx."""
+
+    def test_sw_bisa_diakses_tanpa_login(self):
+        # Browser bisa saja minta sw.js sebelum sesi login "matang" --
+        # jangan sampai ke-redirect ke halaman login.
+        resp = self.client.get("/presensi/sw.js")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/javascript")
+
+
 class TinjauPresensiViewTest(TestCase):
     """Halaman HR/admin untuk meninjau presensi ditandai -- kasus normal
     (setuju/tolak) & kasus akses (role tidak berwenang, scoping fakultas/prodi)."""

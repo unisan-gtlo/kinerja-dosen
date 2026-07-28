@@ -1,6 +1,20 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Presensi — SIKD{% endblock %}
 {% block page_title %}Presensi{% endblock %}
+
+{% block extra_head %}
+<link rel="manifest" href="{% static 'presensi-manifest.json' %}">
+<meta name="theme-color" content="#1e3a5f">
+<link rel="apple-touch-icon" href="{% static 'img/presensi-icon-192.png' %}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Presensi">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register("{% url 'presensi_web:sw' %}");
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="row row-deck row-cards">
