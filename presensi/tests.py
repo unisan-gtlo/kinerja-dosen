@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import User
 from .geo import dalam_radius, jarak_meter
-from .models import LogKecurangan, LokasiKantor, Perangkat, Presensi
+from .models import LogKecurangan, LokasiKantor, Perangkat, Presensi, StatusPresensi, TingkatRisiko
 from .utils import get_dosen_by_nidn
 
 
@@ -187,3 +187,80 @@ class HalamanAbsenViewTest(TestCase):
         self.client.login(username="dosen3", password="testpass123")
         resp = self.client.get("/api/presensi/status-hari-ini")
         self.assertEqual(resp.status_code, 200)
+
+
+class TinjauPresensiViewTest(TestCase):
+    """Halaman HR/admin untuk meninjau presensi ditandai -- kasus normal
+    (setuju/tolak) & kasus akses (role tidak berwenang, scoping fakultas/prodi)."""
+
+    def setUp(self):
+        self.dosen_a = User.objects.create_user(
+            username="dosenA", password="testpass123", role="dosen",
+            nidn="1111111111", kode_prodi="TI", kode_fakultas="FT",
+        )
+        self.dosen_b = User.objects.create_user(
+            username="dosenB", password="testpass123", role="dosen",
+            nidn="2222222222", kode_prodi="SI", kode_fakultas="FT",
+        )
+        self.presensi_a = Presensi.objects.create(
+            nidn=self.dosen_a.nidn, tanggal="2026-07-28", ditandai=True,
+            tingkat_risiko=TingkatRisiko.SEDANG,
+        )
+        self.presensi_b = Presensi.objects.create(
+            nidn=self.dosen_b.nidn, tanggal="2026-07-28", ditandai=True,
+            tingkat_risiko=TingkatRisiko.SEDANG,
+        )
+
+    def test_dosen_biasa_tidak_bisa_akses(self):
+        self.client.login(username="dosenA", password="testpass123")
+        resp = self.client.get("/presensi/tinjau/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_melihat_semua_presensi_ditandai(self):
+        User.objects.create_user(username="admin1", password="testpass123", role="admin")
+        self.client.login(username="admin1", password="testpass123")
+        resp = self.client.get("/presensi/tinjau/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, self.dosen_a.nidn)
+        self.assertContains(resp, self.dosen_b.nidn)
+
+    def test_kaprodi_hanya_melihat_prodi_sendiri(self):
+        User.objects.create_user(
+            username="kaprodiTI", password="testpass123", role="kaprodi", kode_prodi="TI",
+        )
+        self.client.login(username="kaprodiTI", password="testpass123")
+        resp = self.client.get("/presensi/tinjau/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, self.dosen_a.nidn)
+        self.assertNotContains(resp, self.dosen_b.nidn)
+
+    def test_setujui_presensi_menghapus_tanda(self):
+        User.objects.create_user(username="admin2", password="testpass123", role="admin")
+        self.client.login(username="admin2", password="testpass123")
+        resp = self.client.post(f"/presensi/tinjau/{self.presensi_a.id}/putuskan/", {"aksi": "setujui"})
+        self.assertEqual(resp.status_code, 302)
+        self.presensi_a.refresh_from_db()
+        self.assertFalse(self.presensi_a.ditandai)
+        self.assertEqual(self.presensi_a.tingkat_risiko, TingkatRisiko.RENDAH)
+
+    def test_tolak_presensi_tercatat_di_log_kecurangan(self):
+        User.objects.create_user(username="admin3", password="testpass123", role="admin")
+        self.client.login(username="admin3", password="testpass123")
+        resp = self.client.post(f"/presensi/tinjau/{self.presensi_a.id}/putuskan/", {"aksi": "tolak"})
+        self.assertEqual(resp.status_code, 302)
+        self.presensi_a.refresh_from_db()
+        self.assertFalse(self.presensi_a.ditandai)
+        self.assertEqual(self.presensi_a.status, StatusPresensi.DITOLAK)
+        self.assertTrue(
+            LogKecurangan.objects.filter(nidn=self.dosen_a.nidn, jenis_anomali="ditolak_hr").exists()
+        )
+
+    def test_kaprodi_tidak_bisa_putuskan_presensi_di_luar_prodi(self):
+        User.objects.create_user(
+            username="kaprodiTI2", password="testpass123", role="kaprodi", kode_prodi="TI",
+        )
+        self.client.login(username="kaprodiTI2", password="testpass123")
+        resp = self.client.post(f"/presensi/tinjau/{self.presensi_b.id}/putuskan/", {"aksi": "setujui"})
+        self.assertEqual(resp.status_code, 403)
+        self.presensi_b.refresh_from_db()
+        self.assertTrue(self.presensi_b.ditandai)

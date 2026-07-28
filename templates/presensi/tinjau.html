@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Tinjau Presensi — SIKD{% endblock %}
+{% block page_title %}Tinjau Presensi{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">Presensi Ditandai untuk Tinjauan</h3>
+    <p class="text-muted">
+      Presensi berikut lolos cek lokasi tapi belum diverifikasi wajah
+      (fitur menyusul), jadi ditandai untuk ditinjau manual.
+    </p>
+
+    {% if not daftar %}
+    <div class="alert alert-success">
+      <span class="ti ti-check me-1"></span> Tidak ada presensi yang perlu ditinjau saat ini.
+    </div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Tanggal</th>
+            <th>NIDN</th>
+            <th>Nama Dosen</th>
+            <th>Lokasi</th>
+            <th>Status</th>
+            <th>Skor Risiko</th>
+            <th>Waktu Masuk</th>
+            <th>Waktu Pulang</th>
+            <th class="w-1">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in daftar %}
+          <tr>
+            <td>{{ item.presensi.tanggal }}</td>
+            <td>{{ item.presensi.nidn }}</td>
+            <td>{{ item.nama_dosen }}</td>
+            <td>{{ item.presensi.lokasi.nama|default:"—" }}</td>
+            <td><span class="badge bg-orange-lt">{{ item.presensi.get_status_display }}</span></td>
+            <td>{{ item.presensi.skor_risiko }}</td>
+            <td>{{ item.presensi.waktu_masuk|date:"H:i"|default:"—" }}</td>
+            <td>{{ item.presensi.waktu_pulang|date:"H:i"|default:"—" }}</td>
+            <td class="text-nowrap">
+              <form method="post" action="{% url 'presensi_web:putuskan' item.presensi.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="aksi" value="setujui">
+                <button type="submit" class="btn btn-sm btn-success">Setujui</button>
+              </form>
+              <form method="post" action="{% url 'presensi_web:putuskan' item.presensi.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="aksi" value="tolak">
+                <button type="submit" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Tolak presensi {{ item.presensi.nidn }} tanggal {{ item.presensi.tanggal }}?');">
+                  Tolak
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
