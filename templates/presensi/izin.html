@@ -95,4 +95,23 @@
     {% include 'presensi/_bottom_nav.html' with aktif='izin' %}
   </div>
 </div>
+
+<script>
+(function () {
+  // Tanggal Selesai otomatis ikut Tanggal Mulai (asumsi izin 1 hari, kasus
+  // paling umum) -- tetap bisa diubah manual kalau butuh rentang > 1 hari.
+  // Sengaja TIDAK dinonaktifkan untuk jenis tertentu (mis. Sakit) karena
+  // semua jenis izin bisa saja lebih dari 1 hari.
+  const mulai = document.getElementById('id_tanggal_mulai');
+  const selesai = document.getElementById('id_tanggal_selesai');
+  if (mulai && selesai) {
+    mulai.addEventListener('change', function () {
+      selesai.min = mulai.value;
+      if (!selesai.value || selesai.value < mulai.value) {
+        selesai.value = mulai.value;
+      }
+    });
+  }
+})();
+</script>
 {% endblock %}

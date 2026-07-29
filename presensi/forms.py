@@ -7,11 +7,17 @@ class IzinCutiForm(forms.ModelForm):
     """Form pengajuan izin/sakit/cuti/dinas mandiri -- lihat
     presensi/views.py::halaman_izin."""
 
+    # Field dibuat manual (bukan cuma lewat Meta.widgets) supaya TIDAK ada
+    # opsi kosong "---------" yang otomatis ditambah Django untuk field
+    # wajib tanpa default -- "Izin" jadi pilihan default yang sudah terpilih.
+    tipe = forms.ChoiceField(
+        choices=IzinCuti.Tipe.choices, widget=forms.RadioSelect, initial=IzinCuti.Tipe.IZIN,
+    )
+
     class Meta:
         model = IzinCuti
         fields = ["tipe", "tanggal_mulai", "tanggal_selesai", "alasan", "lampiran"]
         widgets = {
-            "tipe": forms.RadioSelect,
             "tanggal_mulai": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "tanggal_selesai": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "alasan": forms.Textarea(attrs={
