@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Ajukan Izin/Cuti — SIKD{% endblock %}
+{% block page_title %}Ajukan Izin / Cuti{% endblock %}
+
+{% block extra_head %}
+<link rel="manifest" href="{% static 'presensi-manifest.json' %}">
+<meta name="theme-color" content="#1e3a5f">
+<style>
+  body, .page-body, .container-xl { color: #333; }
+  label, .form-label { color: #333; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12 col-md-8 col-lg-6 mx-auto">
+    <div class="card">
+      <div class="card-body">
+        <h3 class="card-title">Ajukan Izin / Cuti</h3>
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Jenis</label>
+            <div class="d-flex flex-wrap gap-2">
+              {% for radio in form.tipe %}
+              <div>
+                {{ radio.tag }}
+                <label class="btn btn-outline-primary btn-sm" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+            {% if form.tipe.errors %}<div class="text-danger small mt-1">{{ form.tipe.errors|join:", " }}</div>{% endif %}
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label">Tanggal Mulai</label>
+              {{ form.tanggal_mulai }}
+            </div>
+            <div class="col-6">
+              <label class="form-label">Tanggal Selesai</label>
+              {{ form.tanggal_selesai }}
+            </div>
+          </div>
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <div class="mb-3">
+            <label class="form-label">Alasan</label>
+            {{ form.alasan }}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Lampiran (opsional)</label>
+            {{ form.lampiran }}
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">Kirim ke Atasan</button>
+        </form>
+
+        <div class="alert alert-info mt-3 small mb-0">
+          <span class="ti ti-info-circle me-1"></span>
+          Pengajuan diteruskan ke atasan Anda untuk disetujui. Status dapat dipantau di bawah ini.
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body">
+        <h3 class="card-title">Riwayat Pengajuan Saya</h3>
+        {% if not riwayat %}
+        <div class="text-muted small">Belum ada pengajuan.</div>
+        {% else %}
+        <div class="divide-y">
+          {% for izin in riwayat %}
+          <div class="d-flex justify-content-between align-items-center py-2">
+            <div>
+              <div class="fw-bold small">
+                {{ izin.get_tipe_display }} · {{ izin.tanggal_mulai|date:"d M" }}{% if izin.tanggal_selesai != izin.tanggal_mulai %} – {{ izin.tanggal_selesai|date:"d M" }}{% endif %}
+              </div>
+              <div class="text-muted small">{{ izin.alasan|truncatechars:40|default:"—" }}</div>
+            </div>
+            <span class="badge {% if izin.status == 'disetujui' %}bg-success-lt{% elif izin.status == 'ditolak' %}bg-danger-lt{% else %}bg-warning-lt{% endif %}">
+              {{ izin.get_status_display }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% include 'presensi/_bottom_nav.html' with aktif='izin' %}
+  </div>
+</div>
+{% endblock %}

@@ -16,7 +16,7 @@ from .decision import HasilCekWajah, verifikasi_wajah
 from .face import dekripsi_embedding, ekstrak_satu_wajah, enkripsi_embedding, kemiripan_kosinus
 from .geo import dalam_radius, jarak_meter
 from .models import (
-    EnrolmentWajah, LogKecurangan, LokasiKantor, Perangkat, Presensi, StatusPresensi, TingkatRisiko,
+    EnrolmentWajah, IzinCuti, LogKecurangan, LokasiKantor, Perangkat, Presensi, StatusPresensi, TingkatRisiko,
 )
 from .rekap import data_presensi_harian, ringkasan_hari_ini, top_telat_hari_ini, tren_mingguan
 from .utils import get_dosen_by_nidn
@@ -629,3 +629,161 @@ class DashboardDataPresensiViewTest(TestCase):
             resp["Content-Type"],
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
+
+class HalamanRiwayatTest(TestCase):
+    """Riwayat presensi pribadi -- gabungan Presensi & IzinCuti disetujui,
+    milik SENDIRI saja."""
+
+    def setUp(self):
+        self.user = _buat_dosen_user()
+        self.hari_ini = timezone.localdate()
+
+    def test_tanpa_login_dialihkan(self):
+        resp = self.client.get("/presensi/riwayat/")
+        self.assertEqual(resp.status_code, 302)
+
+    def test_menampilkan_presensi_dan_izin_disetujui_milik_sendiri(self):
+        Presensi.objects.create(user=self.user, tanggal=self.hari_ini, status=StatusPresensi.HADIR)
+        IzinCuti.objects.create(
+            user=self.user, tipe=IzinCuti.Tipe.DINAS,
+            tanggal_mulai=self.hari_ini, tanggal_selesai=self.hari_ini,
+            alasan="Seminar nasional", status=IzinCuti.StatusApproval.DISETUJUI,
+        )
+        self.client.force_login(self.user)
+        resp = self.client.get("/presensi/riwayat/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Seminar nasional")
+
+    def test_tidak_menampilkan_izin_yang_belum_disetujui(self):
+        IzinCuti.objects.create(
+            user=self.user, tipe=IzinCuti.Tipe.SAKIT,
+            tanggal_mulai=self.hari_ini, tanggal_selesai=self.hari_ini,
+            alasan="Demam tinggi", status=IzinCuti.StatusApproval.MENUNGGU,
+        )
+        self.client.force_login(self.user)
+        resp = self.client.get("/presensi/riwayat/")
+        self.assertNotContains(resp, "Demam tinggi")
+
+    def test_tidak_menampilkan_presensi_orang_lain(self):
+        user_lain = _buat_dosen_user(nidn="6666666666", username="oranglain")
+        Presensi.objects.create(user=user_lain, tanggal=self.hari_ini, status=StatusPresensi.HADIR)
+        self.client.force_login(self.user)
+        resp = self.client.get("/presensi/riwayat/")
+        self.assertEqual(resp.context["entri"], [])
+
+
+class HalamanIzinTest(TestCase):
+    """Pengajuan izin/sakit/cuti/dinas mandiri."""
+
+    def setUp(self):
+        self.user = _buat_dosen_user()
+        self.client.force_login(self.user)
+
+    def test_tanpa_login_dialihkan(self):
+        self.client.logout()
+        resp = self.client.get("/presensi/izin/")
+        self.assertEqual(resp.status_code, 302)
+
+    def test_ajukan_izin_berhasil(self):
+        resp = self.client.post("/presensi/izin/", {
+            "tipe": "sakit",
+            "tanggal_mulai": "2026-07-28",
+            "tanggal_selesai": "2026-07-28",
+            "alasan": "Demam tinggi",
+        })
+        self.assertEqual(resp.status_code, 302)
+        izin = IzinCuti.objects.get(user=self.user)
+        self.assertEqual(izin.status, IzinCuti.StatusApproval.MENUNGGU)
+        self.assertEqual(izin.alasan, "Demam tinggi")
+
+    def test_tanggal_selesai_sebelum_mulai_ditolak(self):
+        resp = self.client.post("/presensi/izin/", {
+            "tipe": "cuti",
+            "tanggal_mulai": "2026-07-28",
+            "tanggal_selesai": "2026-07-20",
+            "alasan": "Test",
+        })
+        self.assertEqual(resp.status_code, 200)  # form dirender ulang dengan error
+        self.assertFalse(IzinCuti.objects.filter(user=self.user).exists())
+
+    def test_riwayat_pengajuan_sendiri_tampil(self):
+        IzinCuti.objects.create(
+            user=self.user, tipe=IzinCuti.Tipe.CUTI,
+            tanggal_mulai="2026-07-01", tanggal_selesai="2026-07-02",
+            alasan="Liburan keluarga",
+        )
+        resp = self.client.get("/presensi/izin/")
+        self.assertContains(resp, "Liburan keluarga")
+
+
+class TinjauIzinViewTest(TestCase):
+    """Halaman atasan untuk menyetujui/menolak pengajuan izin -- akses &
+    scoping sama seperti TinjauPresensiViewTest."""
+
+    def setUp(self):
+        self.dosen_a = User.objects.create_user(
+            username="izinA", password="testpass123", role="dosen",
+            nidn="7777777777", kode_prodi="TI", kode_fakultas="FT",
+        )
+        self.dosen_b = User.objects.create_user(
+            username="izinB", password="testpass123", role="dosen",
+            nidn="8888888888", kode_prodi="SI", kode_fakultas="FT",
+        )
+        self.izin_a = IzinCuti.objects.create(
+            user=self.dosen_a, tipe=IzinCuti.Tipe.SAKIT,
+            tanggal_mulai="2026-07-28", tanggal_selesai="2026-07-28", alasan="Demam",
+        )
+        self.izin_b = IzinCuti.objects.create(
+            user=self.dosen_b, tipe=IzinCuti.Tipe.CUTI,
+            tanggal_mulai="2026-07-29", tanggal_selesai="2026-07-30", alasan="Liburan",
+        )
+
+    def test_dosen_biasa_tidak_bisa_akses(self):
+        self.client.force_login(self.dosen_a)
+        resp = self.client.get("/presensi/izin/tinjau/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_melihat_semua_pengajuan_menunggu(self):
+        admin = User.objects.create_user(username="izinadmin", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.get("/presensi/izin/tinjau/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Demam")
+        self.assertContains(resp, "Liburan")
+
+    def test_kaprodi_hanya_melihat_prodi_sendiri(self):
+        kaprodi = User.objects.create_user(
+            username="izinkaprodi", password="testpass123", role="kaprodi", kode_prodi="TI",
+        )
+        self.client.force_login(kaprodi)
+        resp = self.client.get("/presensi/izin/tinjau/")
+        self.assertContains(resp, "Demam")
+        self.assertNotContains(resp, "Liburan")
+
+    def test_setujui_izin(self):
+        admin = User.objects.create_user(username="izinadmin2", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.post(f"/presensi/izin/tinjau/{self.izin_a.id}/putuskan/", {"aksi": "setujui"})
+        self.assertEqual(resp.status_code, 302)
+        self.izin_a.refresh_from_db()
+        self.assertEqual(self.izin_a.status, IzinCuti.StatusApproval.DISETUJUI)
+        self.assertEqual(self.izin_a.approver, admin)
+
+    def test_tolak_izin(self):
+        admin = User.objects.create_user(username="izinadmin3", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.post(f"/presensi/izin/tinjau/{self.izin_a.id}/putuskan/", {"aksi": "tolak"})
+        self.assertEqual(resp.status_code, 302)
+        self.izin_a.refresh_from_db()
+        self.assertEqual(self.izin_a.status, IzinCuti.StatusApproval.DITOLAK)
+
+    def test_kaprodi_tidak_bisa_putuskan_izin_di_luar_prodi(self):
+        kaprodi = User.objects.create_user(
+            username="izinkaprodi2", password="testpass123", role="kaprodi", kode_prodi="TI",
+        )
+        self.client.force_login(kaprodi)
+        resp = self.client.post(f"/presensi/izin/tinjau/{self.izin_b.id}/putuskan/", {"aksi": "setujui"})
+        self.assertEqual(resp.status_code, 403)
+        self.izin_b.refresh_from_db()
+        self.assertEqual(self.izin_b.status, IzinCuti.StatusApproval.MENUNGGU)

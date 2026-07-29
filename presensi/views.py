@@ -17,7 +17,8 @@ from rest_framework.views import APIView
 from laporan.views import get_dosen_queryset
 from .decision import cek_lokasi, tentukan_status_waktu, verifikasi_wajah
 from .face import VERSI_MODEL_WAJAH, ekstrak_satu_wajah, enkripsi_embedding, rata_rata_embedding
-from .models import EnrolmentWajah, LogKecurangan, Perangkat, Presensi, StatusPresensi, TingkatRisiko
+from .forms import IzinCutiForm
+from .models import EnrolmentWajah, IzinCuti, LogKecurangan, Perangkat, Presensi, StatusPresensi, TingkatRisiko
 from .rekap import data_presensi_harian, ringkasan_hari_ini, top_telat_hari_ini, tren_mingguan
 from .serializers import AbsenSerializer, EnrolmentWajahSerializer
 
@@ -278,6 +279,94 @@ def putuskan_presensi(request, presensi_id):
         messages.error(request, "Aksi tidak dikenal.")
 
     return redirect("presensi_web:tinjau")
+
+
+@login_required
+def halaman_riwayat(request):
+    """Riwayat presensi PRIBADI (bulan berjalan) -- gabungan Presensi &
+    IzinCuti yang disetujui, diurutkan dari yang terbaru."""
+    hari_ini = timezone.localdate()
+    awal_bulan = hari_ini.replace(day=1)
+
+    presensi_list = Presensi.objects.filter(user=request.user, tanggal__gte=awal_bulan).select_related("lokasi")
+    izin_list = IzinCuti.objects.filter(
+        user=request.user, status=IzinCuti.StatusApproval.DISETUJUI, tanggal_mulai__gte=awal_bulan,
+    )
+
+    entri = [{"jenis": "presensi", "tanggal": p.tanggal, "obj": p} for p in presensi_list]
+    entri += [{"jenis": "izin", "tanggal": i.tanggal_mulai, "obj": i} for i in izin_list]
+    entri.sort(key=lambda e: e["tanggal"], reverse=True)
+
+    return render(request, "presensi/riwayat.html", {
+        "entri": entri,
+        "bulan_label": hari_ini.strftime("%B %Y"),
+    })
+
+
+@login_required
+def halaman_izin(request):
+    """Pengajuan izin/sakit/cuti/dinas mandiri + riwayat pengajuan pribadi."""
+    if request.method == "POST":
+        form = IzinCutiForm(request.POST, request.FILES)
+        if form.is_valid():
+            izin = form.save(commit=False)
+            izin.user = request.user
+            izin.save()
+            messages.success(request, "Pengajuan izin berhasil dikirim ke atasan.")
+            return redirect("presensi_web:izin")
+        messages.error(request, "Periksa kembali form pengajuan Anda.")
+    else:
+        form = IzinCutiForm()
+
+    riwayat = IzinCuti.objects.filter(user=request.user).order_by("-dibuat")[:20]
+    return render(request, "presensi/izin.html", {"form": form, "riwayat": riwayat})
+
+
+@login_required
+def tinjau_izin(request):
+    """Halaman atasan: daftar pengajuan izin yang menunggu persetujuan,
+    di-scope lewat accounts.User.dapat_kelola -- sama seperti tinjau_presensi."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    menunggu = (
+        IzinCuti.objects.filter(status=IzinCuti.StatusApproval.MENUNGGU)
+        .select_related("user")
+        .order_by("tanggal_mulai")
+    )
+    daftar = [i for i in menunggu if request.user.dapat_kelola(i.user)]
+    return render(request, "presensi/izin_tinjau.html", {"daftar": daftar})
+
+
+@login_required
+def putuskan_izin(request, izin_id):
+    """POST-only: atasan menyetujui/menolak satu pengajuan izin."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method != "POST":
+        return redirect("presensi_web:izin_tinjau")
+
+    izin = get_object_or_404(
+        IzinCuti.objects.select_related("user"), id=izin_id, status=IzinCuti.StatusApproval.MENUNGGU,
+    )
+    if not request.user.dapat_kelola(izin.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke pengajuan orang ini.")
+
+    aksi = request.POST.get("aksi")
+    if aksi == "setujui":
+        izin.status = IzinCuti.StatusApproval.DISETUJUI
+        izin.approver = request.user
+        izin.save(update_fields=["status", "approver"])
+        messages.success(request, f"Pengajuan izin {izin.user} disetujui.")
+    elif aksi == "tolak":
+        izin.status = IzinCuti.StatusApproval.DITOLAK
+        izin.approver = request.user
+        izin.save(update_fields=["status", "approver"])
+        messages.warning(request, f"Pengajuan izin {izin.user} ditolak.")
+    else:
+        messages.error(request, "Aksi tidak dikenal.")
+
+    return redirect("presensi_web:izin_tinjau")
 
 
 # Skor risiko presensi yang lolos KEDUA syarat (lokasi & wajah) -- rendah

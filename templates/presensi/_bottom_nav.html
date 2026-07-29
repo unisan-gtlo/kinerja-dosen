@@ -1,0 +1,19 @@
+{% load static %}
+<div class="d-md-none mt-4 mb-3 bg-white rounded-3 shadow-sm border d-flex" style="overflow:hidden;">
+  <a href="{% url 'presensi_web:index' %}" class="flex-fill text-center py-2 text-decoration-none {% if aktif == 'beranda' %}text-primary{% else %}text-muted{% endif %}">
+    <div><span class="ti ti-home fs-4"></span></div>
+    <div class="small">Beranda</div>
+  </a>
+  <a href="{% url 'presensi_web:riwayat' %}" class="flex-fill text-center py-2 text-decoration-none {% if aktif == 'riwayat' %}text-primary{% else %}text-muted{% endif %}">
+    <div><span class="ti ti-calendar-event fs-4"></span></div>
+    <div class="small">Riwayat</div>
+  </a>
+  <a href="{% url 'presensi_web:izin' %}" class="flex-fill text-center py-2 text-decoration-none {% if aktif == 'izin' %}text-primary{% else %}text-muted{% endif %}">
+    <div><span class="ti ti-notes fs-4"></span></div>
+    <div class="small">Izin</div>
+  </a>
+  <a href="{% url 'profil:index' %}" class="flex-fill text-center py-2 text-decoration-none text-muted">
+    <div><span class="ti ti-user fs-4"></span></div>
+    <div class="small">Profil</div>
+  </a>
+</div>

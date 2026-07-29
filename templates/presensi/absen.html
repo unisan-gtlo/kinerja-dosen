@@ -70,7 +70,7 @@ if ('serviceWorker' in navigator) {
           <button id="btn-masuk" class="btn btn-primary" disabled>
             <span class="ti ti-login me-1"></span> Absen Masuk
           </button>
-          <button id="btn-pulang" class="btn btn-outline-primary" disabled>
+          <button id="btn-pulang" class="btn btn-success" disabled>
             <span class="ti ti-logout me-1"></span> Absen Pulang
           </button>
         </div>
@@ -141,6 +141,8 @@ if ('serviceWorker' in navigator) {
     </div>
 
     <div id="presensi-pesan" class="alert d-none" role="alert"></div>
+
+    {% include 'presensi/_bottom_nav.html' with aktif='beranda' %}
   </div>
 </div>
 

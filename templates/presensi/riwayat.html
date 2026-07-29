@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Riwayat Presensi — SIKD{% endblock %}
+{% block page_title %}Riwayat Presensi{% endblock %}
+
+{% block extra_head %}
+<link rel="manifest" href="{% static 'presensi-manifest.json' %}">
+<meta name="theme-color" content="#1e3a5f">
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12 col-md-8 col-lg-6 mx-auto">
+    <div class="card">
+      <div class="card-body">
+        <h3 class="card-title mb-0">Riwayat Presensi</h3>
+        <div class="text-muted small mb-3">{{ bulan_label }}</div>
+
+        {% if not entri %}
+        <div class="text-muted">Belum ada riwayat presensi bulan ini.</div>
+        {% else %}
+        <div class="divide-y">
+          {% for item in entri %}
+          <div class="d-flex align-items-center gap-3 py-2">
+            {% if item.jenis == 'izin' %}
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:36px;height:36px;background:#eaf1fb;">
+              <span class="ti ti-notes" style="color:#2E5496;"></span>
+            </div>
+            <div class="flex-fill">
+              <div class="fw-bold small">{{ item.tanggal|date:"l · d M" }}</div>
+              <div class="text-muted small">{{ item.obj.get_tipe_display }}{% if item.obj.alasan %} — {{ item.obj.alasan|truncatechars:30 }}{% endif %}</div>
+            </div>
+            <span class="badge bg-blue-lt">Izin</span>
+            {% else %}
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:36px;height:36px;background:{% if item.obj.status == 'telat' %}#fff6e2{% elif item.obj.status == 'ditolak' %}#fbe6e6{% else %}#e5f5e5{% endif %};">
+              <span class="ti {% if item.obj.status == 'telat' %}ti-clock{% elif item.obj.status == 'ditolak' %}ti-x{% else %}ti-check{% endif %}"
+                    style="color:{% if item.obj.status == 'telat' %}#946100{% elif item.obj.status == 'ditolak' %}#b02a2a{% else %}#0a7d0a{% endif %};"></span>
+            </div>
+            <div class="flex-fill">
+              <div class="fw-bold small">{{ item.tanggal|date:"l · d M" }}</div>
+              <div class="text-muted small">
+                {{ item.obj.waktu_masuk|date:"H:i"|default:"—" }} – {{ item.obj.waktu_pulang|date:"H:i"|default:"—" }}
+              </div>
+            </div>
+            <span class="badge {% if item.obj.status == 'telat' %}bg-warning-lt{% elif item.obj.status == 'ditolak' %}bg-danger-lt{% else %}bg-success-lt{% endif %}">
+              {{ item.obj.get_status_display }}
+            </span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% include 'presensi/_bottom_nav.html' with aktif='riwayat' %}
+  </div>
+</div>
+{% endblock %}

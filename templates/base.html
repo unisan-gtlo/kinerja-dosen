@@ -295,16 +295,28 @@
             </a>
           </li>
 
-          <!-- Presensi — dosen -->
-          {% if user.role == 'dosen' %}
+          <!-- Presensi — semua yang login (dosen & staf) -->
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+            <a class="nav-link {% if request.resolver_match.app_name == 'presensi_web' and request.resolver_match.url_name == 'index' %}active{% endif %}"
                href="{% url 'presensi_web:index' %}">
               <span class="nav-link-icon"><span class="ti ti-map-pin-check"></span></span>
               <span class="nav-link-title">Presensi</span>
             </a>
           </li>
-          {% endif %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.app_name == 'presensi_web' and request.resolver_match.url_name == 'riwayat' %}active{% endif %}"
+               href="{% url 'presensi_web:riwayat' %}">
+              <span class="nav-link-icon"><span class="ti ti-calendar-event"></span></span>
+              <span class="nav-link-title">Riwayat Presensi</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.app_name == 'presensi_web' and request.resolver_match.url_name == 'izin' %}active{% endif %}"
+               href="{% url 'presensi_web:izin' %}">
+              <span class="nav-link-icon"><span class="ti ti-notes"></span></span>
+              <span class="nav-link-title">Izin &amp; Cuti</span>
+            </a>
+          </li>
 
           <!-- Data Dosen — dosen, operator, admin -->
           {% if user.role == 'dosen' or user.role == 'operator' or user.role == 'admin' %}
@@ -428,6 +440,13 @@
                href="{% url 'presensi_web:tinjau' %}">
               <span class="nav-link-icon"><span class="ti ti-shield-check"></span></span>
               <span class="nav-link-title">Tinjau Presensi</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'izin_tinjau' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+               href="{% url 'presensi_web:izin_tinjau' %}">
+              <span class="nav-link-icon"><span class="ti ti-file-check"></span></span>
+              <span class="nav-link-title">Persetujuan Izin</span>
             </a>
           </li>
           {% if request.user.role == 'admin' %}

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Persetujuan Izin — SIKD{% endblock %}
+{% block page_title %}Persetujuan Izin/Cuti{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">Pengajuan Menunggu Persetujuan</h3>
+
+    {% if not daftar %}
+    <div class="alert alert-success">
+      <span class="ti ti-check me-1"></span> Tidak ada pengajuan yang menunggu.
+    </div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Jenis</th>
+            <th>Tanggal</th>
+            <th>Alasan</th>
+            <th>Lampiran</th>
+            <th class="w-1">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for izin in daftar %}
+          <tr>
+            <td>{{ izin.user.get_full_name|default:izin.user.username }}</td>
+            <td>{{ izin.get_tipe_display }}</td>
+            <td>{{ izin.tanggal_mulai|date:"d M Y" }} – {{ izin.tanggal_selesai|date:"d M Y" }}</td>
+            <td>{{ izin.alasan|truncatechars:50|default:"—" }}</td>
+            <td>{% if izin.lampiran %}<a href="{{ izin.lampiran.url }}" target="_blank" rel="noopener">Lihat</a>{% else %}—{% endif %}</td>
+            <td class="text-nowrap">
+              <form method="post" action="{% url 'presensi_web:izin_putuskan' izin.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="aksi" value="setujui">
+                <button type="submit" class="btn btn-sm btn-success">Setujui</button>
+              </form>
+              <form method="post" action="{% url 'presensi_web:izin_putuskan' izin.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="aksi" value="tolak">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Tolak</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
