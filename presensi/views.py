@@ -21,10 +21,10 @@ from .decision import (
     verifikasi_wajah,
 )
 from .face import VERSI_MODEL_WAJAH, ekstrak_satu_wajah, enkripsi_embedding, rata_rata_embedding
-from .forms import IzinCutiForm
+from .forms import HariLiburForm, IzinCutiForm, KelompokPresensiForm, TargetKerjaBulananForm
 from .models import (
-    BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN, EnrolmentWajah, IzinCuti, LogKecurangan, Perangkat, Presensi,
-    StatusApprovalLembur, StatusPresensi, TingkatRisiko,
+    BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN, EnrolmentWajah, HariLibur, IzinCuti, KelompokPresensi, LogKecurangan,
+    Perangkat, Presensi, StatusApprovalLembur, StatusPresensi, TargetKerjaBulanan, TingkatRisiko,
 )
 from .rekap import (
     data_presensi_harian, laporan_bulanan_jam_kerja, rekap_bulanan_user, ringkasan_hari_ini, top_telat_hari_ini,
@@ -100,6 +100,13 @@ def service_worker_presensi(request):
 
 def _bisa_tinjau_presensi(user):
     return user.role == "admin" or user.role in ROLE_PENGELOLA_SCOPED
+
+
+def _bisa_kelola_pengaturan_presensi(user):
+    # BEDA dengan _bisa_tinjau_presensi (di-scope fakultas/prodi) -- jam
+    # kerja/hari libur/target bulanan berlaku institusi-wide, jadi sengaja
+    # dibatasi admin saja (pola sama dengan Kelola User/Data Master).
+    return user.role == "admin"
 
 
 def _tanggal_dari_request(request):
@@ -186,17 +193,17 @@ def export_excel_presensi(request):
         top=Side(style="thin"), bottom=Side(style="thin"),
     )
 
-    ws.merge_cells("A1:H1")
+    ws.merge_cells("A1:J1")
     ws["A1"] = "DATA PRESENSI HARIAN"
     ws["A1"].font = Font(bold=True, size=14)
     ws["A1"].alignment = center
 
-    ws.merge_cells("A2:H2")
+    ws.merge_cells("A2:J2")
     ws["A2"] = f"Universitas Ichsan Gorontalo · {tanggal.strftime('%d %B %Y')}"
     ws["A2"].font = Font(bold=True, size=12)
     ws["A2"].alignment = center
 
-    headers = ["No", "Nama", "NIDN", "Fakultas", "Prodi", "Masuk", "Pulang", "Status"]
+    headers = ["No", "Nama", "NIDN", "Fakultas", "Prodi", "Kelompok", "Masuk", "Pulang", "Status", "Lembur"]
     row_header = 4
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=row_header, column=col, value=header)
@@ -215,9 +222,11 @@ def export_excel_presensi(request):
             dosen.nidn,
             dosen.kode_fakultas or "-",
             dosen.kode_prodi or "-",
+            p.kelompok.nama if p and p.kelompok else "-",
             timezone.localtime(p.waktu_masuk).strftime("%H:%M") if p and p.waktu_masuk else "-",
             timezone.localtime(p.waktu_pulang).strftime("%H:%M") if p and p.waktu_pulang else "-",
             p.get_status_display() if p else "Belum Absen",
+            p.get_status_lembur_display() if p and p.menit_lembur else "-",
         ]
         row_num = row_header + idx
         for col, value in enumerate(row_data, 1):
@@ -225,7 +234,7 @@ def export_excel_presensi(request):
             cell.border = thin
             cell.alignment = center if col != 2 else left
 
-    col_widths = [5, 28, 15, 10, 8, 10, 10, 14]
+    col_widths = [5, 28, 15, 10, 8, 14, 10, 10, 14, 12]
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
@@ -784,3 +793,154 @@ class StatusHariIniView(APIView):
             "waktu_masuk": presensi.waktu_masuk,
             "waktu_pulang": presensi.waktu_pulang,
         })
+
+
+# ============================================================
+# Pengaturan Presensi (Kelompok, Hari Libur, Target Kerja Bulanan)
+# -- admin-only, lihat _bisa_kelola_pengaturan_presensi. Sebelumnya cuma
+# bisa diatur lewat Django Admin; halaman ini supaya HR/admin tidak perlu
+# ke /admin/ untuk kerjaan rutin (tambah hari libur, atur target bulanan).
+# ============================================================
+
+@login_required
+def pengaturan_kelompok(request):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    daftar = KelompokPresensi.objects.all().order_by("nama")
+    return render(request, "presensi/pengaturan_kelompok.html", {"daftar": daftar})
+
+
+@login_required
+def tambah_kelompok(request):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method == "POST":
+        form = KelompokPresensiForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Kelompok presensi berhasil ditambahkan.")
+            return redirect("presensi_web:pengaturan_kelompok")
+    else:
+        form = KelompokPresensiForm()
+    return render(request, "presensi/kelompok_form.html", {"form": form, "judul": "Tambah Kelompok Presensi"})
+
+
+@login_required
+def ubah_kelompok(request, kelompok_id):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    kelompok = get_object_or_404(KelompokPresensi, id=kelompok_id)
+    if request.method == "POST":
+        form = KelompokPresensiForm(request.POST, instance=kelompok)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Kelompok presensi berhasil diperbarui.")
+            return redirect("presensi_web:pengaturan_kelompok")
+    else:
+        form = KelompokPresensiForm(instance=kelompok)
+    return render(request, "presensi/kelompok_form.html", {
+        "form": form, "judul": f"Ubah Kelompok: {kelompok.nama}",
+    })
+
+
+@login_required
+def toggle_aktif_kelompok(request, kelompok_id):
+    """POST-only: aktifkan/nonaktifkan kelompok -- BUKAN hapus, karena
+    KelompokPresensi direferensikan lewat Presensi.kelompok (on_delete=
+    PROTECT, snapshot histori) sehingga tidak boleh dihapus kalau sudah
+    dipakai. Field `aktif` sudah dirancang untuk kebutuhan ini."""
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method != "POST":
+        return redirect("presensi_web:pengaturan_kelompok")
+    kelompok = get_object_or_404(KelompokPresensi, id=kelompok_id)
+    kelompok.aktif = not kelompok.aktif
+    kelompok.save(update_fields=["aktif"])
+    messages.success(request, f"Kelompok {kelompok.nama} sekarang {'aktif' if kelompok.aktif else 'nonaktif'}.")
+    return redirect("presensi_web:pengaturan_kelompok")
+
+
+@login_required
+def pengaturan_hari_libur(request):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    daftar = HariLibur.objects.all().order_by("-tanggal")
+    return render(request, "presensi/pengaturan_hari_libur.html", {"daftar": daftar})
+
+
+@login_required
+def tambah_hari_libur(request):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method == "POST":
+        form = HariLiburForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Hari libur berhasil ditambahkan.")
+            return redirect("presensi_web:pengaturan_hari_libur")
+    else:
+        form = HariLiburForm()
+    return render(request, "presensi/hari_libur_form.html", {"form": form})
+
+
+@login_required
+def hapus_hari_libur(request, hari_libur_id):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method != "POST":
+        return redirect("presensi_web:pengaturan_hari_libur")
+    hari_libur = get_object_or_404(HariLibur, id=hari_libur_id)
+    hari_libur.delete()
+    messages.success(request, "Hari libur berhasil dihapus.")
+    return redirect("presensi_web:pengaturan_hari_libur")
+
+
+@login_required
+def pengaturan_target(request):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    daftar = TargetKerjaBulanan.objects.select_related("kelompok").order_by("-tahun", "-bulan", "kelompok__nama")
+    return render(request, "presensi/pengaturan_target.html", {"daftar": daftar})
+
+
+@login_required
+def tambah_target(request):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method == "POST":
+        form = TargetKerjaBulananForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Target kerja bulanan berhasil ditambahkan.")
+            return redirect("presensi_web:pengaturan_target")
+    else:
+        form = TargetKerjaBulananForm()
+    return render(request, "presensi/target_form.html", {"form": form, "judul": "Tambah Target Kerja Bulanan"})
+
+
+@login_required
+def ubah_target(request, target_id):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    target = get_object_or_404(TargetKerjaBulanan, id=target_id)
+    if request.method == "POST":
+        form = TargetKerjaBulananForm(request.POST, instance=target)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Target kerja bulanan berhasil diperbarui.")
+            return redirect("presensi_web:pengaturan_target")
+    else:
+        form = TargetKerjaBulananForm(instance=target)
+    return render(request, "presensi/target_form.html", {"form": form, "judul": "Ubah Target Kerja Bulanan"})
+
+
+@login_required
+def hapus_target(request, target_id):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method != "POST":
+        return redirect("presensi_web:pengaturan_target")
+    target = get_object_or_404(TargetKerjaBulanan, id=target_id)
+    target.delete()
+    messages.success(request, "Target kerja bulanan berhasil dihapus.")
+    return redirect("presensi_web:pengaturan_target")

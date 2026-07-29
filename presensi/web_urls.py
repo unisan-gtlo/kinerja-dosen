@@ -20,4 +20,19 @@ urlpatterns = [
     path("izin/tinjau/", views.tinjau_izin, name="izin_tinjau"),
     path("izin/tinjau/<int:izin_id>/putuskan/", views.putuskan_izin, name="izin_putuskan"),
     path("sw.js", views.service_worker_presensi, name="sw"),
+
+    path("pengaturan/kelompok/", views.pengaturan_kelompok, name="pengaturan_kelompok"),
+    path("pengaturan/kelompok/tambah/", views.tambah_kelompok, name="tambah_kelompok"),
+    path("pengaturan/kelompok/<int:kelompok_id>/ubah/", views.ubah_kelompok, name="ubah_kelompok"),
+    path(
+        "pengaturan/kelompok/<int:kelompok_id>/toggle-aktif/", views.toggle_aktif_kelompok,
+        name="toggle_aktif_kelompok",
+    ),
+    path("pengaturan/hari-libur/", views.pengaturan_hari_libur, name="pengaturan_hari_libur"),
+    path("pengaturan/hari-libur/tambah/", views.tambah_hari_libur, name="tambah_hari_libur"),
+    path("pengaturan/hari-libur/<int:hari_libur_id>/hapus/", views.hapus_hari_libur, name="hapus_hari_libur"),
+    path("pengaturan/target/", views.pengaturan_target, name="pengaturan_target"),
+    path("pengaturan/target/tambah/", views.tambah_target, name="tambah_target"),
+    path("pengaturan/target/<int:target_id>/ubah/", views.ubah_target, name="ubah_target"),
+    path("pengaturan/target/<int:target_id>/hapus/", views.hapus_target, name="hapus_target"),
 ]

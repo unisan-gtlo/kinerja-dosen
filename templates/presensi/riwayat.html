@@ -56,6 +56,13 @@
                 {{ item.obj.waktu_masuk|date:"H:i"|default:"—" }} – {{ item.obj.waktu_pulang|date:"H:i"|default:"—" }}
                 {% if item.obj.waktu_pulang %} · {{ item.obj.durasi_kerja }} jam kerja{% endif %}
               </div>
+              {% if item.obj.menit_lebih_awal > 0 or item.obj.menit_terlambat > 0 or item.obj.menit_pulang_cepat > 0 %}
+              <div class="text-muted small">
+                {% if item.obj.menit_terlambat > 0 %}Terlambat {{ item.obj.menit_terlambat }} menit{% endif %}
+                {% if item.obj.menit_lebih_awal > 0 %}Datang {{ item.obj.menit_lebih_awal }} menit lebih awal{% endif %}
+                {% if item.obj.menit_pulang_cepat > 0 %}{% if item.obj.menit_terlambat > 0 or item.obj.menit_lebih_awal > 0 %} · {% endif %}Pulang {{ item.obj.menit_pulang_cepat }} menit lebih cepat{% endif %}
+              </div>
+              {% endif %}
               {% if item.obj.menit_lembur > 0 %}
               <div class="text-muted small">
                 Lembur {{ item.obj.menit_lembur }} menit

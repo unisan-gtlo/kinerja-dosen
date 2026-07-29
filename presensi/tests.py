@@ -986,20 +986,25 @@ class RekapPresensiTest(TestCase):
         self.assertEqual(tren[-1]["jumlah"], 1)
 
     def test_top_telat_urut_dari_paling_telat(self):
+        # menit_terlambat di-set eksplisit, sesuai yang seharusnya sudah
+        # dihitung & disimpan AbsenMasukView saat absen masuk sungguhan
+        # (lihat presensi/decision.py::hitung_ketepatan_masuk) -- bukan
+        # dihitung ulang dari lokasi.jam_masuk di top_telat_hari_ini lagi.
         waktu_a = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 10)))
         waktu_b = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 40)))
         Presensi.objects.create(
             user=self.dosen_a, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
-            waktu_masuk=waktu_a, lokasi=self.lokasi,
+            waktu_masuk=waktu_a, lokasi=self.lokasi, menit_terlambat=10,
         )
         Presensi.objects.create(
             user=self.dosen_b, tanggal=self.hari_ini, status=StatusPresensi.TELAT,
-            waktu_masuk=waktu_b, lokasi=self.lokasi,
+            waktu_masuk=waktu_b, lokasi=self.lokasi, menit_terlambat=40,
         )
         top = top_telat_hari_ini(self.user_ids, tanggal=self.hari_ini)
         self.assertEqual(len(top), 2)
         self.assertEqual(top[0]["presensi"].user_id, self.dosen_b.id)  # paling telat duluan
-        self.assertGreater(top[0]["menit_telat"], top[1]["menit_telat"])
+        self.assertEqual(top[0]["menit_telat"], 40)
+        self.assertEqual(top[1]["menit_telat"], 10)
 
     def test_data_presensi_harian_sertakan_yang_belum_absen(self):
         Presensi.objects.create(
@@ -1136,6 +1141,177 @@ class LaporanBulananViewTest(TestCase):
             resp["Content-Type"],
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
+
+class PengaturanKelompokViewTest(TestCase):
+    """Halaman /presensi/pengaturan/kelompok/ -- admin-only (BEDA dengan
+    Tinjau Presensi yang di-scope fakultas/prodi, ini institusi-wide)."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="pengaturanadmin", password="testpass123", role="admin")
+        self.dekan = User.objects.create_user(username="pengaturandekan", password="testpass123", role="dekan")
+        self.kelompok = KelompokPresensi.objects.get(nama="Dosen")
+
+    def test_dekan_tidak_bisa_akses(self):
+        self.client.force_login(self.dekan)
+        resp = self.client.get("/presensi/pengaturan/kelompok/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_bisa_lihat_daftar(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/pengaturan/kelompok/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Dosen")
+        self.assertContains(resp, "Pejabat")
+        self.assertContains(resp, "Staf/Tendik")
+
+    def test_admin_bisa_tambah_kelompok(self):
+        self.client.force_login(self.admin)
+        resp = self.client.post("/presensi/pengaturan/kelompok/tambah/", {
+            "nama": "Kelompok Uji",
+            "roles": ["operator"],
+            "hari_kerja": ["0", "1", "2", "3", "4"],
+            "jam_masuk": "09:00",
+            "jam_pulang": "17:00",
+            "toleransi_menit": "10",
+            "aktif": "on",
+        })
+        self.assertEqual(resp.status_code, 302)
+        baru = KelompokPresensi.objects.get(nama="Kelompok Uji")
+        self.assertEqual(baru.roles, ["operator"])
+        self.assertEqual(sorted(baru.hari_kerja), [0, 1, 2, 3, 4])
+
+    def test_admin_bisa_ubah_kelompok(self):
+        self.client.force_login(self.admin)
+        resp = self.client.post(f"/presensi/pengaturan/kelompok/{self.kelompok.id}/ubah/", {
+            "nama": "Dosen",
+            "roles": ["dosen"],
+            "hari_kerja": ["0", "1", "2", "3", "4", "5"],
+            "jam_masuk": "07:30",
+            "jam_pulang": "14:00",
+            "toleransi_menit": "20",
+            "aktif": "on",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.kelompok.refresh_from_db()
+        self.assertEqual(self.kelompok.jam_masuk, dt_time(7, 30))
+        self.assertEqual(self.kelompok.toleransi_menit, 20)
+
+    def test_admin_bisa_toggle_aktif(self):
+        self.client.force_login(self.admin)
+        self.assertTrue(self.kelompok.aktif)
+        resp = self.client.post(f"/presensi/pengaturan/kelompok/{self.kelompok.id}/toggle-aktif/")
+        self.assertEqual(resp.status_code, 302)
+        self.kelompok.refresh_from_db()
+        self.assertFalse(self.kelompok.aktif)
+
+    def test_dekan_tidak_bisa_toggle_aktif(self):
+        self.client.force_login(self.dekan)
+        resp = self.client.post(f"/presensi/pengaturan/kelompok/{self.kelompok.id}/toggle-aktif/")
+        self.assertEqual(resp.status_code, 403)
+        self.kelompok.refresh_from_db()
+        self.assertTrue(self.kelompok.aktif)
+
+
+class PengaturanHariLiburViewTest(TestCase):
+    """Halaman /presensi/pengaturan/hari-libur/ -- admin-only."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="liburadmin", password="testpass123", role="admin")
+        self.dosen = _buat_dosen_user(nidn="9999999999", username="liburdosen")
+
+    def test_dosen_tidak_bisa_akses(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/pengaturan/hari-libur/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_bisa_tambah_dan_lihat(self):
+        self.client.force_login(self.admin)
+        resp = self.client.post("/presensi/pengaturan/hari-libur/tambah/", {
+            "tanggal": "2026-08-17", "keterangan": "HUT RI", "jenis": "nasional",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(HariLibur.objects.filter(tanggal="2026-08-17", keterangan="HUT RI").exists())
+
+        resp = self.client.get("/presensi/pengaturan/hari-libur/")
+        self.assertContains(resp, "HUT RI")
+
+    def test_admin_bisa_hapus(self):
+        libur = HariLibur.objects.create(tanggal="2026-12-25", keterangan="Natal", jenis="nasional")
+        self.client.force_login(self.admin)
+        resp = self.client.post(f"/presensi/pengaturan/hari-libur/{libur.id}/hapus/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(HariLibur.objects.filter(id=libur.id).exists())
+
+
+class PengaturanTargetViewTest(TestCase):
+    """Halaman /presensi/pengaturan/target/ -- admin-only."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="targetadmin", password="testpass123", role="admin")
+        self.dosen = _buat_dosen_user(nidn="8888888880", username="targetdosen")
+        self.kelompok = KelompokPresensi.objects.get(nama="Dosen")
+
+    def test_dosen_tidak_bisa_akses(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/pengaturan/target/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_bisa_tambah_target(self):
+        self.client.force_login(self.admin)
+        resp = self.client.post("/presensi/pengaturan/target/tambah/", {
+            "kelompok": self.kelompok.id, "bulan": "8", "tahun": "2026",
+            "target_hari_kerja": "24", "target_jam_kerja": "144",
+        })
+        self.assertEqual(resp.status_code, 302)
+        target = TargetKerjaBulanan.objects.get(kelompok=self.kelompok, bulan=8, tahun=2026)
+        self.assertEqual(target.target_hari_kerja, 24)
+        self.assertEqual(target.nama_bulan, "Agustus")
+
+    def test_target_duplikat_kelompok_bulan_tahun_ditolak(self):
+        TargetKerjaBulanan.objects.create(
+            kelompok=self.kelompok, bulan=9, tahun=2026, target_hari_kerja=24, target_jam_kerja=144,
+        )
+        self.client.force_login(self.admin)
+        resp = self.client.post("/presensi/pengaturan/target/tambah/", {
+            "kelompok": self.kelompok.id, "bulan": "9", "tahun": "2026",
+            "target_hari_kerja": "20", "target_jam_kerja": "120",
+        })
+        self.assertEqual(resp.status_code, 200)  # form invalid, render ulang bukan redirect
+        self.assertEqual(TargetKerjaBulanan.objects.filter(kelompok=self.kelompok, bulan=9, tahun=2026).count(), 1)
+
+    def test_admin_bisa_ubah_dan_hapus_target(self):
+        target = TargetKerjaBulanan.objects.create(
+            kelompok=self.kelompok, bulan=10, tahun=2026, target_hari_kerja=24, target_jam_kerja=144,
+        )
+        self.client.force_login(self.admin)
+        resp = self.client.post(f"/presensi/pengaturan/target/{target.id}/ubah/", {
+            "kelompok": self.kelompok.id, "bulan": "10", "tahun": "2026",
+            "target_hari_kerja": "22", "target_jam_kerja": "132",
+        })
+        self.assertEqual(resp.status_code, 302)
+        target.refresh_from_db()
+        self.assertEqual(target.target_hari_kerja, 22)
+
+        resp = self.client.post(f"/presensi/pengaturan/target/{target.id}/hapus/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(TargetKerjaBulanan.objects.filter(id=target.id).exists())
+
+
+class TopTelatMenitTerlambatTest(TestCase):
+    """top_telat_hari_ini sekarang pakai Presensi.menit_terlambat yang
+    tersimpan (kelompok-aware), bukan dihitung ulang dari lokasi saja."""
+
+    def test_menit_telat_ambil_dari_field_tersimpan(self):
+        dosen = _buat_dosen_user(nidn="7777777771", username="topmenitdosen")
+        lokasi = LokasiKantor.objects.create(nama="Kampus", latitude=0.0, longitude=0.0)
+        hari_ini = timezone.localdate()
+        Presensi.objects.create(
+            user=dosen, tanggal=hari_ini, status=StatusPresensi.TELAT,
+            waktu_masuk=timezone.now(), lokasi=lokasi, menit_terlambat=99,
+        )
+        top = top_telat_hari_ini([dosen.id], tanggal=hari_ini)
+        self.assertEqual(top[0]["menit_telat"], 99)
 
 
 class HalamanRiwayatTest(TestCase):

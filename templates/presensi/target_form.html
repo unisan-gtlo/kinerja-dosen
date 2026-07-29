@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}{{ judul }} — SIKD{% endblock %}
+{% block page_title %}Pengaturan Presensi{% endblock %}
+
+{% block content %}
+{% include 'presensi/_pengaturan_nav.html' with aktif='target' %}
+
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">{{ judul }}</h3>
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="mb-3">
+        <label class="form-label">Kelompok Presensi</label>
+        {{ form.kelompok }}
+        {% if form.kelompok.errors %}<div class="text-danger small mt-1">{{ form.kelompok.errors|join:", " }}</div>{% endif %}
+      </div>
+
+      <div class="row mb-3">
+        <div class="col-6">
+          <label class="form-label">Bulan</label>
+          {{ form.bulan }}
+        </div>
+        <div class="col-6">
+          <label class="form-label">Tahun</label>
+          {{ form.tahun }}
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col-6">
+          <label class="form-label">Target Hari Kerja</label>
+          {{ form.target_hari_kerja }}
+        </div>
+        <div class="col-6">
+          <label class="form-label">Target Jam Kerja</label>
+          {{ form.target_jam_kerja }}
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Simpan</button>
+      <a class="btn btn-outline-secondary" href="{% url 'presensi_web:pengaturan_target' %}">Batal</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

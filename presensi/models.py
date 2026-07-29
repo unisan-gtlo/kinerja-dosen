@@ -39,6 +39,11 @@ from .utils import get_dosen_by_nidn
 # untuk KelompokPresensi, sesuai kebutuhan kampus (Senin-Sabtu).
 HARI_KERJA_SENIN_SABTU = [0, 1, 2, 3, 4, 5]
 
+NAMA_BULAN = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+]
+
 
 def default_hari_kerja():
     # Fungsi modul biasa (bukan HARI_KERJA_SENIN_SABTU.copy) supaya bisa
@@ -170,6 +175,13 @@ class TargetKerjaBulanan(models.Model):
 
     def __str__(self):
         return f"{self.kelompok.nama} · {self.bulan:02d}/{self.tahun}"
+
+    @property
+    def nama_bulan(self):
+        # `bulan` sengaja PositiveSmallIntegerField biasa (bukan field
+        # choices), jadi tidak ada get_bulan_display() otomatis -- properti
+        # ini gantinya, dipakai di templates/presensi/pengaturan_target.html.
+        return NAMA_BULAN[self.bulan - 1]
 
 
 class HariLibur(models.Model):

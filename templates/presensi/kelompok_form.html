@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}{{ judul }} — SIKD{% endblock %}
+{% block page_title %}Pengaturan Presensi{% endblock %}
+
+{% block content %}
+{% include 'presensi/_pengaturan_nav.html' with aktif='kelompok' %}
+
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">{{ judul }}</h3>
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="mb-3">
+        <label class="form-label">Nama Kelompok</label>
+        {{ form.nama }}
+        {% if form.nama.errors %}<div class="text-danger small mt-1">{{ form.nama.errors|join:", " }}</div>{% endif %}
+      </div>
+
+      <div class="row mb-3">
+        <div class="col-6">
+          <label class="form-label">Jam Masuk</label>
+          {{ form.jam_masuk }}
+        </div>
+        <div class="col-6">
+          <label class="form-label">Jam Pulang</label>
+          {{ form.jam_pulang }}
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Toleransi Telat (menit)</label>
+        {{ form.toleransi_menit }}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Role yang Masuk Kelompok Ini</label>
+        <div class="d-flex flex-wrap gap-2">
+          {% for cb in form.roles %}
+          <div class="form-check">{{ cb.tag }} <label class="form-check-label">{{ cb.choice_label }}</label></div>
+          {% endfor %}
+        </div>
+        {% if form.roles.errors %}<div class="text-danger small mt-1">{{ form.roles.errors|join:", " }}</div>{% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Hari Kerja</label>
+        <div class="d-flex flex-wrap gap-2">
+          {% for cb in form.hari_kerja %}
+          <div class="form-check">{{ cb.tag }} <label class="form-check-label">{{ cb.choice_label }}</label></div>
+          {% endfor %}
+        </div>
+        {% if form.hari_kerja.errors %}<div class="text-danger small mt-1">{{ form.hari_kerja.errors|join:", " }}</div>{% endif %}
+      </div>
+
+      <div class="mb-3 form-check">
+        {{ form.aktif }}
+        <label class="form-check-label">Aktif</label>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Simpan</button>
+      <a class="btn btn-outline-secondary" href="{% url 'presensi_web:pengaturan_kelompok' %}">Batal</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

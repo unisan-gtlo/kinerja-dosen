@@ -34,9 +34,11 @@
             <th>NIDN</th>
             <th>Fakultas</th>
             <th>Prodi</th>
+            <th>Kelompok</th>
             <th>Masuk</th>
             <th>Pulang</th>
             <th>Status</th>
+            <th>Lembur</th>
           </tr>
         </thead>
         <tbody>
@@ -46,6 +48,7 @@
             <td>{{ item.dosen.nidn }}</td>
             <td>{{ item.dosen.kode_fakultas|default:"—" }}</td>
             <td>{{ item.dosen.kode_prodi|default:"—" }}</td>
+            <td>{{ item.presensi.kelompok.nama|default:"—" }}</td>
             <td>{{ item.presensi.waktu_masuk|date:"H:i"|default:"—" }}</td>
             <td>{{ item.presensi.waktu_pulang|date:"H:i"|default:"—" }}</td>
             <td>
@@ -57,9 +60,20 @@
                 <span class="badge bg-secondary-lt">Belum Absen</span>
               {% endif %}
             </td>
+            <td>
+              {% if item.presensi.status_lembur == 'menunggu' %}
+                <span class="badge bg-warning-lt">Menunggu</span>
+              {% elif item.presensi.status_lembur == 'disetujui' %}
+                <span class="badge bg-success-lt">Disetujui</span>
+              {% elif item.presensi.status_lembur == 'ditolak' %}
+                <span class="badge bg-danger-lt">Ditolak</span>
+              {% else %}
+                —
+              {% endif %}
+            </td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" class="text-muted text-center">Tidak ada data untuk filter ini.</td></tr>
+          <tr><td colspan="9" class="text-muted text-center">Tidak ada data untuk filter ini.</td></tr>
           {% endfor %}
         </tbody>
       </table>

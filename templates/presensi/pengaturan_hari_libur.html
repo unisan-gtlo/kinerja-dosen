@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Pengaturan Hari Libur — SIKD{% endblock %}
+{% block page_title %}Pengaturan Presensi{% endblock %}
+
+{% block content %}
+{% include 'presensi/_pengaturan_nav.html' with aktif='hari_libur' %}
+
+<div class="card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="card-title mb-0">Hari Libur</h3>
+      <a class="btn btn-primary btn-sm" href="{% url 'presensi_web:tambah_hari_libur' %}">
+        <span class="ti ti-plus me-1"></span> Tambah Hari Libur
+      </a>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Tanggal</th>
+            <th>Keterangan</th>
+            <th>Jenis</th>
+            <th class="w-1">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in daftar %}
+          <tr>
+            <td>{{ h.tanggal|date:"l, d F Y" }}</td>
+            <td>{{ h.keterangan }}</td>
+            <td>{{ h.get_jenis_display }}</td>
+            <td class="text-nowrap">
+              <form method="post" action="{% url 'presensi_web:hapus_hari_libur' h.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Hapus hari libur {{ h.tanggal }} ({{ h.keterangan }})?');">
+                  Hapus
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-muted text-center">Belum ada hari libur terdaftar.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

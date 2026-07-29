@@ -1,0 +1,17 @@
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item">
+    <a class="nav-link {% if aktif == 'kelompok' %}active{% endif %}" href="{% url 'presensi_web:pengaturan_kelompok' %}">
+      Kelompok Presensi
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if aktif == 'hari_libur' %}active{% endif %}" href="{% url 'presensi_web:pengaturan_hari_libur' %}">
+      Hari Libur
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if aktif == 'target' %}active{% endif %}" href="{% url 'presensi_web:pengaturan_target' %}">
+      Target Kerja Bulanan
+    </a>
+  </li>
+</ul>

@@ -54,26 +54,20 @@ def tren_mingguan(user_ids, jumlah_hari=6, tanggal_akhir=None):
 
 
 def top_telat_hari_ini(user_ids, tanggal=None, batas=5):
-    """Daftar presensi telat, diurutkan dari yang paling telat."""
+    """Daftar presensi telat, diurutkan dari yang paling telat.
+
+    Pakai Presensi.menit_terlambat yang SUDAH dihitung & disimpan saat
+    absen masuk (lihat presensi/decision.py::hitung_ketepatan_masuk) --
+    kelompok-aware (prioritas jam kelompok di atas lokasi), bukan dihitung
+    ulang dari lokasi.jam_masuk saja seperti sebelumnya."""
     tanggal = tanggal or timezone.localdate()
     antrian = (
         Presensi.objects.filter(user_id__in=user_ids, tanggal=tanggal, status=StatusPresensi.TELAT)
         .exclude(waktu_masuk__isnull=True)
-        .select_related("lokasi", "user")
+        .select_related("lokasi", "kelompok", "user")
+        .order_by("-menit_terlambat")[:batas]
     )
-    daftar = []
-    for p in antrian:
-        menit_telat = None
-        if p.lokasi:
-            waktu_lokal = timezone.localtime(p.waktu_masuk)
-            batas_masuk = waktu_lokal.replace(
-                hour=p.lokasi.jam_masuk.hour, minute=p.lokasi.jam_masuk.minute,
-                second=0, microsecond=0,
-            )
-            menit_telat = int((waktu_lokal - batas_masuk).total_seconds() // 60)
-        daftar.append({"presensi": p, "menit_telat": menit_telat})
-    daftar.sort(key=lambda d: d["menit_telat"] or 0, reverse=True)
-    return daftar[:batas]
+    return [{"presensi": p, "menit_telat": p.menit_terlambat} for p in antrian]
 
 
 def format_selisih_jam_menit(selisih_menit):
@@ -141,6 +135,7 @@ def data_presensi_harian(dosen_qs, tanggal):
     supaya yang belum absen sama sekali tetap kelihatan di tabel/ekspor."""
     user_ids = list(dosen_qs.values_list("id", flat=True))
     presensi_by_user = {
-        p.user_id: p for p in Presensi.objects.filter(user_id__in=user_ids, tanggal=tanggal).select_related("lokasi")
+        p.user_id: p for p in Presensi.objects.filter(user_id__in=user_ids, tanggal=tanggal)
+        .select_related("lokasi", "kelompok")
     }
     return [{"dosen": orang, "presensi": presensi_by_user.get(orang.id)} for orang in dosen_qs]
