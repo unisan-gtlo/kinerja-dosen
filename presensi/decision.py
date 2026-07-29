@@ -15,7 +15,7 @@ from typing import Optional
 
 from .face import SKOR_KEMIRIPAN_MINIMUM, dekripsi_embedding, ekstrak_satu_wajah, kemiripan_kosinus
 from .geo import jarak_meter
-from .models import EnrolmentWajah, LokasiKantor, StatusPresensi
+from .models import EnrolmentWajah, HariLibur, KelompokPresensi, LokasiKantor, StatusPresensi
 
 AKURASI_GPS_MAKSIMAL_M = 50
 
@@ -49,12 +49,84 @@ def cek_lokasi(lat, lng, akurasi_m) -> HasilCekLokasi:
     return HasilCekLokasi(True, None, lokasi_terpilih, jarak_terdekat)
 
 
-def tentukan_status_waktu(lokasi: LokasiKantor, jam_saat_ini) -> str:
-    """hadir vs telat, berdasarkan jam_masuk + toleransi_menit lokasi."""
+def resolve_kelompok(user) -> Optional[KelompokPresensi]:
+    """Kelompok presensi yang berlaku untuk user, ditentukan OTOMATIS dari
+    role akun (lihat KelompokPresensi.roles). None kalau role user belum
+    dipetakan ke kelompok mana pun -- presensi tetap jalan, jam kerja
+    LokasiKantor dipakai sebagai fallback (lihat tentukan_status_waktu)."""
+    return (
+        KelompokPresensi.objects.filter(aktif=True, roles__contains=[user.role])
+        .order_by("id")
+        .first()
+    )
+
+
+def is_hari_libur(tanggal) -> bool:
+    return HariLibur.objects.filter(tanggal=tanggal).exists()
+
+
+def _hari_kerja_normal(kelompok, tanggal) -> bool:
+    """True kalau tanggal adalah hari kerja biasa -- bukan hari libur
+    ataupun hari di luar hari_kerja kelompok (mis. Minggu). Dipakai
+    bersama oleh tentukan_status_waktu & hitung_ketepatan_masuk/pulang
+    supaya konsisten (lihat CLAUDE.md § 9)."""
+    if tanggal is None:
+        return True
+    if is_hari_libur(tanggal):
+        return False
+    if kelompok is not None and tanggal.weekday() not in kelompok.hari_kerja:
+        return False
+    return True
+
+
+def _selisih_menit(jam_jadwal, jam_aktual) -> int:
+    """Selisih jam_aktual terhadap jam_jadwal dalam menit -- positif kalau
+    jam_aktual lebih lambat dari jadwal, negatif kalau lebih awal."""
+    return (jam_aktual.hour * 60 + jam_aktual.minute) - (jam_jadwal.hour * 60 + jam_jadwal.minute)
+
+
+def tentukan_status_waktu(lokasi: LokasiKantor, jam_saat_ini, kelompok=None, tanggal=None) -> str:
+    """hadir vs telat. Jam kerja dari KelompokPresensi (kalau resolve utk
+    role user) diprioritaskan di atas jam_masuk/toleransi_menit LokasiKantor
+    -- fallback ke lokasi berlaku kalau role belum dipetakan ke kelompok
+    mana pun. Hari libur atau hari non-kerja kelompok (mis. Minggu) selalu
+    HADIR tanpa hitungan telat -- lihat CLAUDE.md § 9."""
+    if not _hari_kerja_normal(kelompok, tanggal):
+        return StatusPresensi.HADIR
+
+    jam_masuk = kelompok.jam_masuk if kelompok is not None else lokasi.jam_masuk
+    toleransi_menit = kelompok.toleransi_menit if kelompok is not None else lokasi.toleransi_menit
+
     batas_telat = (
-        datetime.combine(datetime.min, lokasi.jam_masuk) + timedelta(minutes=lokasi.toleransi_menit)
+        datetime.combine(datetime.min, jam_masuk) + timedelta(minutes=toleransi_menit)
     ).time()
     return StatusPresensi.TELAT if jam_saat_ini > batas_telat else StatusPresensi.HADIR
+
+
+def hitung_ketepatan_masuk(lokasi: LokasiKantor, jam_aktual, kelompok=None, tanggal=None):
+    """(menit_lebih_awal, menit_terlambat) saat absen masuk -- selisih
+    MURNI dari jam_masuk jadwal (kelompok/lokasi), TIDAK memperhitungkan
+    toleransi_menit (toleransi cuma dipakai untuk status HADIR/TELAT di
+    tentukan_status_waktu). 0/0 di hari libur atau hari non-kerja
+    kelompok, konsisten dengan tentukan_status_waktu."""
+    if not _hari_kerja_normal(kelompok, tanggal):
+        return 0, 0
+
+    jam_masuk = kelompok.jam_masuk if kelompok is not None else lokasi.jam_masuk
+    selisih = _selisih_menit(jam_masuk, jam_aktual)
+    return (0, selisih) if selisih > 0 else (-selisih, 0)
+
+
+def hitung_ketepatan_pulang(lokasi: LokasiKantor, jam_aktual, kelompok=None, tanggal=None):
+    """(menit_pulang_cepat, menit_lembur) saat absen pulang -- selisih
+    dari jam_pulang jadwal (kelompok/lokasi). 0/0 di hari libur atau hari
+    non-kerja kelompok, konsisten dengan tentukan_status_waktu."""
+    if not _hari_kerja_normal(kelompok, tanggal):
+        return 0, 0
+
+    jam_pulang = kelompok.jam_pulang if kelompok is not None else lokasi.jam_pulang
+    selisih = _selisih_menit(jam_pulang, jam_aktual)
+    return (0, selisih) if selisih > 0 else (-selisih, 0)
 
 
 @dataclass

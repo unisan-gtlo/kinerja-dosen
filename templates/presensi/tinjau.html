@@ -65,4 +65,62 @@
     {% endif %}
   </div>
 </div>
+
+<div class="card mt-3">
+  <div class="card-body">
+    <h3 class="card-title">Lembur Menunggu Persetujuan</h3>
+    <p class="text-muted">
+      Pulang lebih dari 2 jam dari jadwal wajib disertai keterangan alasan.
+      Kalau ditolak, jam kerja yang dihitung ke total bulanan otomatis
+      dibatasi ke jam pulang normal (waktu pulang asli tetap tersimpan).
+    </p>
+
+    {% if not daftar_lembur %}
+    <div class="alert alert-success">
+      <span class="ti ti-check me-1"></span> Tidak ada lembur yang perlu ditinjau saat ini.
+    </div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Tanggal</th>
+            <th>Nama</th>
+            <th>Jam Pulang</th>
+            <th>Lembur</th>
+            <th>Keterangan</th>
+            <th class="w-1">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in daftar_lembur %}
+          <tr>
+            <td>{{ item.presensi.tanggal }}</td>
+            <td>{{ item.nama_dosen }}</td>
+            <td>{{ item.presensi.waktu_pulang|date:"H:i"|default:"—" }}</td>
+            <td><span class="badge bg-orange-lt">{{ item.presensi.menit_lembur }} menit</span></td>
+            <td class="small">{{ item.presensi.keterangan_lembur|default:"—" }}</td>
+            <td class="text-nowrap">
+              <form method="post" action="{% url 'presensi_web:putuskan_lembur' item.presensi.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="aksi" value="setujui">
+                <button type="submit" class="btn btn-sm btn-success">Setujui</button>
+              </form>
+              <form method="post" action="{% url 'presensi_web:putuskan_lembur' item.presensi.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="aksi" value="tolak">
+                <button type="submit" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Tolak keterangan lembur {{ item.nama_dosen }} tanggal {{ item.presensi.tanggal }}? Jam kerja terhitung akan dibatasi ke jam pulang normal.');">
+                  Tolak
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}

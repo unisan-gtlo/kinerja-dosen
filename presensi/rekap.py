@@ -13,7 +13,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from .models import Presensi, StatusPresensi
+from .models import Presensi, StatusPresensi, TargetKerjaBulanan, format_jam_menit
 
 NAMA_HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 
@@ -74,6 +74,66 @@ def top_telat_hari_ini(user_ids, tanggal=None, batas=5):
         daftar.append({"presensi": p, "menit_telat": menit_telat})
     daftar.sort(key=lambda d: d["menit_telat"] or 0, reverse=True)
     return daftar[:batas]
+
+
+def format_selisih_jam_menit(selisih_menit):
+    """Format selisih (boleh negatif -- kurang dari target) jadi "+JJ:MM"
+    / "-JJ:MM". None kalau tidak ada target untuk dibandingkan."""
+    if selisih_menit is None:
+        return None
+    tanda = "-" if selisih_menit < 0 else "+"
+    return f"{tanda}{format_jam_menit(abs(selisih_menit))}"
+
+
+def rekap_bulanan_user(user, bulan, tahun):
+    """Ringkasan realisasi jam kerja sebulan untuk satu user, dibandingkan
+    ke TargetKerjaBulanan kelompoknya -- dasar penggajian (CLAUDE.md § 9).
+
+    Presensi yang DITOLAK dikecualikan (tidak ada durasi kerja sah).
+    Kelompok dipakai dari snapshot presensi (baris pertama bulan itu yang
+    punya kelompok) -- kalau tidak ada satupun presensi berkelompok di
+    bulan itu (mis. belum absen sama sekali), target ikut kosong.
+    """
+    presensi_bulan = list(
+        Presensi.objects.filter(user=user, tanggal__year=tahun, tanggal__month=bulan)
+        .exclude(status=StatusPresensi.DITOLAK)
+        .select_related("kelompok")
+    )
+    total_menit = sum(p.durasi_kerja_menit for p in presensi_bulan)
+    kelompok = next((p.kelompok for p in presensi_bulan if p.kelompok), None)
+    target = (
+        TargetKerjaBulanan.objects.filter(kelompok=kelompok, bulan=bulan, tahun=tahun).first()
+        if kelompok else None
+    )
+    selisih_menit = int(total_menit - target.target_jam_kerja * 60) if target else None
+
+    return {
+        "hari_hadir": len(presensi_bulan),
+        "total_menit": total_menit,
+        "total_jam_kerja": format_jam_menit(total_menit),
+        "kelompok": kelompok,
+        "target": target,
+        "selisih_menit": selisih_menit,
+        "selisih_jam_kerja": format_selisih_jam_menit(selisih_menit),
+    }
+
+
+def laporan_bulanan_jam_kerja(user_qs, bulan, tahun):
+    """Satu baris per user dalam cakupan yang PUNYA presensi di bulan itu
+    -- laporan lintas-pegawai (dosen + staf) untuk dasar penggajian, lihat
+    CLAUDE.md § 9. Beda dengan data_presensi_harian (1 baris per hari per
+    orang, termasuk yang belum absen): di sini 1 baris per orang per bulan,
+    dan yang tanpa presensi sama sekali di bulan itu tidak ikut tampil."""
+    user_ids_ada_presensi = (
+        Presensi.objects.filter(user__in=user_qs, tanggal__year=tahun, tanggal__month=bulan)
+        .values_list("user_id", flat=True).distinct()
+    )
+    baris = [
+        {"user": u, **rekap_bulanan_user(u, bulan, tahun)}
+        for u in user_qs.filter(id__in=user_ids_ada_presensi)
+    ]
+    baris.sort(key=lambda b: b["user"].get_full_name() or b["user"].username)
+    return baris
 
 
 def data_presensi_harian(dosen_qs, tanggal):

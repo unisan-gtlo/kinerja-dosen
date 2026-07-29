@@ -106,6 +106,11 @@ if ('serviceWorker' in navigator) {
           <div class="text-muted small mb-2">Posisikan wajah Anda di dalam bingkai kamera.</div>
           <video id="video-kamera" autoplay playsinline class="w-100 rounded bg-dark" style="max-height:320px;"></video>
           <canvas id="kanvas-tangkap" class="d-none"></canvas>
+          <div id="area-keterangan-lembur" class="d-none mt-2">
+            <label class="form-label small mb-1">Keterangan Lembur (isi kalau pulang &gt;2 jam dari jadwal)</label>
+            <textarea id="keterangan-lembur" class="form-control" rows="2"
+                      placeholder="Mis. menyelesaikan laporan, rapat mendadak, dsb."></textarea>
+          </div>
           <div class="d-flex gap-2 mt-2">
             <button id="btn-ambil" class="btn btn-success">
               <span class="ti ti-camera me-1"></span> Ambil Foto &amp; Kirim
@@ -165,6 +170,8 @@ if ('serviceWorker' in navigator) {
   const kanvas = document.getElementById('kanvas-tangkap');
   const btnAmbil = document.getElementById('btn-ambil');
   const btnBatalKamera = document.getElementById('btn-batal-kamera');
+  const areaKeteranganLembur = document.getElementById('area-keterangan-lembur');
+  const keteranganLembur = document.getElementById('keterangan-lembur');
   const btnKembali = document.getElementById('btn-kembali');
   const statusEl = document.getElementById('presensi-status');
   const pesanEl = document.getElementById('presensi-pesan');
@@ -179,6 +186,7 @@ if ('serviceWorker' in navigator) {
     liveness_gagal: 'Foto wajah tidak jelas -- pastikan hanya wajah Anda yang terlihat, di tempat terang.',
     wajah_tidak_cocok: 'Wajah tidak cocok dengan data terdaftar.',
     foto_tidak_valid: 'Foto tidak valid, coba ambil ulang.',
+    keterangan_lembur_wajib: 'Anda pulang lebih dari 2 jam dari jadwal -- isi Keterangan Lembur dulu, lalu ulangi Absen Pulang.',
   };
 
   let streamKamera = null;
@@ -239,6 +247,8 @@ if ('serviceWorker' in navigator) {
     dot1.classList.add('now'); dot1.classList.remove('done');
     dot2.classList.remove('now', 'done');
     line1.classList.remove('done');
+    keteranganLembur.value = '';
+    areaKeteranganLembur.classList.toggle('d-none', aksi !== 'pulang');
 
     try {
       lokasiTertunda = await ambilLokasi();
@@ -338,6 +348,9 @@ if ('serviceWorker' in navigator) {
       formData.append('akurasi_m', coords.accuracy);
       formData.append('device_id', getDeviceId());
       formData.append('selfie', blob, 'selfie.jpg');
+      if (aksi === 'pulang') {
+        formData.append('keterangan_lembur', keteranganLembur.value);
+      }
 
       try {
         const resp = await fetch('/api/presensi/' + aksi, {

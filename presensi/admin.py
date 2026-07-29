@@ -1,8 +1,8 @@
 from django.contrib import admin
 
 from .models import (
-    LokasiKantor, JadwalKerja, Perangkat, EnrolmentWajah, Presensi,
-    FotoPresensi, QRToken, IzinCuti, LogKecurangan,
+    LokasiKantor, KelompokPresensi, TargetKerjaBulanan, HariLibur, JadwalKerja, Perangkat, EnrolmentWajah,
+    Presensi, FotoPresensi, QRToken, IzinCuti, LogKecurangan,
 )
 
 
@@ -11,6 +11,27 @@ class LokasiKantorAdmin(admin.ModelAdmin):
     list_display = ['nama', 'radius_meter', 'jam_masuk', 'jam_pulang', 'wajib_qr', 'wajib_wifi', 'aktif']
     list_filter = ['aktif', 'wajib_qr', 'wajib_wifi']
     search_fields = ['nama']
+
+
+@admin.register(KelompokPresensi)
+class KelompokPresensiAdmin(admin.ModelAdmin):
+    list_display = ['nama', 'roles', 'jam_masuk', 'jam_pulang', 'toleransi_menit', 'aktif']
+    list_filter = ['aktif']
+    search_fields = ['nama']
+
+
+@admin.register(TargetKerjaBulanan)
+class TargetKerjaBulananAdmin(admin.ModelAdmin):
+    list_display = ['kelompok', 'bulan', 'tahun', 'target_hari_kerja', 'target_jam_kerja']
+    list_filter = ['kelompok', 'tahun']
+
+
+@admin.register(HariLibur)
+class HariLiburAdmin(admin.ModelAdmin):
+    list_display = ['tanggal', 'keterangan', 'jenis']
+    list_filter = ['jenis']
+    search_fields = ['keterangan']
+    date_hierarchy = 'tanggal'
 
 
 @admin.register(JadwalKerja)
@@ -39,8 +60,8 @@ class EnrolmentWajahAdmin(admin.ModelAdmin):
 
 @admin.register(Presensi)
 class PresensiAdmin(admin.ModelAdmin):
-    list_display = ['user', 'tanggal', 'status', 'tingkat_risiko', 'ditandai', 'lokasi']
-    list_filter = ['status', 'tingkat_risiko', 'ditandai', 'lokasi']
+    list_display = ['user', 'tanggal', 'status', 'tingkat_risiko', 'ditandai', 'lokasi', 'kelompok']
+    list_filter = ['status', 'tingkat_risiko', 'ditandai', 'lokasi', 'kelompok']
     search_fields = ['user__username', 'user__nidn']
     date_hierarchy = 'tanggal'
 

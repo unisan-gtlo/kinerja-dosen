@@ -14,6 +14,10 @@ class AbsenSerializer(serializers.Serializer):
     akurasi_m = serializers.FloatField(min_value=0)
     device_id = serializers.CharField(max_length=200)
     selfie = serializers.ImageField()
+    # Cuma relevan untuk /pulang -- wajib diisi kalau lembur di atas ambang
+    # (lihat presensi.models.BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN), diabaikan
+    # untuk /masuk.
+    keterangan_lembur = serializers.CharField(max_length=1000, required=False, allow_blank=True, default="")
 
 
 class EnrolmentWajahSerializer(serializers.Serializer):

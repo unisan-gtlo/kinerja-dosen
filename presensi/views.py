@@ -14,12 +14,22 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
+from accounts.models import User
 from laporan.views import get_dosen_queryset
-from .decision import cek_lokasi, tentukan_status_waktu, verifikasi_wajah
+from .decision import (
+    cek_lokasi, hitung_ketepatan_masuk, hitung_ketepatan_pulang, resolve_kelompok, tentukan_status_waktu,
+    verifikasi_wajah,
+)
 from .face import VERSI_MODEL_WAJAH, ekstrak_satu_wajah, enkripsi_embedding, rata_rata_embedding
 from .forms import IzinCutiForm
-from .models import EnrolmentWajah, IzinCuti, LogKecurangan, Perangkat, Presensi, StatusPresensi, TingkatRisiko
-from .rekap import data_presensi_harian, ringkasan_hari_ini, top_telat_hari_ini, tren_mingguan
+from .models import (
+    BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN, EnrolmentWajah, IzinCuti, LogKecurangan, Perangkat, Presensi,
+    StatusApprovalLembur, StatusPresensi, TingkatRisiko,
+)
+from .rekap import (
+    data_presensi_harian, laporan_bulanan_jam_kerja, rekap_bulanan_user, ringkasan_hari_ini, top_telat_hari_ini,
+    tren_mingguan,
+)
 from .serializers import AbsenSerializer, EnrolmentWajahSerializer
 
 # Sama seperti accounts/views.py::ROLE_PENGELOLA_SCOPED -- peran yang boleh
@@ -225,6 +235,116 @@ def export_excel_presensi(request):
     return response
 
 
+def _bulan_tahun_dari_request(request):
+    hari_ini = timezone.localdate()
+    try:
+        return int(request.GET.get("bulan", hari_ini.month)), int(request.GET.get("tahun", hari_ini.year))
+    except ValueError:
+        return hari_ini.month, hari_ini.year
+
+
+def _pengguna_dalam_cakupan(request_user):
+    """SEMUA role (dosen + staf/tendik + pejabat), BEDA dengan get_dosen_
+    queryset (dosen-only) yang dipakai dashboard/data harian -- laporan
+    bulanan ini memang dirancang lintas-pegawai sejak awal. Discope lewat
+    dapat_kelola, pola sama dengan tinjau_presensi/tinjau_izin."""
+    aktif = User.objects.filter(status_akun="aktif")
+    ids_dalam_cakupan = [u.id for u in aktif if request_user.dapat_kelola(u)]
+    return User.objects.filter(id__in=ids_dalam_cakupan)
+
+
+@login_required
+def laporan_bulanan_presensi(request):
+    """Laporan rekap jam kerja BULANAN lintas-pegawai (dosen + staf) --
+    dasar penggajian, lihat CLAUDE.md § 9. Beda dari dashboard_presensi/
+    data_presensi yang masih dosen-only."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    bulan, tahun = _bulan_tahun_dari_request(request)
+    daftar = laporan_bulanan_jam_kerja(_pengguna_dalam_cakupan(request.user), bulan, tahun)
+    halaman = Paginator(daftar, 25).get_page(request.GET.get("halaman"))
+    bulan_pilihan = [(i, datetime(2000, i, 1).strftime("%B")) for i in range(1, 13)]
+
+    return render(request, "presensi/laporan_bulanan.html", {
+        "halaman": halaman, "bulan": bulan, "tahun": tahun, "bulan_pilihan": bulan_pilihan,
+    })
+
+
+@login_required
+def export_excel_laporan_bulanan(request):
+    """Ekspor Excel laporan bulanan jam kerja -- gaya sama dengan
+    export_excel_presensi."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    bulan, tahun = _bulan_tahun_dari_request(request)
+    daftar = laporan_bulanan_jam_kerja(_pengguna_dalam_cakupan(request.user), bulan, tahun)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Laporan Bulanan"
+
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    left = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    thin = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+
+    nama_bulan = datetime(tahun, bulan, 1).strftime("%B %Y")
+
+    ws.merge_cells("A1:H1")
+    ws["A1"] = "LAPORAN BULANAN JAM KERJA"
+    ws["A1"].font = Font(bold=True, size=14)
+    ws["A1"].alignment = center
+
+    ws.merge_cells("A2:H2")
+    ws["A2"] = f"Universitas Ichsan Gorontalo · {nama_bulan}"
+    ws["A2"].font = Font(bold=True, size=12)
+    ws["A2"].alignment = center
+
+    headers = ["No", "Nama", "Role", "Kelompok", "Hari Hadir", "Total Jam Kerja", "Target Jam Kerja", "Selisih"]
+    row_header = 4
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=row_header, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center
+        cell.border = thin
+    ws.row_dimensions[row_header].height = 26
+
+    for idx, item in enumerate(daftar, 1):
+        u = item["user"]
+        target = item["target"]
+        row_data = [
+            idx,
+            u.get_full_name() or u.username,
+            u.get_role_display_id(),
+            item["kelompok"].nama if item["kelompok"] else "-",
+            item["hari_hadir"],
+            item["total_jam_kerja"],
+            f"{target.target_jam_kerja} jam" if target else "-",
+            item["selisih_jam_kerja"] or "-",
+        ]
+        row_num = row_header + idx
+        for col, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col, value=value)
+            cell.border = thin
+            cell.alignment = center if col != 2 else left
+
+    col_widths = [5, 28, 16, 16, 10, 14, 14, 10]
+    for col, width in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+
+    response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response["Content-Disposition"] = f'attachment; filename="Laporan_Bulanan_{tahun}-{bulan:02d}.xlsx"'
+    wb.save(response)
+    return response
+
+
 @login_required
 def tinjau_presensi(request):
     """Halaman HR/admin: daftar presensi yang ditandai (tingkat_risiko
@@ -245,7 +365,17 @@ def tinjau_presensi(request):
 
     daftar = [{"presensi": p, "nama_dosen": p.user.get_full_name() or p.user.username} for p in antrian]
 
-    return render(request, "presensi/tinjau.html", {"daftar": daftar})
+    semua_lembur = (
+        Presensi.objects.filter(status_lembur=StatusApprovalLembur.MENUNGGU)
+        .select_related("lokasi", "user")
+        .order_by("-tanggal", "user__username")
+    )
+    antrian_lembur = [p for p in semua_lembur if request.user.dapat_kelola(p.user)]
+    daftar_lembur = [
+        {"presensi": p, "nama_dosen": p.user.get_full_name() or p.user.username} for p in antrian_lembur
+    ]
+
+    return render(request, "presensi/tinjau.html", {"daftar": daftar, "daftar_lembur": daftar_lembur})
 
 
 @login_required
@@ -282,6 +412,45 @@ def putuskan_presensi(request, presensi_id):
 
 
 @login_required
+def putuskan_lembur(request, presensi_id):
+    """POST-only: atasan menyetujui/menolak keterangan lembur satu presensi.
+    Kalau ditolak, jam pulang efektif (Presensi.durasi_kerja) otomatis
+    kembali dibatasi ke jam pulang normal kelompok/lokasi -- lihat
+    Presensi.durasi_kerja_menit -- waktu_pulang ASLI tetap tersimpan apa
+    adanya, tidak diubah."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method != "POST":
+        return redirect("presensi_web:tinjau")
+
+    presensi = get_object_or_404(
+        Presensi.objects.select_related("user"), id=presensi_id, status_lembur=StatusApprovalLembur.MENUNGGU,
+    )
+    if not request.user.dapat_kelola(presensi.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke presensi orang ini.")
+
+    aksi = request.POST.get("aksi")
+    if aksi == "setujui":
+        presensi.status_lembur = StatusApprovalLembur.DISETUJUI
+    elif aksi == "tolak":
+        presensi.status_lembur = StatusApprovalLembur.DITOLAK
+    else:
+        messages.error(request, "Aksi tidak dikenal.")
+        return redirect("presensi_web:tinjau")
+
+    presensi.approver_lembur = request.user
+    presensi.waktu_keputusan_lembur = timezone.now()
+    presensi.save(update_fields=["status_lembur", "approver_lembur", "waktu_keputusan_lembur"])
+
+    if aksi == "setujui":
+        messages.success(request, f"Lembur {presensi.user} tanggal {presensi.tanggal} disetujui.")
+    else:
+        messages.warning(request, f"Lembur {presensi.user} tanggal {presensi.tanggal} ditolak.")
+
+    return redirect("presensi_web:tinjau")
+
+
+@login_required
 def halaman_riwayat(request):
     """Riwayat presensi PRIBADI (bulan berjalan) -- gabungan Presensi &
     IzinCuti yang disetujui, diurutkan dari yang terbaru."""
@@ -297,9 +466,12 @@ def halaman_riwayat(request):
     entri += [{"jenis": "izin", "tanggal": i.tanggal_mulai, "obj": i} for i in izin_list]
     entri.sort(key=lambda e: e["tanggal"], reverse=True)
 
+    rekap_bulan = rekap_bulanan_user(request.user, hari_ini.month, hari_ini.year)
+
     return render(request, "presensi/riwayat.html", {
         "entri": entri,
         "bulan_label": hari_ini.strftime("%B %Y"),
+        "rekap_bulan": rekap_bulan,
     })
 
 
@@ -453,17 +625,28 @@ class AbsenMasukView(APIView):
         if response_gagal is not None:
             return response_gagal
 
-        status_kehadiran = tentukan_status_waktu(hasil_lokasi.lokasi, waktu_server.time())
+        kelompok = resolve_kelompok(user)
+        status_kehadiran = tentukan_status_waktu(
+            hasil_lokasi.lokasi, waktu_server.time(), kelompok=kelompok, tanggal=tanggal,
+        )
+        menit_lebih_awal, menit_terlambat = hitung_ketepatan_masuk(
+            hasil_lokasi.lokasi, waktu_server.time(), kelompok=kelompok, tanggal=tanggal,
+        )
 
         presensi, _ = Presensi.objects.update_or_create(
             user=user, tanggal=tanggal,
             defaults={
                 "waktu_masuk": waktu_server,
                 "lokasi": hasil_lokasi.lokasi,
+                # Snapshot kelompok yang berlaku SAAT ini -- lihat catatan di
+                # KelompokPresensi soal kenapa bukan FK live ke role user.
+                "kelompok": kelompok,
                 "latitude_masuk": data["lat"],
                 "longitude_masuk": data["lng"],
                 "akurasi_masuk_m": data["akurasi_m"],
                 "status": status_kehadiran,
+                "menit_lebih_awal": menit_lebih_awal,
+                "menit_terlambat": menit_terlambat,
                 "skor_risiko": SKOR_RISIKO_TERVERIFIKASI,
                 "tingkat_risiko": TingkatRisiko.RENDAH,
                 "ditandai": False,
@@ -513,10 +696,29 @@ class AbsenPulangView(APIView):
         if response_gagal is not None:
             return response_gagal
 
+        # Pakai kelompok yang SUDAH di-snapshot saat absen masuk (bukan
+        # resolve_kelompok(user) lagi) -- konsisten dengan jam yang jadi
+        # acuan status kedatangan tadi pagi, lihat catatan di KelompokPresensi.
+        # lokasi diambil dari presensi.lokasi kalau sudah ada (masuk normal),
+        # fallback ke lokasi hasil gerbang pulang untuk baris lama yang belum
+        # sempat punya lokasi tersimpan.
+        lokasi_acuan = presensi.lokasi or hasil_lokasi.lokasi
+        menit_pulang_cepat, menit_lembur = hitung_ketepatan_pulang(
+            lokasi_acuan, waktu_server.time(), kelompok=presensi.kelompok, tanggal=tanggal,
+        )
+        keterangan_lembur = data["keterangan_lembur"].strip()
+        if menit_lembur > BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN and not keterangan_lembur:
+            return Response({"diterima": False, "alasan": "keterangan_lembur_wajib"})
+
         presensi.waktu_pulang = waktu_server
-        presensi.lokasi = presensi.lokasi or hasil_lokasi.lokasi
+        presensi.lokasi = lokasi_acuan
         presensi.latitude_pulang = data["lat"]
         presensi.longitude_pulang = data["lng"]
+        presensi.menit_pulang_cepat = menit_pulang_cepat
+        presensi.menit_lembur = menit_lembur
+        if menit_lembur > BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN:
+            presensi.keterangan_lembur = keterangan_lembur
+            presensi.status_lembur = StatusApprovalLembur.MENUNGGU
         presensi.save()
 
         return Response({
@@ -524,6 +726,8 @@ class AbsenPulangView(APIView):
             "status": presensi.status,
             "waktu_pulang": presensi.waktu_pulang,
             "lokasi": hasil_lokasi.lokasi.nama,
+            "menit_lembur": presensi.menit_lembur,
+            "perlu_persetujuan_lembur": presensi.status_lembur == StatusApprovalLembur.MENUNGGU,
         })
 
 

@@ -26,13 +26,39 @@ Catatan lokasi/geofence:
   LokasiKantor dihitung dengan formula Haversine (lihat presensi/geo.py),
   yang cukup akurat untuk geofence berskala ratusan meter.
 """
-from datetime import time
+from datetime import datetime, time
 
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.utils import timezone
 
 from accounts.models import User
 from .utils import get_dosen_by_nidn
+
+# Senin=0 .. Sabtu=5 (Minggu=6 sengaja tidak termasuk) -- default hari_kerja
+# untuk KelompokPresensi, sesuai kebutuhan kampus (Senin-Sabtu).
+HARI_KERJA_SENIN_SABTU = [0, 1, 2, 3, 4, 5]
+
+
+def default_hari_kerja():
+    # Fungsi modul biasa (bukan HARI_KERJA_SENIN_SABTU.copy) supaya bisa
+    # diserialisasi Django ke file migrasi -- bound method built-in "no module".
+    return HARI_KERJA_SENIN_SABTU.copy()
+
+
+# Lembur di atas ambang ini (menit) wajib diisi keterangan alasan & butuh
+# persetujuan atasan sebelum dihitung ke total jam kerja bulanan -- lembur
+# di bawah ambang ini otomatis dihitung tanpa keterangan/approval. Lihat
+# Presensi.status_lembur & presensi/decision.py.
+BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN = 120
+
+
+def format_jam_menit(total_menit) -> str:
+    """Format durasi (dalam menit) jadi "JJ:MM", mis. 465 -> "07:45"."""
+    if total_menit is None or total_menit < 0:
+        total_menit = 0
+    jam, menit = divmod(int(total_menit), 60)
+    return f"{jam:02d}:{menit:02d}"
 
 
 class StatusPresensi(models.TextChoices):
@@ -41,6 +67,13 @@ class StatusPresensi(models.TextChoices):
     IZIN = "izin", "Izin/Cuti"
     ALPA = "alpa", "Alpa"
     DITOLAK = "ditolak", "Ditolak (anomali)"
+
+
+class StatusApprovalLembur(models.TextChoices):
+    TIDAK_ADA = "tidak_ada", "Tidak Ada Lembur"
+    MENUNGGU = "menunggu", "Menunggu Persetujuan"
+    DISETUJUI = "disetujui", "Disetujui"
+    DITOLAK = "ditolak", "Ditolak"
 
 
 class TingkatRisiko(models.TextChoices):
@@ -76,6 +109,88 @@ class LokasiKantor(models.Model):
 
     def __str__(self):
         return f"{self.nama} (r={self.radius_meter}m)"
+
+
+class KelompokPresensi(models.Model):
+    """Kelompok jam kerja (mis. Dosen 08.00-14.00 vs Pejabat 08.00-16.00).
+
+    Ditentukan OTOMATIS dari role akun lewat field `roles` (bukan
+    assignment manual per orang) -- admin bisa atur pemetaan role ke
+    kelompok lewat Django admin tanpa perlu ubah kode. Lihat
+    presensi.decision.resolve_kelompok.
+
+    PENTING: kelompok yang berlaku di-SNAPSHOT ke Presensi.kelompok saat
+    kejadian (bukan selalu live dari role saat ini) -- supaya histori
+    presensi tidak berubah kalau jabatan seseorang berubah nanti. Ini
+    penting untuk akurasi dasar penggajian.
+    """
+    nama = models.CharField("Nama kelompok", max_length=100)
+    roles = ArrayField(
+        models.CharField(max_length=20), default=list, blank=True,
+        help_text="Kode role accounts.User yang otomatis masuk kelompok ini (mis. dosen, dekan).",
+    )
+    hari_kerja = ArrayField(
+        models.PositiveSmallIntegerField(), default=default_hari_kerja,
+        help_text="Hari kerja (0=Senin .. 6=Minggu).",
+    )
+    jam_masuk = models.TimeField(default=time(8, 0))
+    jam_pulang = models.TimeField(default=time(16, 0))
+    toleransi_menit = models.PositiveIntegerField("Toleransi telat (menit)", default=15)
+    aktif = models.BooleanField(default=True)
+    dibuat = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Kelompok Presensi"
+        verbose_name_plural = "Kelompok Presensi"
+
+    def __str__(self):
+        return f"{self.nama} ({self.jam_masuk.strftime('%H:%M')}-{self.jam_pulang.strftime('%H:%M')})"
+
+
+class TargetKerjaBulanan(models.Model):
+    """Target hari & jam kerja per bulan per KelompokPresensi -- dasar
+    perbandingan realisasi presensi untuk penggajian (lihat CLAUDE.md § 9).
+
+    Diisi MANUAL oleh HR per bulan+tahun (bisa beda tiap bulan, mis.
+    kebijakan khusus Ramadan/semester pendek) -- sengaja BUKAN dihitung
+    otomatis dari kalender, supaya HR punya kendali penuh atas angka
+    resmi yang jadi dasar penggajian.
+    """
+    kelompok = models.ForeignKey(KelompokPresensi, on_delete=models.CASCADE, related_name="target_bulanan")
+    bulan = models.PositiveSmallIntegerField("Bulan (1-12)")
+    tahun = models.PositiveSmallIntegerField("Tahun")
+    target_hari_kerja = models.PositiveIntegerField("Target hari kerja")
+    target_jam_kerja = models.DecimalField("Target jam kerja", max_digits=6, decimal_places=2)
+
+    class Meta:
+        verbose_name = "Target Kerja Bulanan"
+        verbose_name_plural = "Target Kerja Bulanan"
+        unique_together = ("kelompok", "bulan", "tahun")
+        ordering = ["-tahun", "-bulan", "kelompok__nama"]
+
+    def __str__(self):
+        return f"{self.kelompok.nama} · {self.bulan:02d}/{self.tahun}"
+
+
+class HariLibur(models.Model):
+    """Kalender hari libur -- dipakai untuk mengecualikan hari itu dari
+    hitungan telat & hitungan wajib kerja bulanan (lihat CLAUDE.md § 9)."""
+    class Jenis(models.TextChoices):
+        NASIONAL = "nasional", "Libur Nasional"
+        CUTI_BERSAMA = "cuti_bersama", "Cuti Bersama"
+        KAMPUS = "kampus", "Libur Kampus"
+
+    tanggal = models.DateField(unique=True)
+    keterangan = models.CharField(max_length=200)
+    jenis = models.CharField(max_length=15, choices=Jenis.choices, default=Jenis.NASIONAL)
+
+    class Meta:
+        verbose_name = "Hari Libur"
+        verbose_name_plural = "Hari Libur"
+        ordering = ["tanggal"]
+
+    def __str__(self):
+        return f"{self.tanggal} — {self.keterangan}"
 
 
 class JadwalKerja(models.Model):
@@ -150,6 +265,13 @@ class Presensi(models.Model):
     waktu_pulang = models.DateTimeField(null=True, blank=True)
 
     lokasi = models.ForeignKey(LokasiKantor, on_delete=models.PROTECT, null=True, blank=True)
+    # Snapshot kelompok yang berlaku SAAT itu (bukan FK live ke role saat
+    # ini) -- lihat catatan penting di KelompokPresensi. Nullable karena
+    # baris lama (sebelum fitur ini ada) & orang yang role-nya belum
+    # terpetakan ke kelompok mana pun.
+    kelompok = models.ForeignKey(
+        KelompokPresensi, on_delete=models.PROTECT, null=True, blank=True, related_name="presensi_set",
+    )
     latitude_masuk = models.FloatField(null=True, blank=True)
     longitude_masuk = models.FloatField(null=True, blank=True)
     latitude_pulang = models.FloatField(null=True, blank=True)
@@ -160,6 +282,23 @@ class Presensi(models.Model):
     skor_risiko = models.PositiveSmallIntegerField(default=0)   # 0..100
     tingkat_risiko = models.CharField(max_length=10, choices=TingkatRisiko.choices, default=TingkatRisiko.RENDAH)
     ditandai = models.BooleanField("Perlu tinjauan HR", default=False)
+
+    # ---- Ketepatan waktu & lembur (lihat presensi/decision.py) ----
+    menit_lebih_awal = models.PositiveIntegerField("Datang lebih awal (menit)", default=0)
+    menit_terlambat = models.PositiveIntegerField("Terlambat (menit)", default=0)
+    menit_pulang_cepat = models.PositiveIntegerField("Pulang lebih cepat (menit)", default=0)
+    menit_lembur = models.PositiveIntegerField("Lembur (menit)", default=0)
+    keterangan_lembur = models.TextField(
+        "Keterangan lembur", blank=True,
+        help_text=f"Wajib diisi kalau lembur > {BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN} menit.",
+    )
+    status_lembur = models.CharField(
+        max_length=10, choices=StatusApprovalLembur.choices, default=StatusApprovalLembur.TIDAK_ADA,
+    )
+    approver_lembur = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="lembur_disetujui_set",
+    )
+    waktu_keputusan_lembur = models.DateTimeField(null=True, blank=True)
 
     dibuat = models.DateTimeField(auto_now_add=True)
 
@@ -175,6 +314,40 @@ class Presensi(models.Model):
     @property
     def dosen(self):
         return get_dosen_by_nidn(self.user.nidn) if self.user else None
+
+    @property
+    def jam_pulang_normal(self):
+        if self.kelompok:
+            return self.kelompok.jam_pulang
+        if self.lokasi:
+            return self.lokasi.jam_pulang
+        return None
+
+    @property
+    def durasi_kerja_menit(self):
+        """Durasi kerja efektif dalam menit (waktu_masuk s.d. waktu_pulang
+        EFEKTIF). Kalau lembur di atas ambang keterangan wajib dan belum/
+        tidak disetujui atasan, jam pulang efektif dibatasi ke jam_pulang
+        normal kelompok/lokasi -- jam lembur itu tidak ikut dihitung ke
+        total sampai disetujui (lihat CLAUDE.md § 9)."""
+        if not self.waktu_masuk or not self.waktu_pulang:
+            return 0
+
+        masuk_lokal = timezone.localtime(self.waktu_masuk)
+        pulang_lokal = timezone.localtime(self.waktu_pulang)
+
+        if self.status_lembur in (StatusApprovalLembur.MENUNGGU, StatusApprovalLembur.DITOLAK):
+            jam_normal = self.jam_pulang_normal
+            if jam_normal is not None:
+                batas = datetime.combine(pulang_lokal.date(), jam_normal, tzinfo=pulang_lokal.tzinfo)
+                if pulang_lokal > batas:
+                    pulang_lokal = batas
+
+        return max(0, int((pulang_lokal - masuk_lokal).total_seconds() // 60))
+
+    @property
+    def durasi_kerja(self):
+        return format_jam_menit(self.durasi_kerja_menit)
 
 
 class FotoPresensi(models.Model):

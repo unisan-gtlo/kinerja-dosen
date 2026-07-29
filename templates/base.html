@@ -443,6 +443,13 @@
             </a>
           </li>
           <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'laporan_bulanan' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+               href="{% url 'presensi_web:laporan_bulanan' %}">
+              <span class="nav-link-icon"><span class="ti ti-report-money"></span></span>
+              <span class="nav-link-title">Laporan Bulanan Jam Kerja</span>
+            </a>
+          </li>
+          <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.url_name == 'izin_tinjau' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
                href="{% url 'presensi_web:izin_tinjau' %}">
               <span class="nav-link-icon"><span class="ti ti-file-check"></span></span>

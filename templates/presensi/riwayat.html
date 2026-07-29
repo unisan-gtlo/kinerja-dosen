@@ -16,6 +16,19 @@
         <h3 class="card-title mb-0">Riwayat Presensi</h3>
         <div class="text-muted small mb-3">{{ bulan_label }}</div>
 
+        <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-3" style="background:#f7f9fc;">
+          <div>
+            <div class="text-muted small">Total jam kerja bulan ini</div>
+            <div class="fw-bold fs-4">{{ rekap_bulan.total_jam_kerja }}</div>
+          </div>
+          {% if rekap_bulan.target %}
+          <div class="text-end">
+            <div class="text-muted small">Target ({{ rekap_bulan.kelompok.nama }})</div>
+            <div class="fw-bold">{{ rekap_bulan.target.target_jam_kerja }} jam · {{ rekap_bulan.target.target_hari_kerja }} hari</div>
+          </div>
+          {% endif %}
+        </div>
+
         {% if not entri %}
         <div class="text-muted">Belum ada riwayat presensi bulan ini.</div>
         {% else %}
@@ -41,7 +54,17 @@
               <div class="fw-bold small">{{ item.tanggal|date:"l · d M" }}</div>
               <div class="text-muted small">
                 {{ item.obj.waktu_masuk|date:"H:i"|default:"—" }} – {{ item.obj.waktu_pulang|date:"H:i"|default:"—" }}
+                {% if item.obj.waktu_pulang %} · {{ item.obj.durasi_kerja }} jam kerja{% endif %}
               </div>
+              {% if item.obj.menit_lembur > 0 %}
+              <div class="text-muted small">
+                Lembur {{ item.obj.menit_lembur }} menit
+                {% if item.obj.status_lembur == 'menunggu' %}<span class="badge bg-warning-lt">Menunggu persetujuan</span>
+                {% elif item.obj.status_lembur == 'ditolak' %}<span class="badge bg-danger-lt">Lembur ditolak</span>
+                {% elif item.obj.status_lembur == 'disetujui' %}<span class="badge bg-success-lt">Lembur disetujui</span>
+                {% endif %}
+              </div>
+              {% endif %}
             </div>
             <span class="badge {% if item.obj.status == 'telat' %}bg-warning-lt{% elif item.obj.status == 'ditolak' %}bg-danger-lt{% else %}bg-success-lt{% endif %}">
               {{ item.obj.get_status_display }}

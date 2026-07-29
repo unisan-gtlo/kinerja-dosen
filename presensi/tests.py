@@ -12,13 +12,18 @@ from PIL import Image
 from rest_framework.test import APITestCase
 
 from accounts.models import User
-from .decision import HasilCekWajah, verifikasi_wajah
+from .decision import (
+    HasilCekWajah, hitung_ketepatan_masuk, hitung_ketepatan_pulang, resolve_kelompok, tentukan_status_waktu,
+    verifikasi_wajah,
+)
 from .face import dekripsi_embedding, ekstrak_satu_wajah, enkripsi_embedding, kemiripan_kosinus
 from .geo import dalam_radius, jarak_meter
 from .models import (
-    EnrolmentWajah, IzinCuti, LogKecurangan, LokasiKantor, Perangkat, Presensi, StatusPresensi, TingkatRisiko,
+    BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN, EnrolmentWajah, HariLibur, IzinCuti, KelompokPresensi, LogKecurangan,
+    LokasiKantor, Perangkat, Presensi, StatusApprovalLembur, StatusPresensi, TargetKerjaBulanan, TingkatRisiko,
+    format_jam_menit,
 )
-from .rekap import data_presensi_harian, ringkasan_hari_ini, top_telat_hari_ini, tren_mingguan
+from .rekap import data_presensi_harian, rekap_bulanan_user, ringkasan_hari_ini, top_telat_hari_ini, tren_mingguan
 from .utils import get_dosen_by_nidn
 
 
@@ -192,6 +197,292 @@ class PerangkatUniqueTogetherTest(TestCase):
                 Perangkat.objects.create(user=user, device_id="device-a")
 
 
+class SeedKelompokPresensiTest(TestCase):
+    """Data awal KelompokPresensi dibuat lewat migrasi -- lihat
+    presensi/migrations/0006_seed_kelompok_presensi.py."""
+
+    def test_kelompok_dosen_sesuai_spesifikasi(self):
+        dosen = KelompokPresensi.objects.get(nama="Dosen")
+        self.assertEqual(dosen.roles, ["dosen"])
+        self.assertEqual(dosen.jam_masuk, dt_time(8, 0))
+        self.assertEqual(dosen.jam_pulang, dt_time(14, 0))
+        self.assertTrue(dosen.aktif)
+
+    def test_kelompok_pejabat_sesuai_spesifikasi(self):
+        pejabat = KelompokPresensi.objects.get(nama="Pejabat")
+        self.assertIn("dekan", pejabat.roles)
+        self.assertEqual(pejabat.jam_masuk, dt_time(8, 0))
+        self.assertEqual(pejabat.jam_pulang, dt_time(16, 0))
+        self.assertTrue(pejabat.aktif)
+
+
+class ResolveKelompokTest(TestCase):
+    """resolve_kelompok memetakan role akun ke KelompokPresensi otomatis --
+    dipakai untuk snapshot Presensi.kelompok (lihat CLAUDE.md § 9)."""
+
+    def setUp(self):
+        # Data awal migrasi ("Dosen"/"Pejabat") dihapus dulu supaya test ini
+        # terisolasi dari kelompok yang dibuat manual di sini.
+        KelompokPresensi.objects.all().delete()
+        self.kelompok_dosen = KelompokPresensi.objects.create(
+            nama="Dosen Test", roles=["dosen"], jam_masuk=dt_time(8, 0), jam_pulang=dt_time(14, 0),
+        )
+
+    def test_role_dosen_meresolve_ke_kelompok_dosen(self):
+        user = _buat_dosen_user()
+        self.assertEqual(resolve_kelompok(user), self.kelompok_dosen)
+
+    def test_role_tanpa_pemetaan_mengembalikan_none(self):
+        user = User.objects.create_user(username="staf1", password="testpass123", role="admin")
+        self.assertIsNone(resolve_kelompok(user))
+
+    def test_kelompok_tidak_aktif_diabaikan(self):
+        self.kelompok_dosen.aktif = False
+        self.kelompok_dosen.save()
+        user = _buat_dosen_user()
+        self.assertIsNone(resolve_kelompok(user))
+
+
+class TentukanStatusWaktuTest(TestCase):
+    """Prioritas jam kerja KelompokPresensi > LokasiKantor, plus pengecualian
+    hari libur & hari non-kerja kelompok -- lihat CLAUDE.md § 9."""
+
+    def setUp(self):
+        self.lokasi = LokasiKantor.objects.create(
+            nama="Kampus Utama", latitude=0.0, longitude=0.0,
+            jam_masuk=dt_time(8, 0), toleransi_menit=15,
+        )
+        self.kelompok_dosen = KelompokPresensi.objects.create(
+            nama="Dosen Test", roles=["dosen"], hari_kerja=[0, 1, 2, 3, 4, 5],
+            jam_masuk=dt_time(8, 0), jam_pulang=dt_time(14, 0), toleransi_menit=15,
+        )
+
+    def test_tepat_waktu_sesuai_jam_kelompok(self):
+        status = tentukan_status_waktu(self.lokasi, dt_time(8, 10), kelompok=self.kelompok_dosen)
+        self.assertEqual(status, StatusPresensi.HADIR)
+
+    def test_telat_lewat_toleransi_kelompok(self):
+        status = tentukan_status_waktu(self.lokasi, dt_time(8, 30), kelompok=self.kelompok_dosen)
+        self.assertEqual(status, StatusPresensi.TELAT)
+
+    def test_kelompok_diprioritaskan_di_atas_lokasi(self):
+        # Lokasi jam_masuk 08.00, tapi kelompok jam_masuk 10.00 -- kelompok
+        # yang harus dipakai, bukan lokasi.
+        kelompok_siang = KelompokPresensi.objects.create(
+            nama="Siang", roles=["operator"], jam_masuk=dt_time(10, 0), toleransi_menit=15,
+        )
+        status = tentukan_status_waktu(self.lokasi, dt_time(8, 30), kelompok=kelompok_siang)
+        self.assertEqual(status, StatusPresensi.HADIR)
+
+    def test_fallback_ke_lokasi_kalau_kelompok_none(self):
+        # Role belum dipetakan ke kelompok mana pun -- pakai jam_masuk/
+        # toleransi_menit LokasiKantor seperti sebelum fitur ini ada.
+        status = tentukan_status_waktu(self.lokasi, dt_time(8, 30), kelompok=None)
+        self.assertEqual(status, StatusPresensi.TELAT)
+
+    def test_hari_libur_selalu_hadir_meski_lewat_jam(self):
+        HariLibur.objects.create(tanggal="2026-08-17", keterangan="Hari libur uji", jenis="nasional")
+        status = tentukan_status_waktu(
+            self.lokasi, dt_time(23, 0), kelompok=self.kelompok_dosen,
+            tanggal=dt.strptime("2026-08-17", "%Y-%m-%d").date(),
+        )
+        self.assertEqual(status, StatusPresensi.HADIR)
+
+    def test_hari_non_kerja_kelompok_selalu_hadir(self):
+        # 2026-08-16 adalah Minggu (weekday=6), tidak termasuk hari_kerja
+        # kelompok Dosen (Senin-Sabtu, 0-5).
+        tanggal_minggu = dt.strptime("2026-08-16", "%Y-%m-%d").date()
+        self.assertEqual(tanggal_minggu.weekday(), 6)
+        status = tentukan_status_waktu(
+            self.lokasi, dt_time(23, 0), kelompok=self.kelompok_dosen, tanggal=tanggal_minggu,
+        )
+        self.assertEqual(status, StatusPresensi.HADIR)
+
+
+class FormatJamMenitTest(TestCase):
+    """format_jam_menit -- format durasi menit jadi "JJ:MM" untuk tampilan
+    Riwayat & laporan bulanan (lihat CLAUDE.md § 9)."""
+
+    def test_format_normal(self):
+        self.assertEqual(format_jam_menit(465), "07:45")
+
+    def test_format_nol(self):
+        self.assertEqual(format_jam_menit(0), "00:00")
+
+    def test_format_negatif_dianggap_nol(self):
+        self.assertEqual(format_jam_menit(-30), "00:00")
+
+    def test_format_none_dianggap_nol(self):
+        self.assertEqual(format_jam_menit(None), "00:00")
+
+
+class HitungKetepatanMasukPulangTest(TestCase):
+    """hitung_ketepatan_masuk/pulang -- selisih murni dari jam kelompok/
+    lokasi (TIDAK memperhitungkan toleransi_menit, beda dengan status
+    HADIR/TELAT di tentukan_status_waktu)."""
+
+    def setUp(self):
+        self.lokasi = LokasiKantor.objects.create(
+            nama="Kampus Utama", latitude=0.0, longitude=0.0, jam_masuk=dt_time(8, 0), jam_pulang=dt_time(16, 0),
+        )
+        self.kelompok = KelompokPresensi.objects.create(
+            nama="Dosen Test", roles=["dosen"], hari_kerja=[0, 1, 2, 3, 4, 5],
+            jam_masuk=dt_time(8, 0), jam_pulang=dt_time(14, 0), toleransi_menit=15,
+        )
+
+    def test_masuk_lebih_awal(self):
+        awal, telat = hitung_ketepatan_masuk(self.lokasi, dt_time(7, 45), kelompok=self.kelompok)
+        self.assertEqual((awal, telat), (15, 0))
+
+    def test_masuk_terlambat(self):
+        # Beda dengan status TELAT (yang menghitung toleransi), di sini
+        # selisih MENTAH dari jam_masuk -- 10 menit tetap terhitung telat
+        # walau masih dalam toleransi 15 menit status HADIR/TELAT.
+        awal, telat = hitung_ketepatan_masuk(self.lokasi, dt_time(8, 10), kelompok=self.kelompok)
+        self.assertEqual((awal, telat), (0, 10))
+
+    def test_masuk_tepat_waktu(self):
+        awal, telat = hitung_ketepatan_masuk(self.lokasi, dt_time(8, 0), kelompok=self.kelompok)
+        self.assertEqual((awal, telat), (0, 0))
+
+    def test_pulang_lebih_cepat(self):
+        cepat, lembur = hitung_ketepatan_pulang(self.lokasi, dt_time(13, 30), kelompok=self.kelompok)
+        self.assertEqual((cepat, lembur), (30, 0))
+
+    def test_pulang_lembur(self):
+        cepat, lembur = hitung_ketepatan_pulang(self.lokasi, dt_time(16, 30), kelompok=self.kelompok)
+        self.assertEqual((cepat, lembur), (0, 150))
+
+    def test_fallback_ke_lokasi_kalau_kelompok_none(self):
+        awal, telat = hitung_ketepatan_masuk(self.lokasi, dt_time(8, 10), kelompok=None)
+        self.assertEqual((awal, telat), (0, 10))
+
+    def test_hari_libur_selalu_nol(self):
+        HariLibur.objects.create(tanggal="2026-08-17", keterangan="Hari libur uji", jenis="nasional")
+        tanggal = dt.strptime("2026-08-17", "%Y-%m-%d").date()
+        awal, telat = hitung_ketepatan_masuk(self.lokasi, dt_time(23, 0), kelompok=self.kelompok, tanggal=tanggal)
+        self.assertEqual((awal, telat), (0, 0))
+
+
+class DurasiKerjaPresensiTest(TestCase):
+    """Presensi.durasi_kerja_menit -- durasi kerja efektif, dibatasi ke jam
+    pulang normal kalau lembur menunggu/ditolak (lihat CLAUDE.md § 9)."""
+
+    def setUp(self):
+        self.user = _buat_dosen_user()
+        self.kelompok = KelompokPresensi.objects.create(
+            nama="Dosen Test", roles=["dosen"], jam_masuk=dt_time(8, 0), jam_pulang=dt_time(14, 0),
+        )
+        self.tanggal = timezone.localdate()
+
+    def _presensi(self, jam_masuk, jam_pulang, **override):
+        defaults = dict(
+            user=self.user, tanggal=self.tanggal, kelompok=self.kelompok,
+            waktu_masuk=timezone.make_aware(dt.combine(self.tanggal, jam_masuk)),
+            waktu_pulang=timezone.make_aware(dt.combine(self.tanggal, jam_pulang)),
+        )
+        defaults.update(override)
+        return Presensi(**defaults)
+
+    def test_durasi_normal_tanpa_lembur(self):
+        presensi = self._presensi(dt_time(8, 0), dt_time(14, 0))
+        self.assertEqual(presensi.durasi_kerja_menit, 360)
+        self.assertEqual(presensi.durasi_kerja, "06:00")
+
+    def test_durasi_lembur_disetujui_dihitung_penuh(self):
+        presensi = self._presensi(
+            dt_time(8, 0), dt_time(17, 0),
+            menit_lembur=180, status_lembur=StatusApprovalLembur.DISETUJUI,
+        )
+        self.assertEqual(presensi.durasi_kerja_menit, 540)
+
+    def test_durasi_lembur_menunggu_dibatasi_jam_normal(self):
+        presensi = self._presensi(
+            dt_time(8, 0), dt_time(17, 0),
+            menit_lembur=180, status_lembur=StatusApprovalLembur.MENUNGGU,
+        )
+        self.assertEqual(presensi.durasi_kerja_menit, 360)  # dibatasi ke 14:00, bukan 17:00
+
+    def test_durasi_lembur_ditolak_dibatasi_jam_normal(self):
+        presensi = self._presensi(
+            dt_time(8, 0), dt_time(17, 0),
+            menit_lembur=180, status_lembur=StatusApprovalLembur.DITOLAK,
+        )
+        self.assertEqual(presensi.durasi_kerja_menit, 360)
+
+    def test_belum_absen_pulang_durasi_nol(self):
+        presensi = self._presensi(dt_time(8, 0), dt_time(14, 0))
+        presensi.waktu_pulang = None
+        self.assertEqual(presensi.durasi_kerja_menit, 0)
+
+
+class SeedKelompokStafTendikTest(TestCase):
+    """Data awal kelompok "Staf/Tendik" -- lihat presensi/migrations/
+    0008_seed_kelompok_staf_tendik.py."""
+
+    def test_kelompok_staf_tendik_sesuai_spesifikasi(self):
+        staf = KelompokPresensi.objects.get(nama="Staf/Tendik")
+        self.assertEqual(staf.roles, ["tendik"])
+        self.assertEqual(staf.jam_masuk, dt_time(8, 0))
+        self.assertEqual(staf.jam_pulang, dt_time(16, 0))
+        self.assertTrue(staf.aktif)
+
+
+class RekapBulananUserTest(TestCase):
+    """rekap_bulanan_user -- total jam kerja sebulan vs TargetKerjaBulanan
+    kelompoknya (lihat CLAUDE.md § 9)."""
+
+    def setUp(self):
+        self.user = _buat_dosen_user()
+        self.kelompok = KelompokPresensi.objects.create(
+            nama="Dosen Test", roles=["dosen"], jam_masuk=dt_time(8, 0), jam_pulang=dt_time(14, 0),
+        )
+        self.hari_ini = timezone.localdate()
+
+    def test_total_menit_dijumlahkan_dari_semua_hari(self):
+        # day=1 & day=2 selalu ada di bulan apa pun -- aman dari masalah
+        # batas bulan tanpa perlu tahu tanggal hari ini persisnya.
+        for hari in (1, 2):
+            tanggal = self.hari_ini.replace(day=hari)
+            Presensi.objects.create(
+                user=self.user, tanggal=tanggal, kelompok=self.kelompok,
+                waktu_masuk=timezone.make_aware(dt.combine(tanggal, dt_time(8, 0))),
+                waktu_pulang=timezone.make_aware(dt.combine(tanggal, dt_time(14, 0))),
+            )
+        rekap = rekap_bulanan_user(self.user, self.hari_ini.month, self.hari_ini.year)
+        self.assertEqual(rekap["total_menit"], 720)
+        self.assertEqual(rekap["total_jam_kerja"], "12:00")
+        self.assertEqual(rekap["kelompok"], self.kelompok)
+
+    def test_presensi_ditolak_dikecualikan(self):
+        Presensi.objects.create(
+            user=self.user, tanggal=self.hari_ini, kelompok=self.kelompok, status=StatusPresensi.DITOLAK,
+            waktu_masuk=timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 0))),
+            waktu_pulang=timezone.make_aware(dt.combine(self.hari_ini, dt_time(14, 0))),
+        )
+        rekap = rekap_bulanan_user(self.user, self.hari_ini.month, self.hari_ini.year)
+        self.assertEqual(rekap["total_menit"], 0)
+
+    def test_target_diambil_dari_kelompok_dan_bulan_yang_cocok(self):
+        Presensi.objects.create(
+            user=self.user, tanggal=self.hari_ini, kelompok=self.kelompok,
+            waktu_masuk=timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 0))),
+            waktu_pulang=timezone.make_aware(dt.combine(self.hari_ini, dt_time(14, 0))),
+        )
+        TargetKerjaBulanan.objects.create(
+            kelompok=self.kelompok, bulan=self.hari_ini.month, tahun=self.hari_ini.year,
+            target_hari_kerja=24, target_jam_kerja=144,
+        )
+        rekap = rekap_bulanan_user(self.user, self.hari_ini.month, self.hari_ini.year)
+        self.assertIsNotNone(rekap["target"])
+        self.assertEqual(rekap["target"].target_hari_kerja, 24)
+
+    def test_tidak_ada_presensi_target_kosong(self):
+        rekap = rekap_bulanan_user(self.user, self.hari_ini.month, self.hari_ini.year)
+        self.assertIsNone(rekap["target"])
+        self.assertEqual(rekap["total_menit"], 0)
+
+
 class GetDosenByNidnTest(TestCase):
     """Unit test murni (di-mock) karena DataDosen hidup di database SIMDA
     terpisah (alias koneksi 'simda') yang tidak selalu tersedia saat test."""
@@ -309,6 +600,18 @@ class AbsenMasukAPITest(APITestCase):
         resp = self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
         self.assertEqual(resp.status_code, 401)
 
+    @patch("presensi.views.verifikasi_wajah")
+    def test_kelompok_disematkan_sebagai_snapshot(self, mock_verifikasi):
+        # "Dosen" sudah ada dari data awal migrasi (lihat 0006_seed_kelompok_
+        # presensi.py) -- role user default "dosen" harus otomatis meresolve
+        # ke kelompok itu tanpa perlu setup tambahan di sini.
+        mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
+        resp = self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+        self.assertTrue(resp.data["diterima"])
+        presensi = Presensi.objects.get(user=self.user)
+        self.assertIsNotNone(presensi.kelompok)
+        self.assertEqual(presensi.kelompok.nama, "Dosen")
+
 
 class AbsenPulangAPITest(APITestCase):
     """Endpoint POST /api/presensi/pulang."""
@@ -335,6 +638,58 @@ class AbsenPulangAPITest(APITestCase):
         self.assertTrue(
             Presensi.objects.filter(user=self.user, waktu_pulang__isnull=False).exists()
         )
+
+    @patch("presensi.views.verifikasi_wajah")
+    @patch("presensi.views.timezone.now")
+    def test_lembur_lebih_dari_ambang_wajib_keterangan(self, mock_now, mock_verifikasi):
+        mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
+        hari_ini = timezone.localdate()
+        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(8, 0)))
+        self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+
+        # Kelompok "Dosen" (seed migrasi) jam_pulang 14:00 -- pulang jam
+        # 17:00 = 180 menit lembur, di atas ambang wajib keterangan (120 menit).
+        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(17, 0)))
+        resp = self.client.post("/api/presensi/pulang", _payload_absen(), format="multipart")
+        self.assertFalse(resp.data["diterima"])
+        self.assertEqual(resp.data["alasan"], "keterangan_lembur_wajib")
+        self.assertIsNone(Presensi.objects.get(user=self.user).waktu_pulang)
+
+    @patch("presensi.views.verifikasi_wajah")
+    @patch("presensi.views.timezone.now")
+    def test_lembur_dengan_keterangan_diterima_dan_menunggu_persetujuan(self, mock_now, mock_verifikasi):
+        mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
+        hari_ini = timezone.localdate()
+        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(8, 0)))
+        self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+
+        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(17, 0)))
+        resp = self.client.post(
+            "/api/presensi/pulang", _payload_absen(keterangan_lembur="Rapat mendadak"), format="multipart",
+        )
+        self.assertTrue(resp.data["diterima"])
+        self.assertTrue(resp.data["perlu_persetujuan_lembur"])
+        presensi = Presensi.objects.get(user=self.user)
+        self.assertEqual(presensi.status_lembur, StatusApprovalLembur.MENUNGGU)
+        self.assertEqual(presensi.keterangan_lembur, "Rapat mendadak")
+        self.assertEqual(presensi.menit_lembur, 180)
+
+    @patch("presensi.views.verifikasi_wajah")
+    @patch("presensi.views.timezone.now")
+    def test_lembur_di_bawah_ambang_otomatis_diterima_tanpa_keterangan(self, mock_now, mock_verifikasi):
+        mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
+        hari_ini = timezone.localdate()
+        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(8, 0)))
+        self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+
+        # 90 menit lembur -- di bawah ambang 120 menit, tidak perlu keterangan.
+        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(15, 30)))
+        resp = self.client.post("/api/presensi/pulang", _payload_absen(), format="multipart")
+        self.assertTrue(resp.data["diterima"])
+        self.assertFalse(resp.data["perlu_persetujuan_lembur"])
+        presensi = Presensi.objects.get(user=self.user)
+        self.assertEqual(presensi.menit_lembur, 90)
+        self.assertEqual(presensi.status_lembur, StatusApprovalLembur.TIDAK_ADA)
 
 
 class EnrolmentWajahAPITest(APITestCase):
@@ -507,6 +862,66 @@ class TinjauPresensiViewTest(TestCase):
         self.assertTrue(self.presensi_b.ditandai)
 
 
+class PutuskanLemburViewTest(TestCase):
+    """Persetujuan keterangan lembur oleh atasan -- ditolak berarti jam
+    kerja terhitung dibatasi ke jam pulang normal (lihat Presensi.
+    durasi_kerja_menit), tapi waktu_pulang ASLI tidak diubah."""
+
+    def setUp(self):
+        self.dosen = User.objects.create_user(
+            username="lemburdosen", password="testpass123", role="dosen",
+            nidn="7777777777", kode_prodi="TI", kode_fakultas="FT",
+        )
+        self.kelompok = KelompokPresensi.objects.create(
+            nama="Dosen Test", roles=["dosen"], jam_masuk=dt_time(8, 0), jam_pulang=dt_time(14, 0),
+        )
+        self.tanggal = timezone.localdate()
+        self.presensi = Presensi.objects.create(
+            user=self.dosen, tanggal=self.tanggal, kelompok=self.kelompok,
+            waktu_masuk=timezone.make_aware(dt.combine(self.tanggal, dt_time(8, 0))),
+            waktu_pulang=timezone.make_aware(dt.combine(self.tanggal, dt_time(17, 0))),
+            menit_lembur=180, keterangan_lembur="Rapat mendadak",
+            status_lembur=StatusApprovalLembur.MENUNGGU,
+        )
+
+    def test_dosen_biasa_tidak_bisa_akses(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.post(f"/presensi/tinjau/{self.presensi.id}/putuskan-lembur/", {"aksi": "setujui"})
+        self.assertEqual(resp.status_code, 403)
+
+    def test_setujui_lembur_menghitung_penuh_jam_kerja(self):
+        admin = User.objects.create_user(username="lemburadmin", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.post(f"/presensi/tinjau/{self.presensi.id}/putuskan-lembur/", {"aksi": "setujui"})
+        self.assertEqual(resp.status_code, 302)
+        self.presensi.refresh_from_db()
+        self.assertEqual(self.presensi.status_lembur, StatusApprovalLembur.DISETUJUI)
+        self.assertEqual(self.presensi.approver_lembur, admin)
+        self.assertIsNotNone(self.presensi.waktu_keputusan_lembur)
+        self.assertEqual(self.presensi.durasi_kerja_menit, 540)  # 08.00-17.00 penuh
+
+    def test_tolak_lembur_membatasi_jam_kerja_ke_normal(self):
+        admin = User.objects.create_user(username="lemburadmin2", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.post(f"/presensi/tinjau/{self.presensi.id}/putuskan-lembur/", {"aksi": "tolak"})
+        self.assertEqual(resp.status_code, 302)
+        self.presensi.refresh_from_db()
+        self.assertEqual(self.presensi.status_lembur, StatusApprovalLembur.DITOLAK)
+        # waktu_pulang ASLI tidak diubah, cuma jam kerja terhitung yang dibatasi.
+        self.assertEqual(self.presensi.waktu_pulang.time(), dt_time(17, 0))
+        self.assertEqual(self.presensi.durasi_kerja_menit, 360)  # dibatasi ke 08.00-14.00
+
+    def test_kaprodi_tidak_bisa_putuskan_lembur_di_luar_prodi(self):
+        kaprodi = User.objects.create_user(
+            username="lemburkaprodi", password="testpass123", role="kaprodi", kode_prodi="SI",
+        )
+        self.client.force_login(kaprodi)
+        resp = self.client.post(f"/presensi/tinjau/{self.presensi.id}/putuskan-lembur/", {"aksi": "setujui"})
+        self.assertEqual(resp.status_code, 403)
+        self.presensi.refresh_from_db()
+        self.assertEqual(self.presensi.status_lembur, StatusApprovalLembur.MENUNGGU)
+
+
 class RekapPresensiTest(TestCase):
     """Logika presensi/rekap.py -- dipakai dashboard admin & ekspor data.
     Skema presensi sudah generik (kunci user), fungsi-fungsi ini menerima
@@ -624,6 +1039,86 @@ class DashboardDataPresensiViewTest(TestCase):
         admin = User.objects.create_user(username="ekspoladmin", password="testpass123", role="admin")
         self.client.force_login(admin)
         resp = self.client.get("/presensi/data/ekspor/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+
+class LaporanBulananViewTest(TestCase):
+    """Halaman /presensi/laporan-bulanan/ -- BEDA dari /presensi/data/
+    (dosen-only lewat get_dosen_queryset), di sini lintas-pegawai (dosen +
+    staf/tendik), discope lewat dapat_kelola sama seperti /presensi/tinjau/."""
+
+    def setUp(self):
+        self.dosen = User.objects.create_user(
+            username="lapdosen", password="testpass123", role="dosen",
+            nidn="8888888888", kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.staf = User.objects.create_user(
+            username="lapstaf", password="testpass123", role="tendik", kode_fakultas="FT",
+        )
+        self.kelompok_dosen = KelompokPresensi.objects.get(nama="Dosen")
+        self.hari_ini = timezone.localdate()
+        Presensi.objects.create(
+            user=self.dosen, tanggal=self.hari_ini, kelompok=self.kelompok_dosen,
+            waktu_masuk=timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 0))),
+            waktu_pulang=timezone.make_aware(dt.combine(self.hari_ini, dt_time(14, 0))),
+        )
+        Presensi.objects.create(
+            user=self.staf, tanggal=self.hari_ini,
+            waktu_masuk=timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 0))),
+            waktu_pulang=timezone.make_aware(dt.combine(self.hari_ini, dt_time(16, 0))),
+        )
+
+    def test_dosen_biasa_tidak_bisa_akses(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/laporan-bulanan/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_melihat_dosen_dan_staf(self):
+        admin = User.objects.create_user(username="lapadmin", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.get(f"/presensi/laporan-bulanan/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "lapdosen")
+        self.assertContains(resp, "lapstaf")
+
+    def test_total_jam_kerja_tampil_format_jam_menit(self):
+        admin = User.objects.create_user(username="lapadmin2", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.get(f"/presensi/laporan-bulanan/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
+        self.assertContains(resp, "06:00")  # dosen: 08.00-14.00
+        self.assertContains(resp, "08:00")  # staf: 08.00-16.00
+
+    def test_kaprodi_hanya_melihat_prodi_sendiri(self):
+        kaprodi = User.objects.create_user(
+            username="lapkaprodi", password="testpass123", role="kaprodi", kode_prodi="TI",
+        )
+        self.client.force_login(kaprodi)
+        resp = self.client.get(f"/presensi/laporan-bulanan/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "lapdosen")
+        self.assertNotContains(resp, "lapstaf")
+
+    def test_bulan_tanpa_presensi_kosong(self):
+        admin = User.objects.create_user(username="lapadmin3", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        bulan_lalu = self.hari_ini.month - 1 or 12
+        resp = self.client.get(f"/presensi/laporan-bulanan/?bulan={bulan_lalu}&tahun={self.hari_ini.year}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "lapdosen")
+
+    def test_dosen_biasa_tidak_bisa_ekspor(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/laporan-bulanan/ekspor/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_bisa_ekspor_excel(self):
+        admin = User.objects.create_user(username="lapekspor", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.get(f"/presensi/laporan-bulanan/ekspor/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp["Content-Type"],

@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}Laporan Bulanan Jam Kerja — SIKD{% endblock %}
+{% block page_title %}Laporan Bulanan Jam Kerja{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <p class="text-muted">
+      Realisasi jam kerja sebulan (dosen &amp; staf/tendik) dibandingkan
+      target kelompoknya -- dasar penggajian. Cuma menampilkan orang yang
+      punya presensi di bulan terpilih.
+    </p>
+
+    <form method="get" class="row g-2 mb-3">
+      <div class="col-auto">
+        <select name="bulan" class="form-select" style="color:#333;">
+          {% for i, nama in bulan_pilihan %}
+          <option value="{{ i }}" {% if i == bulan %}selected{% endif %}>{{ nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <input type="number" name="tahun" value="{{ tahun }}" class="form-control" style="width:100px;color:#333;">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Terapkan</button>
+      </div>
+      <div class="col-auto ms-auto">
+        <a class="btn btn-outline-success" href="{% url 'presensi_web:laporan_bulanan_ekspor' %}?bulan={{ bulan }}&tahun={{ tahun }}">
+          <span class="ti ti-file-spreadsheet me-1"></span> Ekspor Excel
+        </a>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Role</th>
+            <th>Kelompok</th>
+            <th>Hari Hadir</th>
+            <th>Total Jam Kerja</th>
+            <th>Target Jam Kerja</th>
+            <th>Selisih</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in halaman %}
+          <tr>
+            <td>{{ item.user.get_full_name|default:item.user.username }}</td>
+            <td>{{ item.user.get_role_display_id }}</td>
+            <td>{{ item.kelompok.nama|default:"—" }}</td>
+            <td>{{ item.hari_hadir }}</td>
+            <td class="fw-bold">{{ item.total_jam_kerja }}</td>
+            <td>{% if item.target %}{{ item.target.target_jam_kerja }} jam{% else %}—{% endif %}</td>
+            <td>
+              {% if item.selisih_jam_kerja %}
+              <span class="badge {% if item.selisih_menit < 0 %}bg-danger-lt{% else %}bg-success-lt{% endif %}">
+                {{ item.selisih_jam_kerja }}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-muted text-center">Tidak ada presensi pada bulan ini.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if halaman.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center mt-3">
+      <span class="text-muted fs-13">Halaman {{ halaman.number }} dari {{ halaman.paginator.num_pages }}</span>
+      <div class="d-flex gap-2">
+        {% if halaman.has_previous %}
+        <a class="btn btn-sm btn-outline-secondary" href="?bulan={{ bulan }}&tahun={{ tahun }}&halaman={{ halaman.previous_page_number }}">‹ Sebelumnya</a>
+        {% endif %}
+        {% if halaman.has_next %}
+        <a class="btn btn-sm btn-outline-secondary" href="?bulan={{ bulan }}&tahun={{ tahun }}&halaman={{ halaman.next_page_number }}">Berikutnya ›</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
