@@ -622,6 +622,11 @@ class AbsenPulangAPITest(APITestCase):
         LokasiKantor.objects.create(
             nama="Kampus Utama", latitude=0.0, longitude=0.0, radius_meter=100,
         )
+        # Dihitung SEBELUM test body (yang mem-patch timezone.now di beberapa
+        # test) -- timezone.localdate() sendiri memanggil now() internal,
+        # jadi kalau dipanggil di dalam test yang sudah di-patch, hasilnya
+        # ikut jadi MagicMock, bukan tanggal asli.
+        self.hari_ini = timezone.localdate()
 
     def test_pulang_tanpa_absen_masuk_ditolak(self):
         resp = self.client.post("/api/presensi/pulang", _payload_absen(), format="multipart")
@@ -629,9 +634,17 @@ class AbsenPulangAPITest(APITestCase):
         self.assertEqual(resp.data["alasan"], "belum_absen_masuk")
 
     @patch("presensi.views.verifikasi_wajah")
-    def test_pulang_setelah_masuk_diterima(self, mock_verifikasi):
+    @patch("presensi.views.timezone.now")
+    def test_pulang_setelah_masuk_diterima(self, mock_now, mock_verifikasi):
+        # Waktu di-pin ke jam kerja normal (bukan real clock) -- tanpa ini,
+        # test bisa gagal secara acak tergantung jam sungguhan server: kalau
+        # kebetulan dijalankan >2 jam lewat jam pulang kelompok "Dosen"
+        # (14.00), endpoint akan menolak karena keterangan_lembur wajib
+        # (lihat AbsenPulangView), padahal test ini bukan soal lembur.
         mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
+        mock_now.return_value = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 0)))
         self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+        mock_now.return_value = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 30)))
         resp = self.client.post("/api/presensi/pulang", _payload_absen(), format="multipart")
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.data["diterima"])
@@ -643,13 +656,12 @@ class AbsenPulangAPITest(APITestCase):
     @patch("presensi.views.timezone.now")
     def test_lembur_lebih_dari_ambang_wajib_keterangan(self, mock_now, mock_verifikasi):
         mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
-        hari_ini = timezone.localdate()
-        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(8, 0)))
+        mock_now.return_value = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 0)))
         self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
 
         # Kelompok "Dosen" (seed migrasi) jam_pulang 14:00 -- pulang jam
         # 17:00 = 180 menit lembur, di atas ambang wajib keterangan (120 menit).
-        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(17, 0)))
+        mock_now.return_value = timezone.make_aware(dt.combine(self.hari_ini, dt_time(17, 0)))
         resp = self.client.post("/api/presensi/pulang", _payload_absen(), format="multipart")
         self.assertFalse(resp.data["diterima"])
         self.assertEqual(resp.data["alasan"], "keterangan_lembur_wajib")
@@ -659,11 +671,10 @@ class AbsenPulangAPITest(APITestCase):
     @patch("presensi.views.timezone.now")
     def test_lembur_dengan_keterangan_diterima_dan_menunggu_persetujuan(self, mock_now, mock_verifikasi):
         mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
-        hari_ini = timezone.localdate()
-        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(8, 0)))
+        mock_now.return_value = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 0)))
         self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
 
-        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(17, 0)))
+        mock_now.return_value = timezone.make_aware(dt.combine(self.hari_ini, dt_time(17, 0)))
         resp = self.client.post(
             "/api/presensi/pulang", _payload_absen(keterangan_lembur="Rapat mendadak"), format="multipart",
         )
@@ -678,12 +689,11 @@ class AbsenPulangAPITest(APITestCase):
     @patch("presensi.views.timezone.now")
     def test_lembur_di_bawah_ambang_otomatis_diterima_tanpa_keterangan(self, mock_now, mock_verifikasi):
         mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
-        hari_ini = timezone.localdate()
-        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(8, 0)))
+        mock_now.return_value = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 0)))
         self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
 
         # 90 menit lembur -- di bawah ambang 120 menit, tidak perlu keterangan.
-        mock_now.return_value = timezone.make_aware(dt.combine(hari_ini, dt_time(15, 30)))
+        mock_now.return_value = timezone.make_aware(dt.combine(self.hari_ini, dt_time(15, 30)))
         resp = self.client.post("/api/presensi/pulang", _payload_absen(), format="multipart")
         self.assertTrue(resp.data["diterima"])
         self.assertFalse(resp.data["perlu_persetujuan_lembur"])
@@ -908,7 +918,9 @@ class PutuskanLemburViewTest(TestCase):
         self.presensi.refresh_from_db()
         self.assertEqual(self.presensi.status_lembur, StatusApprovalLembur.DITOLAK)
         # waktu_pulang ASLI tidak diubah, cuma jam kerja terhitung yang dibatasi.
-        self.assertEqual(self.presensi.waktu_pulang.time(), dt_time(17, 0))
+        # localtime() wajib di sini -- setelah roundtrip DB, Django kembalikan
+        # datetime UTC, bukan waktu lokal (WITA) yang aslinya di-set.
+        self.assertEqual(timezone.localtime(self.presensi.waktu_pulang).time(), dt_time(17, 0))
         self.assertEqual(self.presensi.durasi_kerja_menit, 360)  # dibatasi ke 08.00-14.00
 
     def test_kaprodi_tidak_bisa_putuskan_lembur_di_luar_prodi(self):
