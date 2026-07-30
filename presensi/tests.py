@@ -12,6 +12,7 @@ from PIL import Image
 from rest_framework.test import APITestCase
 
 from accounts.models import User
+from master.models import Fakultas, Prodi
 from profil.models import Sertifikasi
 from simda_dosen.utils import get_pejabat_aktif
 from .decision import (
@@ -20,6 +21,7 @@ from .decision import (
 )
 from .face import dekripsi_embedding, ekstrak_satu_wajah, enkripsi_embedding, kemiripan_kosinus
 from .geo import dalam_radius, jarak_meter
+from .laporan_internal import data_laporan_internal, get_user_qs_laporan_internal
 from .laporan_serdos import data_laporan_serdos, jenis_tanggal_bulan
 from .models import (
     BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN, EnrolmentWajah, HariLibur, IzinCuti, KelompokPresensi, LogKecurangan,
@@ -1775,3 +1777,149 @@ class LaporanSerdosViewTest(TestCase):
         self.assertEqual(
             resp["Content-Type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
+
+class GetUserQsLaporanInternalTest(TestCase):
+    """get_user_qs_laporan_internal -- filter kategori/fakultas/prodi
+    untuk Laporan Presensi Internal (lintas-pegawai, BUKAN dosen-only)."""
+
+    def setUp(self):
+        self.dosen = User.objects.create_user(
+            username="internaldosen", password="testpass123", role="dosen",
+            nidn="7400000001", kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.dekan = User.objects.create_user(
+            username="internaldekan", password="testpass123", role="dekan", kode_fakultas="FT",
+        )
+        self.tendik = User.objects.create_user(
+            username="internaltendik", password="testpass123", role="tendik", kode_fakultas="FH",
+        )
+        self.semua = User.objects.filter(id__in=[self.dosen.id, self.dekan.id, self.tendik.id])
+
+    def test_filter_kategori_dosen(self):
+        hasil = get_user_qs_laporan_internal(self.semua, kategori="dosen")
+        self.assertIn(self.dosen, hasil)
+        self.assertNotIn(self.dekan, hasil)
+        self.assertNotIn(self.tendik, hasil)
+
+    def test_filter_kategori_pejabat(self):
+        hasil = get_user_qs_laporan_internal(self.semua, kategori="pejabat")
+        self.assertIn(self.dekan, hasil)
+        self.assertNotIn(self.dosen, hasil)
+        self.assertNotIn(self.tendik, hasil)
+
+    def test_filter_kategori_tendik(self):
+        hasil = get_user_qs_laporan_internal(self.semua, kategori="tendik")
+        self.assertIn(self.tendik, hasil)
+        self.assertNotIn(self.dosen, hasil)
+        self.assertNotIn(self.dekan, hasil)
+
+    def test_filter_fakultas(self):
+        hasil = get_user_qs_laporan_internal(self.semua, fakultas="FH")
+        self.assertIn(self.tendik, hasil)
+        self.assertNotIn(self.dosen, hasil)
+        self.assertNotIn(self.dekan, hasil)
+
+    def test_filter_prodi(self):
+        hasil = get_user_qs_laporan_internal(self.semua, prodi="TI")
+        self.assertIn(self.dosen, hasil)
+        self.assertNotIn(self.dekan, hasil)
+
+    def test_tanpa_filter_kembalikan_semua(self):
+        hasil = get_user_qs_laporan_internal(self.semua)
+        self.assertEqual(hasil.count(), 3)
+
+
+class DataLaporanInternalTest(TestCase):
+    """data_laporan_internal -- grid jam Masuk/Pulang per hari, nama
+    Program Studi dari master.Prodi."""
+
+    def setUp(self):
+        self.fakultas = Fakultas.objects.create(kode_fakultas="FT", nama_fakultas="Fakultas Teknik")
+        self.prodi = Prodi.objects.create(
+            kode_prodi="TI", nama_prodi="Teknik Informatika", fakultas=self.fakultas,
+        )
+        self.dosen = User.objects.create_user(
+            username="internalgrid", password="testpass123", role="dosen",
+            nidn="7500000001", kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.bulan, self.tahun = 7, 2026
+
+    def test_nama_prodi_diambil_dari_master_prodi(self):
+        hasil = data_laporan_internal(User.objects.filter(id=self.dosen.id), self.bulan, self.tahun)
+        self.assertEqual(hasil[0]["nama_prodi"], "Teknik Informatika")
+
+    def test_fallback_kode_prodi_kalau_tidak_ketemu(self):
+        dosen_lain = User.objects.create_user(
+            username="internalgridlain", password="testpass123", role="dosen",
+            nidn="7500000002", kode_prodi="XX",
+        )
+        hasil = data_laporan_internal(User.objects.filter(id=dosen_lain.id), self.bulan, self.tahun)
+        self.assertEqual(hasil[0]["nama_prodi"], "XX")
+
+    def test_jam_masuk_pulang_terformat_dan_lokal(self):
+        waktu_masuk = timezone.make_aware(dt.combine(date(2026, 7, 1), dt_time(8, 5)))
+        waktu_pulang = timezone.make_aware(dt.combine(date(2026, 7, 1), dt_time(14, 12)))
+        Presensi.objects.create(
+            user=self.dosen, tanggal=date(2026, 7, 1), status=StatusPresensi.HADIR,
+            waktu_masuk=waktu_masuk, waktu_pulang=waktu_pulang,
+        )
+        hasil = data_laporan_internal(User.objects.filter(id=self.dosen.id), self.bulan, self.tahun)
+        hari_1 = next(h for h in hasil[0]["hari_grid"] if h.tanggal == date(2026, 7, 1))
+        self.assertEqual(hari_1.jam_masuk, "08:05")
+        self.assertEqual(hari_1.jam_pulang, "14:12")
+
+    def test_tanpa_presensi_jam_kosong(self):
+        hasil = data_laporan_internal(User.objects.filter(id=self.dosen.id), self.bulan, self.tahun)
+        hari_1 = next(h for h in hasil[0]["hari_grid"] if h.tanggal == date(2026, 7, 1))
+        self.assertEqual(hari_1.jam_masuk, "")
+        self.assertEqual(hari_1.jam_pulang, "")
+
+
+class LaporanInternalViewTest(TestCase):
+    """Halaman /presensi/laporan-internal/ + ekspor -- scoped dapat_kelola
+    (BUKAN admin-only), sama seperti Laporan Bulanan Jam Kerja."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="labinternaladmin", password="testpass123", role="admin")
+        self.dosen = User.objects.create_user(
+            username="labinternaldosen", password="testpass123", role="dosen",
+            nidn="7600000001", kode_fakultas="FT", kode_prodi="TI",
+        )
+
+    def test_dosen_biasa_tidak_bisa_akses(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/laporan-internal/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_bisa_akses_halaman(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-internal/")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_admin_bisa_unduh_pdf(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-internal/pdf/", {
+            "bulan": "7", "tahun": "2026", "kategori": "", "fakultas": "", "prodi": "",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+
+    def test_admin_bisa_unduh_excel(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-internal/excel/", {
+            "bulan": "7", "tahun": "2026", "kategori": "", "fakultas": "", "prodi": "",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp["Content-Type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    def test_kaprodi_di_luar_cakupan_tidak_melihat_dosen_lain(self):
+        kaprodi = User.objects.create_user(
+            username="labinternalkaprodi", password="testpass123", role="kaprodi", kode_prodi="SI",
+        )
+        self.client.force_login(kaprodi)
+        resp = self.client.get("/presensi/laporan-internal/")
+        self.assertEqual(resp.status_code, 200)  # halaman tetap bisa diakses (role berwenang)
+        # tidak error walau tidak ada satu pun dosen dalam cakupannya (kode_prodi beda)

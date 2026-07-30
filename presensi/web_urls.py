@@ -41,4 +41,8 @@ urlpatterns = [
     path("laporan-serdos/", views.halaman_laporan_serdos, name="laporan_serdos"),
     path("laporan-serdos/pdf/", views.export_pdf_daftar_hadir_serdos, name="laporan_serdos_pdf"),
     path("laporan-serdos/excel/", views.export_excel_daftar_hadir_serdos, name="laporan_serdos_excel"),
+
+    path("laporan-internal/", views.halaman_laporan_internal, name="laporan_internal"),
+    path("laporan-internal/pdf/", views.export_pdf_laporan_internal, name="laporan_internal_pdf"),
+    path("laporan-internal/excel/", views.export_excel_laporan_internal, name="laporan_internal_excel"),
 ]

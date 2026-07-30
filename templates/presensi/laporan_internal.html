@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Laporan Presensi Internal — SIKD{% endblock %}
+{% block page_title %}Laporan Presensi Internal{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">Laporan Presensi Internal</h3>
+    <p class="text-muted">
+      Rekap jam Masuk &amp; Pulang harian selama sebulan, untuk kebutuhan
+      internal kampus (bukan format LLDIKTI). Bisa difilter per kategori
+      pegawai, fakultas, dan program studi.
+    </p>
+
+    <form method="get">
+      <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3">
+          <label class="form-label">Bulan</label>
+          {{ form.bulan }}
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label">Tahun</label>
+          {{ form.tahun }}
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">Kategori</label>
+          {{ form.kategori }}
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">Fakultas</label>
+          {{ form.fakultas }}
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">Program Studi</label>
+          {{ form.prodi }}
+        </div>
+      </div>
+
+      {% if form.non_field_errors or form.errors %}
+      <div class="alert alert-danger">Periksa kembali isian form.</div>
+      {% endif %}
+
+      <button type="submit" formaction="{% url 'presensi_web:laporan_internal_pdf' %}" class="btn btn-danger">
+        <span class="ti ti-file-type-pdf me-1"></span> Unduh PDF
+      </button>
+      <button type="submit" formaction="{% url 'presensi_web:laporan_internal_excel' %}" class="btn btn-outline-success">
+        <span class="ti ti-file-spreadsheet me-1"></span> Unduh Excel
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

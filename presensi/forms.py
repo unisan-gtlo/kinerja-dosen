@@ -1,6 +1,7 @@
 from django import forms
 
 from accounts.models import ROLE_CHOICES
+from master.models import Fakultas, Prodi
 from .models import HariLibur, IzinCuti, KelompokPresensi, NAMA_BULAN, TargetKerjaBulanan
 
 HARI_CHOICES = [
@@ -116,3 +117,32 @@ class LaporanSerdosForm(forms.Form):
     )
     nama_penandatangan = forms.CharField(required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
     nip_penandatangan = forms.CharField(required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
+
+
+KATEGORI_LAPORAN_INTERNAL_CHOICES = [
+    ("", "Semua Kategori"), ("dosen", "Dosen"), ("pejabat", "Pejabat"), ("tendik", "Tendik"),
+]
+
+
+class LaporanInternalForm(forms.Form):
+    """Filter Laporan Presensi Internal -- lihat presensi/views.py::
+    halaman_laporan_internal. Pilihan Fakultas/Prodi diisi dinamis di
+    __init__ (query saat request, bukan saat modul di-import) supaya
+    daftarnya selalu sesuai data master terbaru."""
+    bulan = forms.ChoiceField(choices=BULAN_CHOICES, widget=forms.Select(attrs={"class": "form-select"}))
+    tahun = forms.IntegerField(widget=forms.NumberInput(attrs={"class": "form-control"}))
+    kategori = forms.ChoiceField(
+        choices=KATEGORI_LAPORAN_INTERNAL_CHOICES, required=False,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    fakultas = forms.ChoiceField(required=False, widget=forms.Select(attrs={"class": "form-select"}))
+    prodi = forms.ChoiceField(required=False, widget=forms.Select(attrs={"class": "form-select"}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["fakultas"].choices = [("", "Semua Fakultas")] + [
+            (f.kode_fakultas, f"{f.kode_fakultas} - {f.nama_fakultas}") for f in Fakultas.objects.all()
+        ]
+        self.fields["prodi"].choices = [("", "Semua Prodi")] + [
+            (p.kode_prodi, f"{p.kode_prodi} - {p.nama_prodi}") for p in Prodi.objects.all()
+        ]

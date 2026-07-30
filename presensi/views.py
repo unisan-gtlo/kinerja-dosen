@@ -22,7 +22,13 @@ from .decision import (
     verifikasi_wajah,
 )
 from .face import VERSI_MODEL_WAJAH, ekstrak_satu_wajah, enkripsi_embedding, rata_rata_embedding
-from .forms import HariLiburForm, IzinCutiForm, KelompokPresensiForm, LaporanSerdosForm, TargetKerjaBulananForm
+from .forms import (
+    HariLiburForm, IzinCutiForm, KelompokPresensiForm, LaporanInternalForm, LaporanSerdosForm,
+    TargetKerjaBulananForm,
+)
+from .laporan_internal import get_user_qs_laporan_internal
+from .laporan_internal_excel import render_excel_laporan_internal
+from .laporan_internal_pdf import render_pdf_laporan_internal
 from .laporan_serdos import data_laporan_serdos
 from .laporan_serdos_excel import render_excel_laporan_serdos
 from .laporan_serdos_pdf import render_pdf_laporan_serdos
@@ -366,6 +372,80 @@ def export_excel_laporan_bulanan(request):
     response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response["Content-Disposition"] = f'attachment; filename="Laporan_Bulanan_{tahun}-{bulan:02d}.xlsx"'
     wb.save(response)
+    return response
+
+
+def _dapatkan_user_qs_dari_form_internal(request, data):
+    """Cakupan (dapat_kelola) + filter kategori/fakultas/prodi -- dipakai
+    bareng oleh halaman & kedua ekspor Laporan Presensi Internal."""
+    return get_user_qs_laporan_internal(
+        _pengguna_dalam_cakupan(request.user),
+        kategori=data.get("kategori", ""), fakultas=data.get("fakultas", ""), prodi=data.get("prodi", ""),
+    )
+
+
+@login_required
+def halaman_laporan_internal(request):
+    """Laporan Presensi Internal (BEDA dari Laporan Bulanan Jam Kerja --
+    ini grid tanggal dengan jam Masuk/Pulang per hari, bukan agregat
+    total jam kerja). Sama seperti Laporan Bulanan: cakupan lintas-
+    pegawai (dosen+staf+pejabat) di-scope lewat dapat_kelola, BUKAN
+    admin-only."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    if "bulan" in request.GET:
+        form = LaporanInternalForm(request.GET)
+    else:
+        hari_ini = timezone.localdate()
+        form = LaporanInternalForm(initial={"bulan": hari_ini.month, "tahun": hari_ini.year})
+
+    return render(request, "presensi/laporan_internal.html", {"form": form})
+
+
+@login_required
+def export_pdf_laporan_internal(request):
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    form = LaporanInternalForm(request.GET)
+    if not form.is_valid():
+        messages.error(request, "Parameter laporan tidak valid, periksa kembali isian form.")
+        return redirect("presensi_web:laporan_internal")
+
+    data = form.cleaned_data
+    bulan, tahun = int(data["bulan"]), data["tahun"]
+    user_qs = _dapatkan_user_qs_dari_form_internal(request, data)
+
+    pdf_bytes = render_pdf_laporan_internal(
+        user_qs, bulan, tahun, kategori=data["kategori"], fakultas=data["fakultas"], prodi=data["prodi"],
+    )
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="Laporan_Presensi_Internal_{tahun}-{bulan:02d}.pdf"'
+    return response
+
+
+@login_required
+def export_excel_laporan_internal(request):
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    form = LaporanInternalForm(request.GET)
+    if not form.is_valid():
+        messages.error(request, "Parameter laporan tidak valid, periksa kembali isian form.")
+        return redirect("presensi_web:laporan_internal")
+
+    data = form.cleaned_data
+    bulan, tahun = int(data["bulan"]), data["tahun"]
+    user_qs = _dapatkan_user_qs_dari_form_internal(request, data)
+
+    buffer = render_excel_laporan_internal(
+        user_qs, bulan, tahun, kategori=data["kategori"], fakultas=data["fakultas"], prodi=data["prodi"],
+    )
+    response = HttpResponse(
+        buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="Laporan_Presensi_Internal_{tahun}-{bulan:02d}.xlsx"'
     return response
 
 
