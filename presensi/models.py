@@ -267,6 +267,31 @@ class EnrolmentWajah(models.Model):
         return get_dosen_by_nidn(self.user.nidn) if self.user else None
 
 
+class ParafDosen(models.Model):
+    """Paraf/tanda tangan digital -- digambar SEKALI lewat canvas (lihat
+    presensi/views.py::halaman_paraf), disimpan sebagai gambar biasa
+    (BUKAN data biometrik seperti EnrolmentWajah, jadi tidak perlu
+    enkripsi Fernet), lalu dipakai berulang (auto-stamp) untuk laporan
+    presensi bertanda-tangan ke LLDIKTI (dasar bukti BKD/serdos dosen).
+
+    Cakupan siapa yang PERLU paraf ini (dosen dengan status serdos
+    disetujui, lihat profil.Sertifikasi) ditentukan di level laporan,
+    BUKAN di model ini -- model ini generik, siapa pun user bisa punya
+    paraf kalau perlu.
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="paraf_presensi")
+    gambar = models.ImageField("Paraf", upload_to="presensi/paraf/%Y/%m/")
+    dibuat = models.DateTimeField(auto_now_add=True)
+    diperbarui = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Paraf Dosen"
+        verbose_name_plural = "Paraf Dosen"
+
+    def __str__(self):
+        return f"Paraf {self.user}"
+
+
 class Presensi(models.Model):
     """Satu baris = satu hari presensi seorang dosen/staf (masuk + pulang)."""
     user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="presensi_set")

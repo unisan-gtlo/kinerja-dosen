@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from .models import (
     LokasiKantor, KelompokPresensi, TargetKerjaBulanan, HariLibur, JadwalKerja, Perangkat, EnrolmentWajah,
-    Presensi, FotoPresensi, QRToken, IzinCuti, LogKecurangan,
+    ParafDosen, Presensi, FotoPresensi, QRToken, IzinCuti, LogKecurangan,
 )
 
 
@@ -55,6 +55,13 @@ class EnrolmentWajahAdmin(admin.ModelAdmin):
     list_filter = ['consent_disetujui']
     search_fields = ['user__username', 'user__nidn']
     exclude = ['embedding_terenkripsi']
+    readonly_fields = ['dibuat', 'diperbarui']
+
+
+@admin.register(ParafDosen)
+class ParafDosenAdmin(admin.ModelAdmin):
+    list_display = ['user', 'dibuat', 'diperbarui']
+    search_fields = ['user__username', 'user__nidn']
     readonly_fields = ['dibuat', 'diperbarui']
 
 

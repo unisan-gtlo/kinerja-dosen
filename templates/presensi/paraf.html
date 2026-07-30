@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Paraf Digital — SIKD{% endblock %}
+{% block page_title %}Paraf Digital{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12 col-md-8 col-lg-6 mx-auto">
+    <div class="card">
+      <div class="card-body">
+        <h3 class="card-title">Paraf Digital</h3>
+        <p class="text-muted">
+          Gambar paraf/tanda tangan Anda sekali di sini. Paraf ini akan
+          otomatis dipakai untuk mengisi kolom paraf di laporan presensi
+          bulanan (dasar bukti kehadiran, mis. untuk pelaporan LLDIKTI).
+          Anda bisa menggantinya kapan saja.
+        </p>
+
+        <div id="area-paraf-tersimpan" class="{% if not paraf %}d-none{% endif %} mb-3">
+          <div class="text-muted small mb-1">Paraf tersimpan saat ini:</div>
+          <div class="border rounded p-2 d-inline-block bg-white">
+            {% if paraf %}<img id="pratinjau-paraf-tersimpan" src="{{ paraf.gambar.url }}" style="height:80px;">{% endif %}
+          </div>
+          <div class="mt-2">
+            <button id="btn-gambar-ulang" class="btn btn-outline-primary btn-sm">
+              <span class="ti ti-pencil me-1"></span> Gambar Ulang
+            </button>
+          </div>
+        </div>
+
+        <div id="area-canvas" class="{% if paraf %}d-none{% endif %}">
+          <div class="text-muted small mb-1">Gambar paraf Anda di kotak ini (pakai mouse atau jari):</div>
+          <canvas id="kanvas-paraf" width="500" height="200"
+                  style="border:1px dashed #b7c1cf;border-radius:8px;background:#fff;width:100%;max-width:500px;height:200px;touch-action:none;cursor:crosshair;"></canvas>
+
+          <div class="d-flex gap-2 mt-2">
+            <button id="btn-hapus-canvas" class="btn btn-outline-secondary btn-sm">
+              <span class="ti ti-eraser me-1"></span> Hapus
+            </button>
+          </div>
+
+          <div id="paraf-pesan" class="alert d-none mt-3" role="alert"></div>
+
+          <div class="mt-3">
+            <button id="btn-simpan-paraf" class="btn btn-success">
+              <span class="ti ti-check me-1"></span> Simpan Paraf
+            </button>
+            {% if paraf %}
+            <button id="btn-batal-gambar" class="btn btn-outline-secondary">Batal</button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% include 'presensi/_bottom_nav.html' %}
+  </div>
+</div>
+
+{% csrf_token %}
+
+<script>
+(function () {
+  const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+  const kanvas = document.getElementById('kanvas-paraf');
+  const ctx = kanvas.getContext('2d');
+  const btnHapus = document.getElementById('btn-hapus-canvas');
+  const btnSimpan = document.getElementById('btn-simpan-paraf');
+  const btnGambarUlang = document.getElementById('btn-gambar-ulang');
+  const btnBatalGambar = document.getElementById('btn-batal-gambar');
+  const areaTersimpan = document.getElementById('area-paraf-tersimpan');
+  const areaCanvas = document.getElementById('area-canvas');
+  const pesanEl = document.getElementById('paraf-pesan');
+
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#1e3a5f';
+
+  let menggambar = false;
+  let sudahMenggambar = false;
+
+  function posisiDariEvent(e) {
+    const rect = kanvas.getBoundingClientRect();
+    const scaleX = kanvas.width / rect.width;
+    const scaleY = kanvas.height / rect.height;
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  }
+
+  kanvas.addEventListener('pointerdown', function (e) {
+    menggambar = true;
+    sudahMenggambar = true;
+    const p = posisiDariEvent(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    kanvas.setPointerCapture(e.pointerId);
+  });
+
+  kanvas.addEventListener('pointermove', function (e) {
+    if (!menggambar) return;
+    const p = posisiDariEvent(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  });
+
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (evt) {
+    kanvas.addEventListener(evt, function () { menggambar = false; });
+  });
+
+  function bersihkanCanvas() {
+    ctx.clearRect(0, 0, kanvas.width, kanvas.height);
+    sudahMenggambar = false;
+  }
+
+  btnHapus.addEventListener('click', bersihkanCanvas);
+
+  function tampilkanPesan(teks, jenis) {
+    pesanEl.className = 'alert alert-' + jenis;
+    pesanEl.textContent = teks;
+    pesanEl.classList.remove('d-none');
+  }
+
+  if (btnGambarUlang) {
+    btnGambarUlang.addEventListener('click', function () {
+      areaTersimpan.classList.add('d-none');
+      areaCanvas.classList.remove('d-none');
+      bersihkanCanvas();
+    });
+  }
+
+  if (btnBatalGambar) {
+    btnBatalGambar.addEventListener('click', function () {
+      areaCanvas.classList.add('d-none');
+      areaTersimpan.classList.remove('d-none');
+    });
+  }
+
+  btnSimpan.addEventListener('click', function () {
+    if (!sudahMenggambar) {
+      tampilkanPesan('Gambar paraf Anda dulu sebelum menyimpan.', 'warning');
+      return;
+    }
+    btnSimpan.disabled = true;
+    kanvas.toBlob(async function (blob) {
+      const formData = new FormData();
+      formData.append('gambar', blob, 'paraf.png');
+      try {
+        const resp = await fetch('/api/presensi/paraf', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'X-CSRFToken': csrfToken },
+          body: formData,
+        });
+        if (resp.ok) {
+          tampilkanPesan('Paraf berhasil disimpan.', 'success');
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          tampilkanPesan('Gagal menyimpan paraf, coba lagi.', 'danger');
+          btnSimpan.disabled = false;
+        }
+      } catch (e) {
+        tampilkanPesan('Terjadi kesalahan: ' + e.message, 'danger');
+        btnSimpan.disabled = false;
+      }
+    }, 'image/png');
+  });
+})();
+</script>
+{% endblock %}

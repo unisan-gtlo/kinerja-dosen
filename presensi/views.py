@@ -24,13 +24,13 @@ from .face import VERSI_MODEL_WAJAH, ekstrak_satu_wajah, enkripsi_embedding, rat
 from .forms import HariLiburForm, IzinCutiForm, KelompokPresensiForm, TargetKerjaBulananForm
 from .models import (
     BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN, EnrolmentWajah, HariLibur, IzinCuti, KelompokPresensi, LogKecurangan,
-    Perangkat, Presensi, StatusApprovalLembur, StatusPresensi, TargetKerjaBulanan, TingkatRisiko,
+    ParafDosen, Perangkat, Presensi, StatusApprovalLembur, StatusPresensi, TargetKerjaBulanan, TingkatRisiko,
 )
 from .rekap import (
     data_presensi_harian, laporan_bulanan_jam_kerja, rekap_bulanan_user, ringkasan_hari_ini, top_telat_hari_ini,
     tren_mingguan,
 )
-from .serializers import AbsenSerializer, EnrolmentWajahSerializer
+from .serializers import AbsenSerializer, EnrolmentWajahSerializer, ParafSerializer
 
 # Sama seperti accounts/views.py::ROLE_PENGELOLA_SCOPED -- peran yang boleh
 # mengelola dosen dalam cakupannya sendiri (fakultas/prodi), dipakai di sini
@@ -76,6 +76,15 @@ def halaman_enrolment(request):
     lewat kamera browser + persetujuan (consent), kirim ke
     /api/presensi/enrolment-wajah lewat sesi Django yang sudah login."""
     return render(request, "presensi/enrolment.html")
+
+
+@login_required
+def halaman_paraf(request):
+    """Halaman web pembuatan paraf digital (canvas signature pad) --
+    dasar bukti tanda tangan kehadiran untuk laporan ke LLDIKTI (dosen
+    serdos). Lihat presensi/models.py::ParafDosen."""
+    paraf = ParafDosen.objects.filter(user=request.user).first()
+    return render(request, "presensi/paraf.html", {"paraf": paraf})
 
 
 # Service worker minimal, sengaja TANPA caching berat -- halaman presensi
@@ -776,6 +785,23 @@ class EnrolmentWajahView(APIView):
         )
 
         return Response({"status": "ok", "versi_model": VERSI_MODEL_WAJAH, "consent_pada": waktu})
+
+
+class ParafDosenView(APIView):
+    """POST /api/presensi/paraf — simpan/ganti paraf digital (gambar hasil
+    canvas). Sekali gambar, dipakai berulang (auto-stamp) untuk laporan
+    presensi bertanda-tangan ke LLDIKTI -- lihat presensi/models.py::
+    ParafDosen."""
+    throttle_classes = [PresensiRateThrottle]
+
+    def post(self, request):
+        serializer = ParafSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        ParafDosen.objects.update_or_create(
+            user=request.user, defaults={"gambar": serializer.validated_data["gambar"]},
+        )
+        return Response({"status": "ok"})
 
 
 class StatusHariIniView(APIView):

@@ -20,8 +20,8 @@ from .face import dekripsi_embedding, ekstrak_satu_wajah, enkripsi_embedding, ke
 from .geo import dalam_radius, jarak_meter
 from .models import (
     BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN, EnrolmentWajah, HariLibur, IzinCuti, KelompokPresensi, LogKecurangan,
-    LokasiKantor, Perangkat, Presensi, StatusApprovalLembur, StatusPresensi, TargetKerjaBulanan, TingkatRisiko,
-    format_jam_menit,
+    LokasiKantor, ParafDosen, Perangkat, Presensi, StatusApprovalLembur, StatusPresensi, TargetKerjaBulanan,
+    TingkatRisiko, format_jam_menit,
 )
 from .rekap import data_presensi_harian, rekap_bulanan_user, ringkasan_hari_ini, top_telat_hari_ini, tren_mingguan
 from .utils import get_dosen_by_nidn
@@ -749,6 +749,66 @@ class EnrolmentWajahAPITest(APITestCase):
             format="multipart",
         )
         self.assertEqual(resp.status_code, 400)
+
+
+class ParafDosenAPITest(APITestCase):
+    """Endpoint POST /api/presensi/paraf -- simpan/ganti paraf digital."""
+
+    def setUp(self):
+        self.user = _buat_dosen_user()
+        self.client.force_authenticate(user=self.user)
+
+    def test_simpan_paraf_baru(self):
+        resp = self.client.post(
+            "/api/presensi/paraf", {"gambar": _foto_palsu("paraf.png")}, format="multipart",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["status"], "ok")
+        self.assertTrue(ParafDosen.objects.filter(user=self.user).exists())
+
+    def test_ganti_paraf_yang_sudah_ada(self):
+        self.client.post("/api/presensi/paraf", {"gambar": _foto_palsu("paraf1.png")}, format="multipart")
+        paraf_pertama = ParafDosen.objects.get(user=self.user)
+        nama_file_pertama = paraf_pertama.gambar.name
+
+        self.client.post("/api/presensi/paraf", {"gambar": _foto_palsu("paraf2.png")}, format="multipart")
+        self.assertEqual(ParafDosen.objects.filter(user=self.user).count(), 1)
+        paraf_pertama.refresh_from_db()
+        self.assertNotEqual(paraf_pertama.gambar.name, nama_file_pertama)
+
+    def test_tanpa_gambar_ditolak(self):
+        resp = self.client.post("/api/presensi/paraf", {}, format="multipart")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_tanpa_autentikasi_ditolak(self):
+        self.client.force_authenticate(user=None)
+        resp = self.client.post(
+            "/api/presensi/paraf", {"gambar": _foto_palsu("paraf.png")}, format="multipart",
+        )
+        self.assertEqual(resp.status_code, 401)
+
+
+class HalamanParafViewTest(TestCase):
+    """Halaman web /presensi/paraf/."""
+
+    def setUp(self):
+        self.user = _buat_dosen_user()
+
+    def test_tanpa_login_dialihkan(self):
+        resp = self.client.get("/presensi/paraf/")
+        self.assertEqual(resp.status_code, 302)
+
+    def test_sudah_login_bisa_akses_tanpa_paraf(self):
+        self.client.force_login(self.user)
+        resp = self.client.get("/presensi/paraf/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(resp.context["paraf"])
+
+    def test_menampilkan_paraf_tersimpan(self):
+        ParafDosen.objects.create(user=self.user, gambar=_foto_palsu("paraf.png"))
+        self.client.force_login(self.user)
+        resp = self.client.get("/presensi/paraf/")
+        self.assertIsNotNone(resp.context["paraf"])
 
 
 class HalamanAbsenViewTest(TestCase):

@@ -34,3 +34,9 @@ class EnrolmentWajahSerializer(serializers.Serializer):
                 "Persetujuan pemrosesan data wajah (consent) wajib disetujui untuk mendaftarkan wajah."
             )
         return value
+
+
+class ParafSerializer(serializers.Serializer):
+    """Dipakai untuk POST /api/presensi/paraf -- simpan/ganti paraf
+    digital (gambar hasil canvas, dikirim sebagai file PNG biasa)."""
+    gambar = serializers.ImageField()

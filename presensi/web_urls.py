@@ -7,6 +7,7 @@ app_name = "presensi_web"
 urlpatterns = [
     path("", views.halaman_absen, name="index"),
     path("enrolment/", views.halaman_enrolment, name="enrolment"),
+    path("paraf/", views.halaman_paraf, name="paraf"),
     path("dashboard/", views.dashboard_presensi, name="dashboard"),
     path("data/", views.data_presensi, name="data"),
     path("data/ekspor/", views.export_excel_presensi, name="data_ekspor"),
