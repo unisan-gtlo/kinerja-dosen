@@ -598,3 +598,69 @@ class MahasiswaPublik(models.Model):
 
     def __str__(self):
         return f'{self.nim} — {self.nama_lengkap}'
+
+
+class JabatanStruktural(models.Model):
+    """Read-only, sumbernya master.jabatan_struktural (tabel mentah --
+    bukan data pribadi/sensitif, sama seperti master.mata_kuliah, jadi
+    tidak perlu view tersaring). Dipakai untuk cari nama jabatan (mis.
+    "Rektor") lewat PejabatStruktural -- lihat
+    tambah_akses_pejabat_struktural.sql (repo SIMDA) untuk grant-nya."""
+    LINGKUP = [
+        ('universitas', 'Universitas'), ('fakultas', 'Fakultas'),
+        ('prodi', 'Program Studi'), ('unit', 'Unit Kerja'),
+    ]
+
+    kode = models.CharField(max_length=20, unique=True)
+    nama = models.CharField(max_length=100)
+    singkatan = models.CharField(max_length=20, blank=True)
+    level = models.IntegerField(help_text='1=Rektorat, 2=Dekan, 3=Kaprodi, 4=Kepala Unit')
+    lingkup = models.CharField(max_length=20, choices=LINGKUP)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = 'master"."jabatan_struktural'
+        verbose_name = 'Jabatan Struktural (SIMDA)'
+        verbose_name_plural = 'Jabatan Struktural (SIMDA)'
+        ordering = ['level']
+
+    def __str__(self):
+        return self.nama
+
+
+class PejabatStruktural(models.Model):
+    """Read-only, sumbernya master.pejabat_struktural. Dipakai untuk
+    mengambil otomatis nama+NIP+gambar tanda tangan pejabat aktif (mis.
+    Rektor) untuk blok tanda tangan di laporan resmi (lihat
+    presensi/laporan_serdos.py). `tendik` SENGAJA cuma disimpan sebagai
+    id mentah (bukan FK penuh) -- belum ada model DataTendik yang
+    di-mirror di SIKD, dan pemakaian saat ini (cari Rektor) hampir pasti
+    seorang dosen, bukan tendik."""
+    jabatan = models.ForeignKey(JabatanStruktural, on_delete=models.DO_NOTHING, related_name='pejabat')
+    dosen = models.ForeignKey(
+        DataDosen, on_delete=models.DO_NOTHING, null=True, blank=True, related_name='jabatan_struktural',
+    )
+    tendik_id = models.IntegerField(null=True, blank=True)
+    kode_fakultas = models.CharField(max_length=10, blank=True)
+    kode_prodi = models.CharField(max_length=10, blank=True)
+    tgl_mulai = models.DateField()
+    tgl_selesai = models.DateField(null=True, blank=True)
+    is_aktif = models.BooleanField(default=True)
+    file_ttd = models.ImageField(
+        upload_to='pejabat/ttd/', null=True, blank=True, storage=simda_media_storage,
+        verbose_name='File Tanda Tangan',
+    )
+    lebar_ttd = models.IntegerField(default=60, verbose_name='Lebar TTD (mm)')
+    tinggi_ttd = models.IntegerField(default=25, verbose_name='Tinggi TTD (mm)')
+
+    class Meta:
+        managed = False
+        db_table = 'master"."pejabat_struktural'
+        verbose_name = 'Pejabat Struktural (SIMDA)'
+        verbose_name_plural = 'Pejabat Struktural (SIMDA)'
+        ordering = ['jabatan__level', '-tgl_mulai']
+
+    def __str__(self):
+        nama = self.dosen.nama_lengkap if self.dosen else f'tendik #{self.tendik_id}'
+        return f'{self.jabatan.nama} — {nama}'

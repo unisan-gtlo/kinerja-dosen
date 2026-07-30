@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Urutan Laporan Serdos — SIKD{% endblock %}
+{% block page_title %}Pengaturan Presensi{% endblock %}
+
+{% block content %}
+{% include 'presensi/_pengaturan_nav.html' with aktif='urutan_serdos' %}
+
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">Urutan Laporan Daftar Hadir Dosen Serdos</h3>
+    <p class="text-muted">
+      Atur nomor urut dosen di Laporan Daftar Hadir Dosen Serdos (LLDIKTI) --
+      urutan resmi kepegawaian, bukan alfabetis. Kosongkan angka untuk
+      dosen yang belum ditentukan urutannya (akan ditaruh di akhir daftar).
+    </p>
+
+    {% if not daftar %}
+    <div class="alert alert-info">
+      <span class="ti ti-info-circle me-1"></span>
+      Belum ada dosen dengan status Sertifikasi Dosen (Serdos) yang disetujui.
+    </div>
+    {% else %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th class="w-1">No. Urut</th>
+              <th>Nama</th>
+              <th>NIDN</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in daftar %}
+            <tr>
+              <td>
+                <input type="number" min="1" name="urutan_{{ item.user.id }}"
+                       value="{{ item.urutan|default_if_none:'' }}"
+                       class="form-control form-control-sm" style="width:80px;">
+              </td>
+              <td>{{ item.user.get_full_name|default:item.user.username }}</td>
+              <td>{{ item.user.nidn|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <button type="submit" class="btn btn-primary">Simpan Urutan</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

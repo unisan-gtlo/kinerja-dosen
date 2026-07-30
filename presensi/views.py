@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 import openpyxl
 from django.contrib import messages
@@ -16,21 +16,27 @@ from rest_framework.views import APIView
 
 from accounts.models import User
 from laporan.views import get_dosen_queryset
+from simda_dosen.utils import get_pejabat_aktif
 from .decision import (
     cek_lokasi, hitung_ketepatan_masuk, hitung_ketepatan_pulang, resolve_kelompok, tentukan_status_waktu,
     verifikasi_wajah,
 )
 from .face import VERSI_MODEL_WAJAH, ekstrak_satu_wajah, enkripsi_embedding, rata_rata_embedding
-from .forms import HariLiburForm, IzinCutiForm, KelompokPresensiForm, TargetKerjaBulananForm
+from .forms import HariLiburForm, IzinCutiForm, KelompokPresensiForm, LaporanSerdosForm, TargetKerjaBulananForm
+from .laporan_serdos import data_laporan_serdos
+from .laporan_serdos_excel import render_excel_laporan_serdos
+from .laporan_serdos_pdf import render_pdf_laporan_serdos
 from .models import (
     BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN, EnrolmentWajah, HariLibur, IzinCuti, KelompokPresensi, LogKecurangan,
     ParafDosen, Perangkat, Presensi, StatusApprovalLembur, StatusPresensi, TargetKerjaBulanan, TingkatRisiko,
+    UrutanSerdos,
 )
 from .rekap import (
     data_presensi_harian, laporan_bulanan_jam_kerja, rekap_bulanan_user, ringkasan_hari_ini, top_telat_hari_ini,
     tren_mingguan,
 )
 from .serializers import AbsenSerializer, EnrolmentWajahSerializer, ParafSerializer
+from .utils import get_dosen_serdos_qs
 
 # Sama seperti accounts/views.py::ROLE_PENGELOLA_SCOPED -- peran yang boleh
 # mengelola dosen dalam cakupannya sendiri (fakultas/prodi), dipakai di sini
@@ -970,3 +976,137 @@ def hapus_target(request, target_id):
     target.delete()
     messages.success(request, "Target kerja bulanan berhasil dihapus.")
     return redirect("presensi_web:pengaturan_target")
+
+
+@login_required
+def pengaturan_urutan_serdos(request):
+    """Atur nomor urut dosen serdos untuk Laporan Daftar Hadir Dosen Serdos
+    (LLDIKTI) -- urutan resmi kepegawaian tidak tersimpan di data mana
+    pun, jadi diatur manual di sini. Satu form besar (bukan tambah/ubah
+    per baris) supaya HR bisa isi semua sekaligus -- lihat
+    presensi/utils.py::get_dosen_serdos_qs untuk cakupannya."""
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    dosen_serdos = list(get_dosen_serdos_qs().order_by("first_name", "username"))
+
+    if request.method == "POST":
+        for u in dosen_serdos:
+            nilai = request.POST.get(f"urutan_{u.id}", "").strip()
+            if nilai.isdigit():
+                UrutanSerdos.objects.update_or_create(user=u, defaults={"urutan": int(nilai)})
+            else:
+                UrutanSerdos.objects.filter(user=u).delete()
+        messages.success(request, "Urutan laporan serdos berhasil disimpan.")
+        return redirect("presensi_web:pengaturan_urutan_serdos")
+
+    urutan_map = {us.user_id: us.urutan for us in UrutanSerdos.objects.filter(user__in=dosen_serdos)}
+    daftar = [{"user": u, "urutan": urutan_map.get(u.id)} for u in dosen_serdos]
+    daftar.sort(key=lambda d: (d["urutan"] is None, d["urutan"] or 0))
+
+    return render(request, "presensi/pengaturan_urutan_serdos.html", {"daftar": daftar})
+
+
+def _default_parameter_laporan_serdos():
+    """Nilai awal form Laporan Daftar Hadir Serdos: bulan/tahun berjalan,
+    tanggal cetak default tanggal 1 bulan BERIKUTNYA (pola yang terlihat
+    di contoh dokumen fisik -- laporan bulan berjalan ditandatangani awal
+    bulan depan), dan nama/NIP penandatangan diambil otomatis dari
+    Pejabat Struktural SIMDA kalau ketemu."""
+    hari_ini = timezone.localdate()
+    if hari_ini.month == 12:
+        tanggal_cetak_default = date(hari_ini.year + 1, 1, 1)
+    else:
+        tanggal_cetak_default = date(hari_ini.year, hari_ini.month + 1, 1)
+
+    pejabat = get_pejabat_aktif("Rektor")
+    nama_default = pejabat.dosen.nama_lengkap_gelar if pejabat and pejabat.dosen else ""
+    nip_default = pejabat.dosen.nip if pejabat and pejabat.dosen else ""
+
+    return {
+        "bulan": hari_ini.month, "tahun": hari_ini.year, "kota": "Gorontalo",
+        "tanggal_cetak": tanggal_cetak_default, "jabatan_penandatangan": "Rektor",
+        "nama_penandatangan": nama_default, "nip_penandatangan": nip_default,
+    }
+
+
+def _resolve_penandatangan(data):
+    """Nama/NIP dari isian form (kalau diisi manual), fallback ke data
+    Pejabat Struktural SIMDA untuk jabatan itu. Gambar tanda tangan
+    SELALU ikut jabatan (bukan nama yang diketik) -- kalau HR cuma benerin
+    typo gelar di form, tanda tangan yang benar tetap terpasang."""
+    pejabat = get_pejabat_aktif(data["jabatan_penandatangan"])
+    nama = data["nama_penandatangan"] or (pejabat.dosen.nama_lengkap_gelar if pejabat and pejabat.dosen else "")
+    nip = data["nip_penandatangan"] or (pejabat.dosen.nip if pejabat and pejabat.dosen else "")
+    file_ttd = pejabat.file_ttd if pejabat else None
+    return nama, nip, file_ttd
+
+
+@login_required
+def halaman_laporan_serdos(request):
+    """Halaman generate Laporan Daftar Hadir Dosen Serdos (LLDIKTI) --
+    admin-only, sama seperti pengaturan lain. Tombol unduh PDF/Excel
+    pakai formaction supaya satu form bisa kirim ke dua endpoint beda
+    tergantung tombol yang diklik (lihat templates/presensi/
+    laporan_serdos.html)."""
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    if "bulan" in request.GET:
+        form = LaporanSerdosForm(request.GET)
+    else:
+        form = LaporanSerdosForm(initial=_default_parameter_laporan_serdos())
+
+    return render(request, "presensi/laporan_serdos.html", {
+        "form": form, "jumlah_dosen_serdos": get_dosen_serdos_qs().count(),
+    })
+
+
+@login_required
+def export_pdf_daftar_hadir_serdos(request):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    form = LaporanSerdosForm(request.GET)
+    if not form.is_valid():
+        messages.error(request, "Parameter laporan tidak valid, periksa kembali isian form.")
+        return redirect("presensi_web:laporan_serdos")
+
+    data = form.cleaned_data
+    bulan, tahun = int(data["bulan"]), data["tahun"]
+    nama, nip, file_ttd = _resolve_penandatangan(data)
+
+    pdf_bytes = render_pdf_laporan_serdos(
+        bulan=bulan, tahun=tahun, kota=data["kota"], tanggal_cetak=data["tanggal_cetak"],
+        jabatan_penandatangan=data["jabatan_penandatangan"], nama_penandatangan=nama,
+        nip_penandatangan=nip, file_ttd_penandatangan=file_ttd,
+    )
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="Daftar_Hadir_Serdos_{tahun}-{bulan:02d}.pdf"'
+    return response
+
+
+@login_required
+def export_excel_daftar_hadir_serdos(request):
+    if not _bisa_kelola_pengaturan_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    form = LaporanSerdosForm(request.GET)
+    if not form.is_valid():
+        messages.error(request, "Parameter laporan tidak valid, periksa kembali isian form.")
+        return redirect("presensi_web:laporan_serdos")
+
+    data = form.cleaned_data
+    bulan, tahun = int(data["bulan"]), data["tahun"]
+    nama, nip, file_ttd = _resolve_penandatangan(data)
+
+    buffer = render_excel_laporan_serdos(
+        bulan=bulan, tahun=tahun, kota=data["kota"], tanggal_cetak=data["tanggal_cetak"],
+        jabatan_penandatangan=data["jabatan_penandatangan"], nama_penandatangan=nama,
+        nip_penandatangan=nip, file_ttd_penandatangan=file_ttd,
+    )
+    response = HttpResponse(
+        buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="Daftar_Hadir_Serdos_{tahun}-{bulan:02d}.xlsx"'
+    return response

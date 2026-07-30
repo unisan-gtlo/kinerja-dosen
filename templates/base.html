@@ -474,6 +474,13 @@
             </a>
           </li>
           <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'laporan_serdos' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+               href="{% url 'presensi_web:laporan_serdos' %}">
+              <span class="nav-link-icon"><span class="ti ti-writing-sign"></span></span>
+              <span class="nav-link-title">Laporan Daftar Hadir Serdos</span>
+            </a>
+          </li>
+          <li class="nav-item">
             <a class="nav-link {% if 'log-aktivitas' in request.path %}active{% endif %}"
               href="{% url 'accounts:log_aktivitas' %}">
               <span class="nav-link-icon"><span class="ti ti-shield-search"></span></span>

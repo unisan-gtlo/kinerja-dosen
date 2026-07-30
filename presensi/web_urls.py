@@ -36,4 +36,9 @@ urlpatterns = [
     path("pengaturan/target/tambah/", views.tambah_target, name="tambah_target"),
     path("pengaturan/target/<int:target_id>/ubah/", views.ubah_target, name="ubah_target"),
     path("pengaturan/target/<int:target_id>/hapus/", views.hapus_target, name="hapus_target"),
+    path("pengaturan/urutan-serdos/", views.pengaturan_urutan_serdos, name="pengaturan_urutan_serdos"),
+
+    path("laporan-serdos/", views.halaman_laporan_serdos, name="laporan_serdos"),
+    path("laporan-serdos/pdf/", views.export_pdf_daftar_hadir_serdos, name="laporan_serdos_pdf"),
+    path("laporan-serdos/excel/", views.export_excel_daftar_hadir_serdos, name="laporan_serdos_excel"),
 ]

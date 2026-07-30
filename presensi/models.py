@@ -292,6 +292,28 @@ class ParafDosen(models.Model):
         return f"Paraf {self.user}"
 
 
+class UrutanSerdos(models.Model):
+    """Nomor urut dosen di Laporan Daftar Hadir Dosen Serdos (LLDIKTI) --
+    laporan resmi ini mengikuti urutan SK/kepegawaian tersendiri (BUKAN
+    alfabetis nama/NIDN), yang tidak tersimpan di data mana pun di SIKD
+    maupun SIMDA, jadi diatur manual admin lewat halaman Pengaturan
+    Presensi (lihat presensi/views.py::pengaturan_urutan_serdos).
+
+    Cakupan siapa yang PERLU diatur urutannya (dosen serdos disetujui,
+    lihat profil.Sertifikasi) ditentukan di level laporan, bukan di
+    model ini."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="urutan_serdos")
+    urutan = models.PositiveIntegerField("Nomor urut")
+
+    class Meta:
+        verbose_name = "Urutan Laporan Serdos"
+        verbose_name_plural = "Urutan Laporan Serdos"
+        ordering = ["urutan"]
+
+    def __str__(self):
+        return f"#{self.urutan} — {self.user}"
+
+
 class Presensi(models.Model):
     """Satu baris = satu hari presensi seorang dosen/staf (masuk + pulang)."""
     user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="presensi_set")

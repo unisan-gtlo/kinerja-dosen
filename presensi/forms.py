@@ -98,3 +98,21 @@ class TargetKerjaBulananForm(forms.ModelForm):
             "target_hari_kerja": forms.NumberInput(attrs={"class": "form-control"}),
             "target_jam_kerja": forms.NumberInput(attrs={"class": "form-control", "step": "0.5"}),
         }
+
+
+class LaporanSerdosForm(forms.Form):
+    """Parameter Laporan Daftar Hadir Dosen Serdos (LLDIKTI) -- lihat
+    presensi/views.py::halaman_laporan_serdos. Nama/NIP penandatangan
+    diisi otomatis dari data Pejabat Struktural SIMDA kalau ketemu (lihat
+    simda_dosen/utils.py::get_pejabat_aktif), tapi tetap bisa diedit
+    manual (mis. kalau mau ditandatangani pejabat lain, atau data SIMDA
+    belum lengkap)."""
+    bulan = forms.ChoiceField(choices=BULAN_CHOICES, widget=forms.Select(attrs={"class": "form-select"}))
+    tahun = forms.IntegerField(widget=forms.NumberInput(attrs={"class": "form-control"}))
+    kota = forms.CharField(initial="Gorontalo", widget=forms.TextInput(attrs={"class": "form-control"}))
+    tanggal_cetak = forms.DateField(widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}))
+    jabatan_penandatangan = forms.CharField(
+        initial="Rektor", widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    nama_penandatangan = forms.CharField(required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
+    nip_penandatangan = forms.CharField(required=False, widget=forms.TextInput(attrs={"class": "form-control"}))

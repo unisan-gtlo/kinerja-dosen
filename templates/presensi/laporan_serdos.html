@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Laporan Daftar Hadir Serdos — SIKD{% endblock %}
+{% block page_title %}Laporan Daftar Hadir Dosen Serdos{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">Laporan Daftar Hadir Dosen Serdos (LLDIKTI)</h3>
+    <p class="text-muted">
+      Laporan bulanan untuk dosen dengan Sertifikasi Dosen (Serdos) yang
+      sudah disetujui ({{ jumlah_dosen_serdos }} dosen saat ini). Paraf
+      diambil otomatis dari paraf digital yang sudah disimpan tiap dosen
+      (lihat menu "Paraf Digital"). Atur urutan baris di
+      <a href="{% url 'presensi_web:pengaturan_urutan_serdos' %}">Pengaturan Presensi &rsaquo; Urutan Laporan Serdos</a>.
+    </p>
+
+    <form method="get">
+      <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3">
+          <label class="form-label">Bulan</label>
+          {{ form.bulan }}
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label">Tahun</label>
+          {{ form.tahun }}
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label">Kota</label>
+          {{ form.kota }}
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label">Tanggal Cetak</label>
+          {{ form.tanggal_cetak }}
+        </div>
+      </div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-12 col-md-4">
+          <label class="form-label">Jabatan Penandatangan</label>
+          {{ form.jabatan_penandatangan }}
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">Nama Penandatangan</label>
+          {{ form.nama_penandatangan }}
+          <div class="form-text">Kosongkan untuk otomatis dari data Pejabat Struktural SIMDA.</div>
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">NIP Penandatangan</label>
+          {{ form.nip_penandatangan }}
+        </div>
+      </div>
+
+      {% if form.non_field_errors or form.errors %}
+      <div class="alert alert-danger">Periksa kembali isian form.</div>
+      {% endif %}
+
+      <button type="submit" formaction="{% url 'presensi_web:laporan_serdos_pdf' %}" class="btn btn-danger">
+        <span class="ti ti-file-type-pdf me-1"></span> Unduh PDF
+      </button>
+      <button type="submit" formaction="{% url 'presensi_web:laporan_serdos_excel' %}" class="btn btn-outline-success">
+        <span class="ti ti-file-spreadsheet me-1"></span> Unduh Excel
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

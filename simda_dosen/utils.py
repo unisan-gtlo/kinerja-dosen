@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect
 
 from .models import (
     DataDosen, BidangKeahlian, BidangKeahlianPublik, GolonganPublik,
-    JenisKepegawaianPublik, StatusKepegawaianPublik,
+    JenisKepegawaianPublik, PejabatStruktural, StatusKepegawaianPublik,
 )
 
 
@@ -180,3 +180,19 @@ def resolve_target_user(request, dosen_id, redirect_url_name):
         messages.error(request, 'Anda tidak memiliki akses untuk mengelola data dosen ini.')
         return None, redirect(redirect_url_name)
     return target_user, None
+
+
+def get_pejabat_aktif(nama_jabatan):
+    """Cari pejabat struktural yang SEDANG aktif menjabat `nama_jabatan`
+    (mis. "Rektor") -- dipakai untuk mengambil otomatis nama+NIP+gambar
+    tanda tangan (file_ttd) buat blok tanda tangan laporan resmi (lihat
+    presensi/laporan_serdos.py). Return None kalau belum di-setup di
+    SIMDA (mis. akses master.pejabat_struktural belum di-grant, lihat
+    tambah_akses_pejabat_struktural.sql di repo SIMDA) atau memang belum
+    ada baris aktif untuk jabatan itu."""
+    return (
+        PejabatStruktural.objects.using('simda')
+        .filter(jabatan__nama__iexact=nama_jabatan, is_aktif=True)
+        .select_related('jabatan', 'dosen')
+        .first()
+    )

@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from .models import (
     LokasiKantor, KelompokPresensi, TargetKerjaBulanan, HariLibur, JadwalKerja, Perangkat, EnrolmentWajah,
-    ParafDosen, Presensi, FotoPresensi, QRToken, IzinCuti, LogKecurangan,
+    ParafDosen, Presensi, FotoPresensi, QRToken, IzinCuti, LogKecurangan, UrutanSerdos,
 )
 
 
@@ -63,6 +63,13 @@ class ParafDosenAdmin(admin.ModelAdmin):
     list_display = ['user', 'dibuat', 'diperbarui']
     search_fields = ['user__username', 'user__nidn']
     readonly_fields = ['dibuat', 'diperbarui']
+
+
+@admin.register(UrutanSerdos)
+class UrutanSerdosAdmin(admin.ModelAdmin):
+    list_display = ['urutan', 'user']
+    search_fields = ['user__username', 'user__nidn']
+    ordering = ['urutan']
 
 
 @admin.register(Presensi)

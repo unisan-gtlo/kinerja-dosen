@@ -1,5 +1,5 @@
 import io
-from datetime import datetime as dt, time as dt_time
+from datetime import date, datetime as dt, time as dt_time
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
@@ -12,19 +12,22 @@ from PIL import Image
 from rest_framework.test import APITestCase
 
 from accounts.models import User
+from profil.models import Sertifikasi
+from simda_dosen.utils import get_pejabat_aktif
 from .decision import (
     HasilCekWajah, hitung_ketepatan_masuk, hitung_ketepatan_pulang, resolve_kelompok, tentukan_status_waktu,
     verifikasi_wajah,
 )
 from .face import dekripsi_embedding, ekstrak_satu_wajah, enkripsi_embedding, kemiripan_kosinus
 from .geo import dalam_radius, jarak_meter
+from .laporan_serdos import data_laporan_serdos, jenis_tanggal_bulan
 from .models import (
     BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN, EnrolmentWajah, HariLibur, IzinCuti, KelompokPresensi, LogKecurangan,
     LokasiKantor, ParafDosen, Perangkat, Presensi, StatusApprovalLembur, StatusPresensi, TargetKerjaBulanan,
-    TingkatRisiko, format_jam_menit,
+    TingkatRisiko, UrutanSerdos, format_jam_menit,
 )
 from .rekap import data_presensi_harian, rekap_bulanan_user, ringkasan_hari_ini, top_telat_hari_ini, tren_mingguan
-from .utils import get_dosen_by_nidn
+from .utils import get_dosen_by_nidn, get_dosen_serdos_qs
 
 
 def _foto_palsu(nama="selfie.jpg"):
@@ -1530,3 +1533,230 @@ class TinjauIzinViewTest(TestCase):
         self.assertEqual(resp.status_code, 403)
         self.izin_b.refresh_from_db()
         self.assertEqual(self.izin_b.status, IzinCuti.StatusApproval.MENUNGGU)
+
+
+def _buat_serdos(user, status_validasi="disetujui", jenis_sertifikasi="serdos"):
+    return Sertifikasi.objects.create(
+        user=user, jenis_sertifikasi=jenis_sertifikasi, status_validasi=status_validasi,
+        bidang_studi="Ilmu Komputer", no_sk_sertifikasi=f"SK-{user.id}", tahun_sertifikasi=2021,
+    )
+
+
+class GetDosenSerdosQsTest(TestCase):
+    """get_dosen_serdos_qs -- cakupan Laporan Daftar Hadir Serdos: HANYA
+    dosen dengan Sertifikasi Dosen (serdos) berstatus DISETUJUI."""
+
+    def test_serdos_disetujui_termasuk(self):
+        dosen = _buat_dosen_user(nidn="7000000001", username="serdosA")
+        _buat_serdos(dosen)
+        self.assertIn(dosen, get_dosen_serdos_qs())
+
+    def test_serdos_menunggu_tidak_termasuk(self):
+        dosen = _buat_dosen_user(nidn="7000000002", username="serdosB")
+        _buat_serdos(dosen, status_validasi="menunggu")
+        self.assertNotIn(dosen, get_dosen_serdos_qs())
+
+    def test_jenis_sertifikasi_lain_tidak_termasuk(self):
+        dosen = _buat_dosen_user(nidn="7000000003", username="serdosC")
+        _buat_serdos(dosen, jenis_sertifikasi="kompetensi")
+        self.assertNotIn(dosen, get_dosen_serdos_qs())
+
+
+class JenisTanggalBulanTest(TestCase):
+    """jenis_tanggal_bulan -- kalender kerja/minggu/libur untuk grid
+    Laporan Daftar Hadir Serdos."""
+
+    def test_hari_libur_terdeteksi(self):
+        HariLibur.objects.create(tanggal="2026-07-17", keterangan="Uji", jenis="nasional")
+        hasil = dict(jenis_tanggal_bulan(7, 2026))
+        self.assertEqual(hasil[date(2026, 7, 17)], "libur")
+
+    def test_minggu_dan_kerja_terdeteksi(self):
+        hasil = jenis_tanggal_bulan(7, 2026)
+        for tanggal, jenis in hasil:
+            if tanggal.weekday() == 6:
+                self.assertEqual(jenis, "minggu")
+            else:
+                self.assertEqual(jenis, "kerja")
+
+    def test_jumlah_hari_sesuai_kalender(self):
+        self.assertEqual(len(jenis_tanggal_bulan(7, 2026)), 31)
+
+
+class DataLaporanSerdosTest(TestCase):
+    """data_laporan_serdos -- rakit data per dosen serdos: grid paraf,
+    total hadir, urutan, tugas belajar, gol/jabatan (SIMDA di-mock,
+    sama seperti GetDosenByNidnTest -- lihat presensi/utils.py)."""
+
+    def setUp(self):
+        self.dosen_a = _buat_dosen_user(nidn="7100000001", username="serdosgridA")
+        self.dosen_b = _buat_dosen_user(nidn="7100000002", username="serdosgridB")
+        _buat_serdos(self.dosen_a)
+        _buat_serdos(self.dosen_b)
+        self.bulan, self.tahun = 7, 2026
+
+    @patch("presensi.laporan_serdos.JabatanFungsionalPublik")
+    @patch("presensi.laporan_serdos.GolonganPublik")
+    @patch("presensi.laporan_serdos.DataDosen")
+    def test_urutan_dan_hadir_dan_total(self, mock_datadosen, mock_golongan, mock_jabatan):
+        mock_datadosen.objects.using.return_value.filter.return_value = []
+        mock_golongan.objects.using.return_value.all.return_value = []
+        mock_jabatan.objects.using.return_value.all.return_value = []
+
+        UrutanSerdos.objects.create(user=self.dosen_a, urutan=2)
+        UrutanSerdos.objects.create(user=self.dosen_b, urutan=1)
+
+        Presensi.objects.create(user=self.dosen_a, tanggal=date(2026, 7, 1), status=StatusPresensi.HADIR)
+        Presensi.objects.create(user=self.dosen_a, tanggal=date(2026, 7, 2), status=StatusPresensi.TELAT)
+        Presensi.objects.create(user=self.dosen_a, tanggal=date(2026, 7, 3), status=StatusPresensi.ALPA)
+
+        hasil = data_laporan_serdos(self.bulan, self.tahun)
+        self.assertEqual(len(hasil), 2)
+        # urutan: dosen_b (urutan=1) harus tampil duluan.
+        self.assertEqual(hasil[0].user.id, self.dosen_b.id)
+        self.assertEqual(hasil[1].user.id, self.dosen_a.id)
+
+        baris_a = hasil[1]
+        self.assertEqual(baris_a.total_hadir, 2)  # HADIR + TELAT, ALPA tidak dihitung
+        hari_1 = next(h for h in baris_a.hari_grid if h.tanggal == date(2026, 7, 1))
+        self.assertTrue(hari_1.hadir)
+        hari_3 = next(h for h in baris_a.hari_grid if h.tanggal == date(2026, 7, 3))
+        self.assertFalse(hari_3.hadir)
+
+    @patch("presensi.laporan_serdos.JabatanFungsionalPublik")
+    @patch("presensi.laporan_serdos.GolonganPublik")
+    @patch("presensi.laporan_serdos.DataDosen")
+    def test_tugas_belajar_dan_gol_jabatan(self, mock_datadosen, mock_golongan, mock_jabatan):
+        fake_golongan = SimpleNamespace(id=1, kode="III-C")
+        fake_jabatan = SimpleNamespace(id=2, nama="Lektor")
+        fake_dosen_simda = SimpleNamespace(
+            nidn=self.dosen_a.nidn, golongan_id=1, jabatan_fungsional_id=2,
+            status_kepegawaian_nama="Tugas Belajar",
+        )
+        mock_datadosen.objects.using.return_value.filter.return_value = [fake_dosen_simda]
+        mock_golongan.objects.using.return_value.all.return_value = [fake_golongan]
+        mock_jabatan.objects.using.return_value.all.return_value = [fake_jabatan]
+
+        hasil = data_laporan_serdos(self.bulan, self.tahun)
+        baris_a = next(b for b in hasil if b.user.id == self.dosen_a.id)
+        self.assertTrue(baris_a.tugas_belajar)
+        self.assertEqual(baris_a.gol_jabatan, "III-C/Lektor")
+
+    @patch("presensi.laporan_serdos.JabatanFungsionalPublik")
+    @patch("presensi.laporan_serdos.GolonganPublik")
+    @patch("presensi.laporan_serdos.DataDosen")
+    def test_paraf_disematkan(self, mock_datadosen, mock_golongan, mock_jabatan):
+        mock_datadosen.objects.using.return_value.filter.return_value = []
+        mock_golongan.objects.using.return_value.all.return_value = []
+        mock_jabatan.objects.using.return_value.all.return_value = []
+
+        ParafDosen.objects.create(user=self.dosen_a, gambar=_foto_palsu("paraf.png"))
+        hasil = data_laporan_serdos(self.bulan, self.tahun)
+        baris_a = next(b for b in hasil if b.user.id == self.dosen_a.id)
+        baris_b = next(b for b in hasil if b.user.id == self.dosen_b.id)
+        self.assertIsNotNone(baris_a.paraf)
+        self.assertIsNone(baris_b.paraf)
+
+
+class GetPejabatAktifTest(TestCase):
+    """simda_dosen.utils.get_pejabat_aktif -- dipakai untuk blok tanda
+    tangan otomatis di Laporan Daftar Hadir Serdos (unit test murni
+    di-mock, sama pola dengan GetDosenByNidnTest)."""
+
+    @patch("simda_dosen.utils.PejabatStruktural")
+    def test_query_dilakukan_lewat_koneksi_simda(self, mock_pejabat):
+        mock_qs = MagicMock()
+        mock_pejabat.objects.using.return_value = mock_qs
+        mock_qs.filter.return_value = mock_qs
+        mock_qs.select_related.return_value = mock_qs
+
+        get_pejabat_aktif("Rektor")
+
+        mock_pejabat.objects.using.assert_called_once_with("simda")
+        mock_qs.filter.assert_called_once_with(jabatan__nama__iexact="Rektor", is_aktif=True)
+        mock_qs.select_related.assert_called_once_with("jabatan", "dosen")
+        mock_qs.first.assert_called_once()
+
+
+class PengaturanUrutanSerdosViewTest(TestCase):
+    """Halaman /presensi/pengaturan/urutan-serdos/ -- admin-only."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="serdosurutanadmin", password="testpass123", role="admin")
+        self.dosen = _buat_dosen_user(nidn="7200000001", username="serdosurutandosen")
+        _buat_serdos(self.dosen)
+
+    def test_dosen_tidak_bisa_akses(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/pengaturan/urutan-serdos/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_bisa_simpan_urutan(self):
+        self.client.force_login(self.admin)
+        resp = self.client.post("/presensi/pengaturan/urutan-serdos/", {f"urutan_{self.dosen.id}": "5"})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(UrutanSerdos.objects.get(user=self.dosen).urutan, 5)
+
+    def test_admin_bisa_kosongkan_urutan(self):
+        UrutanSerdos.objects.create(user=self.dosen, urutan=3)
+        self.client.force_login(self.admin)
+        self.client.post("/presensi/pengaturan/urutan-serdos/", {f"urutan_{self.dosen.id}": ""})
+        self.assertFalse(UrutanSerdos.objects.filter(user=self.dosen).exists())
+
+
+class LaporanSerdosViewTest(TestCase):
+    """Halaman /presensi/laporan-serdos/ + ekspor PDF/Excel -- admin-only."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="lapserdosadmin", password="testpass123", role="admin")
+        self.dosen = _buat_dosen_user(nidn="7300000001", username="lapserdosdosen")
+
+    def test_dosen_tidak_bisa_akses_halaman(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/laporan-serdos/")
+        self.assertEqual(resp.status_code, 403)
+
+    @patch("simda_dosen.utils.PejabatStruktural")
+    def test_admin_bisa_akses_halaman(self, mock_pejabat):
+        mock_pejabat.objects.using.return_value.filter.return_value.select_related.return_value.first.return_value = None
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-serdos/")
+        self.assertEqual(resp.status_code, 200)
+
+    @patch("presensi.laporan_serdos.JabatanFungsionalPublik")
+    @patch("presensi.laporan_serdos.GolonganPublik")
+    @patch("presensi.laporan_serdos.DataDosen")
+    @patch("simda_dosen.utils.PejabatStruktural")
+    def test_admin_bisa_unduh_pdf(self, mock_pejabat, mock_datadosen, mock_golongan, mock_jabatan):
+        mock_pejabat.objects.using.return_value.filter.return_value.select_related.return_value.first.return_value = None
+        mock_datadosen.objects.using.return_value.filter.return_value = []
+        mock_golongan.objects.using.return_value.all.return_value = []
+        mock_jabatan.objects.using.return_value.all.return_value = []
+
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-serdos/pdf/", {
+            "bulan": "7", "tahun": "2026", "kota": "Gorontalo", "tanggal_cetak": "2026-08-01",
+            "jabatan_penandatangan": "Rektor",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+
+    @patch("presensi.laporan_serdos.JabatanFungsionalPublik")
+    @patch("presensi.laporan_serdos.GolonganPublik")
+    @patch("presensi.laporan_serdos.DataDosen")
+    @patch("simda_dosen.utils.PejabatStruktural")
+    def test_admin_bisa_unduh_excel(self, mock_pejabat, mock_datadosen, mock_golongan, mock_jabatan):
+        mock_pejabat.objects.using.return_value.filter.return_value.select_related.return_value.first.return_value = None
+        mock_datadosen.objects.using.return_value.filter.return_value = []
+        mock_golongan.objects.using.return_value.all.return_value = []
+        mock_jabatan.objects.using.return_value.all.return_value = []
+
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-serdos/excel/", {
+            "bulan": "7", "tahun": "2026", "kota": "Gorontalo", "tanggal_cetak": "2026-08-01",
+            "jabatan_penandatangan": "Rektor",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp["Content-Type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
