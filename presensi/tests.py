@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 
 import numpy as np
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
 from PIL import Image
@@ -1676,6 +1676,21 @@ class GetPejabatAktifTest(TestCase):
         mock_qs.filter.assert_called_once_with(jabatan__nama__iexact="Rektor", is_aktif=True)
         mock_qs.select_related.assert_called_once_with("jabatan", "dosen")
         mock_qs.first.assert_called_once()
+
+    @patch("simda_dosen.utils.PejabatStruktural")
+    def test_permission_denied_mengembalikan_none_bukan_crash(self, mock_pejabat):
+        # Regresi: master.pejabat_struktural belum di-grant ke role sikd_rw
+        # sempat bikin /presensi/laporan-serdos/ 500 total (ProgrammingError
+        # "permission denied for table pejabat_struktural") -- harus
+        # degradasi ke None supaya halaman tetap bisa dibuka (nama/NIP
+        # penandatangan tinggal diisi manual).
+        mock_qs = MagicMock()
+        mock_pejabat.objects.using.return_value = mock_qs
+        mock_qs.filter.return_value = mock_qs
+        mock_qs.select_related.return_value = mock_qs
+        mock_qs.first.side_effect = DatabaseError("permission denied for table pejabat_struktural")
+
+        self.assertIsNone(get_pejabat_aktif("Rektor"))
 
 
 class PengaturanUrutanSerdosViewTest(TestCase):

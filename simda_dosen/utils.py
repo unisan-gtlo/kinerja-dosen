@@ -1,6 +1,7 @@
 import re
 
 from django.contrib import messages
+from django.db import DatabaseError
 from django.shortcuts import get_object_or_404, redirect
 
 from .models import (
@@ -188,11 +189,19 @@ def get_pejabat_aktif(nama_jabatan):
     tanda tangan (file_ttd) buat blok tanda tangan laporan resmi (lihat
     presensi/laporan_serdos.py). Return None kalau belum di-setup di
     SIMDA (mis. akses master.pejabat_struktural belum di-grant, lihat
-    tambah_akses_pejabat_struktural.sql di repo SIMDA) atau memang belum
-    ada baris aktif untuk jabatan itu."""
-    return (
-        PejabatStruktural.objects.using('simda')
-        .filter(jabatan__nama__iexact=nama_jabatan, is_aktif=True)
-        .select_related('jabatan', 'dosen')
-        .first()
-    )
+    tambah_akses_pejabat_struktural.sql di repo SIMDA -- ditangkap
+    eksplisit di sini, DatabaseError, supaya belum di-grant tidak bikin
+    seluruh halaman laporan 500, cukup dianggap belum ada pejabat aktif
+    dan form tetap bisa diisi manual) atau memang belum ada baris aktif
+    untuk jabatan itu. Koneksi 'simda' jalan di mode autocommit (tidak
+    ada ATOMIC_REQUESTS di settings), jadi aman ditangkap di sini tanpa
+    perlu rollback manual -- tidak meracuni query lain di request yang sama."""
+    try:
+        return (
+            PejabatStruktural.objects.using('simda')
+            .filter(jabatan__nama__iexact=nama_jabatan, is_aktif=True)
+            .select_related('jabatan', 'dosen')
+            .first()
+        )
+    except DatabaseError:
+        return None
