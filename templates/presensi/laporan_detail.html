@@ -131,12 +131,51 @@
       </div>
     </div>
 
-    <a class="btn btn-danger" href="{% url 'presensi_web:laporan_detail_pdf' %}?user_id={{ target_user.id }}&bulan={{ bulan }}&tahun={{ tahun }}">
-      <span class="ti ti-file-type-pdf me-1"></span> Unduh PDF
-    </a>
-    <a class="btn btn-outline-success" href="{% url 'presensi_web:laporan_detail_excel' %}?user_id={{ target_user.id }}&bulan={{ bulan }}&tahun={{ tahun }}">
-      <span class="ti ti-file-spreadsheet me-1"></span> Unduh Excel
-    </a>
+    <hr>
+    <h4>Pengesahan Laporan <span class="text-muted fs-6">(opsional)</span></h4>
+    <p class="text-muted small">
+      Isi kalau laporan ini perlu dibubuhi blok tanda tangan pengesah
+      (mis. untuk dilampirkan sebagai bukti fisik). Kosongkan semua kalau
+      tidak perlu -- blok tanda tangan tidak akan dicetak.
+    </p>
+    <form method="get" class="row g-2 mb-3">
+      <input type="hidden" name="user_id" value="{{ target_user.id }}">
+      <input type="hidden" name="bulan" value="{{ bulan }}">
+      <input type="hidden" name="tahun" value="{{ tahun }}">
+      <div class="col-6 col-md-3">
+        <label class="form-label small mb-1">Kota</label>
+        <input type="text" name="kota" value="{{ penandatangan.kota }}" class="form-control form-control-sm">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small mb-1">Tanggal Cetak</label>
+        <input type="date" name="tanggal_cetak" value="{{ penandatangan.tanggal_cetak|date:'Y-m-d' }}" class="form-control form-control-sm">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small mb-1">Jabatan Penandatangan</label>
+        <input type="text" name="jabatan_penandatangan" value="{{ penandatangan.jabatan_penandatangan }}"
+               placeholder="mis. Dekan Fakultas Teknik" class="form-control form-control-sm">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small mb-1">Nama Penandatangan</label>
+        <input type="text" name="nama_penandatangan" value="{{ penandatangan.nama_penandatangan }}"
+               class="form-control form-control-sm">
+      </div>
+      <div class="col-12 col-md-4">
+        <label class="form-label small mb-1">NIP/NIDN Penandatangan</label>
+        <input type="text" name="id_penandatangan" value="{{ penandatangan.id_penandatangan }}"
+               placeholder="mis. NIP. 199001012020121001" class="form-control form-control-sm">
+        <div class="form-text">Diisi apa adanya, termasuk label "NIP."/"NIDN." di depannya.</div>
+      </div>
+
+      <div class="col-12 mt-2">
+        <button type="submit" formaction="{% url 'presensi_web:laporan_detail_pdf' %}" class="btn btn-danger">
+          <span class="ti ti-file-type-pdf me-1"></span> Unduh PDF
+        </button>
+        <button type="submit" formaction="{% url 'presensi_web:laporan_detail_excel' %}" class="btn btn-outline-success">
+          <span class="ti ti-file-spreadsheet me-1"></span> Unduh Excel
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 {% endif %}

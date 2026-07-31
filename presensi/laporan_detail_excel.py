@@ -3,6 +3,7 @@ presensi/laporan_detail_pdf.py."""
 import io
 
 import openpyxl
+from django.utils import timezone
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -13,8 +14,13 @@ WARNA_HEADER = "1e3a5f"
 WARNA_ARSIR = "D9D9D9"
 
 
-def render_excel_detail_presensi(user, bulan, tahun):
-    """Return io.BytesIO berisi file .xlsx."""
+def render_excel_detail_presensi(
+    user, bulan, tahun, *, kota="Gorontalo", tanggal_cetak=None,
+    jabatan_penandatangan="", nama_penandatangan="", id_penandatangan="",
+):
+    """Return io.BytesIO berisi file .xlsx. Blok tanda tangan OPSIONAL &
+    manual -- lihat catatan lengkap di laporan_detail_pdf.py."""
+    tanggal_cetak = tanggal_cetak or timezone.localdate()
     data = detail_presensi_bulanan(user, bulan, tahun)
     rekap = data["rekap"]
 
@@ -84,6 +90,25 @@ def render_excel_detail_presensi(user, bulan, tahun):
         )
         ws.cell(row=baris_ringkasan + 3, column=1, value="Selisih").font = Font(bold=True)
         ws.cell(row=baris_ringkasan + 3, column=2, value=rekap["selisih_jam_kerja"])
+        baris_ringkasan += 2
+
+    if jabatan_penandatangan or nama_penandatangan or id_penandatangan:
+        kolom_ttd = 6
+        baris_ttd = baris_ringkasan + 3
+
+        ws.cell(row=baris_ttd, column=kolom_ttd, value=f"{kota}, {tanggal_cetak.strftime('%d %B %Y').upper()}")
+        ws.cell(row=baris_ttd, column=kolom_ttd).alignment = center
+        if jabatan_penandatangan:
+            ws.cell(row=baris_ttd + 1, column=kolom_ttd, value=f"{jabatan_penandatangan.upper()},")
+            ws.cell(row=baris_ttd + 1, column=kolom_ttd).alignment = center
+
+        baris_nama_ttd = baris_ttd + 5
+        nama_cell = ws.cell(row=baris_nama_ttd, column=kolom_ttd, value=nama_penandatangan or ".........................")
+        nama_cell.font = Font(underline="single")
+        nama_cell.alignment = center
+        if id_penandatangan:
+            id_cell = ws.cell(row=baris_nama_ttd + 1, column=kolom_ttd, value=id_penandatangan)
+            id_cell.alignment = center
 
     buffer = io.BytesIO()
     wb.save(buffer)

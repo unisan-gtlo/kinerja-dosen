@@ -2095,3 +2095,33 @@ class LaporanDetailViewTest(TestCase):
         self.client.force_login(self.admin)
         resp = self.client.get("/presensi/laporan-detail/pdf/")
         self.assertEqual(resp.status_code, 302)
+
+    def test_admin_bisa_unduh_pdf_dengan_penandatangan(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/pdf/", {
+            "user_id": self.dosen.id, "bulan": "7", "tahun": "2026",
+            "kota": "Gorontalo", "tanggal_cetak": "2026-08-01",
+            "jabatan_penandatangan": "Dekan Fakultas Teknik",
+            "nama_penandatangan": "Dr. Contoh Nama", "id_penandatangan": "NIP. 199001012020121001",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+
+    def test_admin_bisa_unduh_excel_dengan_penandatangan(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/excel/", {
+            "user_id": self.dosen.id, "bulan": "7", "tahun": "2026",
+            "jabatan_penandatangan": "Dekan Fakultas Teknik", "nama_penandatangan": "Dr. Contoh Nama",
+            "id_penandatangan": "NIDN. 0910097601",
+        })
+        self.assertEqual(resp.status_code, 200)
+
+    def test_tanggal_cetak_tidak_valid_pakai_default_hari_ini(self):
+        """Kalau tanggal_cetak dikirim tapi formatnya rusak, jangan crash
+        -- fallback ke tanggal hari ini (lihat _parameter_penandatangan_detail)."""
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/pdf/", {
+            "user_id": self.dosen.id, "bulan": "7", "tahun": "2026",
+            "tanggal_cetak": "tanggal-rusak", "jabatan_penandatangan": "Dekan",
+        })
+        self.assertEqual(resp.status_code, 200)

@@ -16,8 +16,18 @@ WARNA_HEADER = colors.HexColor("#1e3a5f")
 WARNA_ARSIR = colors.HexColor("#d9d9d9")
 
 
-def render_pdf_detail_presensi(user, bulan, tahun):
-    """Return bytes PDF."""
+def render_pdf_detail_presensi(
+    user, bulan, tahun, *, kota="Gorontalo", tanggal_cetak=None,
+    jabatan_penandatangan="", nama_penandatangan="", id_penandatangan="",
+):
+    """Return bytes PDF. Blok tanda tangan bersifat OPSIONAL & manual --
+    beda dari Laporan Serdos yang otomatis dari Pejabat Struktural SIMDA
+    (get_pejabat_aktif), karena penandatangan Detail Presensi bisa siapa
+    saja (atasan langsung, HR, dst), bukan cuma Rektor. id_penandatangan
+    diisi bebas apa adanya (mis. "NIP. 199001012020121001" atau
+    "NIDN. 0910097601") -- BUKAN dipisah field NIP/NIDN dengan prefiks
+    otomatis seperti Serdos, karena jenis id-nya bisa beda tiap orang."""
+    tanggal_cetak = tanggal_cetak or timezone.localdate()
     data = detail_presensi_bulanan(user, bulan, tahun)
     rekap = data["rekap"]
 
@@ -32,6 +42,7 @@ def render_pdf_detail_presensi(user, bulan, tahun):
     sub_style = ParagraphStyle("sub", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER, spaceAfter=2)
     cell_style = ParagraphStyle("cell", parent=styles["Normal"], fontSize=8, alignment=TA_LEFT, leading=10)
     ringkasan_style = ParagraphStyle("ringkasan", parent=styles["Normal"], fontSize=10, spaceAfter=3)
+    ttd_style = ParagraphStyle("ttd", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER)
 
     elements = [
         Paragraph("DETAIL PRESENSI BULANAN", judul_style),
@@ -81,6 +92,19 @@ def render_pdf_detail_presensi(user, bulan, tahun):
             f"/ {rekap['target'].target_hari_kerja} hari", ringkasan_style,
         ))
         elements.append(Paragraph(f"<b>Selisih:</b> {rekap['selisih_jam_kerja']}", ringkasan_style))
+
+    if jabatan_penandatangan or nama_penandatangan or id_penandatangan:
+        blok_kanan = [
+            Paragraph(f"{kota}, {tanggal_cetak.strftime('%d %B %Y').upper()}", ttd_style),
+        ]
+        if jabatan_penandatangan:
+            blok_kanan.append(Paragraph(f"{jabatan_penandatangan.upper()},", ttd_style))
+        blok_kanan.append(Spacer(1, 1.5 * cm))
+        blok_kanan.append(Paragraph(f"<u>{nama_penandatangan or '.........................'}</u>", ttd_style))
+        if id_penandatangan:
+            blok_kanan.append(Paragraph(id_penandatangan, ttd_style))
+        elements.append(Spacer(1, 0.8 * cm))
+        elements.append(Table([["", blok_kanan]], colWidths=[None, 7 * cm]))
 
     doc.build(elements)
     buffer.seek(0)

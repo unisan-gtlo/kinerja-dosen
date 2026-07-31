@@ -474,6 +474,28 @@ def _cari_target_user_laporan_detail(request):
     return None, None
 
 
+def _parameter_penandatangan_detail(request):
+    """Kota/tanggal cetak/identitas penandatangan untuk Detail Presensi
+    Bulanan -- SEMUA opsional & manual (tidak auto-fill dari Pejabat
+    Struktural SIMDA seperti Laporan Serdos), karena laporan ini bisa
+    ditandatangani siapa saja (atasan langsung, HR, dst), bukan cuma
+    Rektor. id_penandatangan diisi bebas apa adanya oleh pengguna, mis.
+    "NIP. 199001012020121001" atau "NIDN. 0910097601"."""
+    tanggal_cetak_str = request.GET.get("tanggal_cetak", "").strip()
+    try:
+        tanggal_cetak = datetime.strptime(tanggal_cetak_str, "%Y-%m-%d").date()
+    except ValueError:
+        tanggal_cetak = timezone.localdate()
+
+    return {
+        "kota": request.GET.get("kota", "").strip() or "Gorontalo",
+        "tanggal_cetak": tanggal_cetak,
+        "jabatan_penandatangan": request.GET.get("jabatan_penandatangan", "").strip(),
+        "nama_penandatangan": request.GET.get("nama_penandatangan", "").strip(),
+        "id_penandatangan": request.GET.get("id_penandatangan", "").strip(),
+    }
+
+
 @login_required
 def halaman_laporan_detail(request):
     """Detail Presensi Bulanan -- fitur OPSIONAL untuk drill-down 1 orang
@@ -487,12 +509,14 @@ def halaman_laporan_detail(request):
     kata_kunci = request.GET.get("q", "").strip()
     bulan, tahun = _bulan_tahun_dari_request(request)
     target_user, daftar_pilihan = _cari_target_user_laporan_detail(request)
+    penandatangan = _parameter_penandatangan_detail(request)
 
     detail = detail_presensi_bulanan(target_user, bulan, tahun) if target_user else None
 
     return render(request, "presensi/laporan_detail.html", {
         "kata_kunci": kata_kunci, "bulan": bulan, "tahun": tahun,
         "target_user": target_user, "daftar_pilihan": daftar_pilihan, "detail": detail,
+        "penandatangan": penandatangan,
     })
 
 
@@ -507,7 +531,7 @@ def export_pdf_laporan_detail(request):
         return redirect("presensi_web:laporan_detail")
 
     bulan, tahun = _bulan_tahun_dari_request(request)
-    pdf_bytes = render_pdf_detail_presensi(target_user, bulan, tahun)
+    pdf_bytes = render_pdf_detail_presensi(target_user, bulan, tahun, **_parameter_penandatangan_detail(request))
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = (
         f'attachment; filename="Detail_Presensi_{target_user.username}_{tahun}-{bulan:02d}.pdf"'
@@ -526,7 +550,7 @@ def export_excel_laporan_detail(request):
         return redirect("presensi_web:laporan_detail")
 
     bulan, tahun = _bulan_tahun_dari_request(request)
-    buffer = render_excel_detail_presensi(target_user, bulan, tahun)
+    buffer = render_excel_detail_presensi(target_user, bulan, tahun, **_parameter_penandatangan_detail(request))
     response = HttpResponse(
         buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
