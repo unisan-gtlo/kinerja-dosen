@@ -26,6 +26,9 @@ from .forms import (
     HariLiburForm, IzinCutiForm, KelompokPresensiForm, LaporanInternalForm, LaporanSerdosForm,
     TargetKerjaBulananForm,
 )
+from .laporan_detail import cari_pegawai, detail_presensi_bulanan
+from .laporan_detail_excel import render_excel_detail_presensi
+from .laporan_detail_pdf import render_pdf_detail_presensi
 from .laporan_internal import get_user_qs_laporan_internal
 from .laporan_internal_excel import render_excel_laporan_internal
 from .laporan_internal_pdf import render_pdf_laporan_internal
@@ -446,6 +449,90 @@ def export_excel_laporan_internal(request):
         buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     response["Content-Disposition"] = f'attachment; filename="Laporan_Presensi_Internal_{tahun}-{bulan:02d}.xlsx"'
+    return response
+
+
+def _cari_target_user_laporan_detail(request):
+    """Tentukan target_user (kalau ada) + daftar_pilihan (kalau pencarian
+    cocok ke lebih dari 1 orang) untuk Detail Presensi Bulanan -- dipakai
+    bareng oleh halaman & kedua ekspor."""
+    cakupan = _pengguna_dalam_cakupan(request.user)
+    user_id = request.GET.get("user_id", "").strip()
+    if user_id.isdigit():
+        return get_object_or_404(cakupan, id=int(user_id)), None
+
+    kata_kunci = request.GET.get("q", "").strip()
+    if not kata_kunci:
+        return None, None
+
+    hasil = cari_pegawai(cakupan, kata_kunci)
+    jumlah = hasil.count()
+    if jumlah == 1:
+        return hasil.first(), None
+    if jumlah > 1:
+        return None, hasil
+    return None, None
+
+
+@login_required
+def halaman_laporan_detail(request):
+    """Detail Presensi Bulanan -- fitur OPSIONAL untuk drill-down 1 orang
+    tertentu (dicari lewat nama/NIDN), BEDA dari 3 laporan presensi lain
+    yang selalu menampilkan banyak orang sekaligus. Alur: cari -> kalau
+    cocok lebih dari 1, pilih dari daftar -> tampil detail + ringkasan
+    (reuse rekap_bulanan_user, lihat presensi/laporan_detail.py)."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    kata_kunci = request.GET.get("q", "").strip()
+    bulan, tahun = _bulan_tahun_dari_request(request)
+    target_user, daftar_pilihan = _cari_target_user_laporan_detail(request)
+
+    detail = detail_presensi_bulanan(target_user, bulan, tahun) if target_user else None
+
+    return render(request, "presensi/laporan_detail.html", {
+        "kata_kunci": kata_kunci, "bulan": bulan, "tahun": tahun,
+        "target_user": target_user, "daftar_pilihan": daftar_pilihan, "detail": detail,
+    })
+
+
+@login_required
+def export_pdf_laporan_detail(request):
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    target_user, _daftar_pilihan = _cari_target_user_laporan_detail(request)
+    if not target_user:
+        messages.error(request, "Pilih pegawai dulu sebelum mengunduh.")
+        return redirect("presensi_web:laporan_detail")
+
+    bulan, tahun = _bulan_tahun_dari_request(request)
+    pdf_bytes = render_pdf_detail_presensi(target_user, bulan, tahun)
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="Detail_Presensi_{target_user.username}_{tahun}-{bulan:02d}.pdf"'
+    )
+    return response
+
+
+@login_required
+def export_excel_laporan_detail(request):
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    target_user, _daftar_pilihan = _cari_target_user_laporan_detail(request)
+    if not target_user:
+        messages.error(request, "Pilih pegawai dulu sebelum mengunduh.")
+        return redirect("presensi_web:laporan_detail")
+
+    bulan, tahun = _bulan_tahun_dari_request(request)
+    buffer = render_excel_detail_presensi(target_user, bulan, tahun)
+    response = HttpResponse(
+        buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="Detail_Presensi_{target_user.username}_{tahun}-{bulan:02d}.xlsx"'
+    )
     return response
 
 

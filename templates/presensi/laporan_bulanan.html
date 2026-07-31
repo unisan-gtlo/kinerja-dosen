@@ -43,6 +43,7 @@
             <th>Total Jam Kerja</th>
             <th>Target Jam Kerja</th>
             <th>Selisih</th>
+            <th class="w-1"></th>
           </tr>
         </thead>
         <tbody>
@@ -61,9 +62,15 @@
               </span>
               {% else %}—{% endif %}
             </td>
+            <td class="text-nowrap">
+              <a class="btn btn-sm btn-outline-primary"
+                 href="{% url 'presensi_web:laporan_detail' %}?user_id={{ item.user.id }}&bulan={{ bulan }}&tahun={{ tahun }}">
+                Lihat Detail
+              </a>
+            </td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" class="text-muted text-center">Tidak ada presensi pada bulan ini.</td></tr>
+          <tr><td colspan="8" class="text-muted text-center">Tidak ada presensi pada bulan ini.</td></tr>
           {% endfor %}
         </tbody>
       </table>

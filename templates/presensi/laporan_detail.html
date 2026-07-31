@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% block title %}Detail Presensi Bulanan — SIKD{% endblock %}
+{% block page_title %}Detail Presensi Bulanan{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h3 class="card-title">Detail Presensi Bulanan</h3>
+    <p class="text-muted">
+      Fitur opsional untuk melihat rincian presensi SATU orang secara detail
+      per hari dalam satu bulan -- dipakai kalau perlu mengecek riwayat
+      kehadiran seseorang secara spesifik. Cari lewat nama atau NIDN.
+    </p>
+    <form method="get" class="row g-2">
+      <div class="col-auto">
+        <input type="text" name="q" value="{{ kata_kunci }}" placeholder="Nama atau NIDN"
+               class="form-control" style="color:#333;">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Cari</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if daftar_pilihan %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h3 class="card-title">Hasil Pencarian ({{ daftar_pilihan|length }})</h3>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr><th>Nama</th><th>NIDN</th><th>Role</th><th>Fakultas</th><th>Prodi</th><th class="w-1">Aksi</th></tr>
+        </thead>
+        <tbody>
+          {% for u in daftar_pilihan %}
+          <tr>
+            <td>{{ u.get_full_name|default:u.username }}</td>
+            <td>{{ u.nidn|default:"—" }}</td>
+            <td>{{ u.get_role_display_id }}</td>
+            <td>{{ u.kode_fakultas|default:"—" }}</td>
+            <td>{{ u.kode_prodi|default:"—" }}</td>
+            <td>
+              <a class="btn btn-sm btn-primary" href="?user_id={{ u.id }}&bulan={{ bulan }}&tahun={{ tahun }}">
+                Lihat Detail
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% elif kata_kunci and not target_user %}
+<div class="alert alert-warning">Tidak ada pegawai yang cocok dengan pencarian "{{ kata_kunci }}".</div>
+{% endif %}
+
+{% if target_user %}
+<div class="card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+      <div>
+        <h3 class="card-title mb-0">
+          {{ target_user.get_full_name|default:target_user.username }}
+          {% if target_user.nidn %}<span class="text-muted">({{ target_user.nidn }})</span>{% endif %}
+        </h3>
+        <div class="text-muted small">{{ target_user.get_role_display_id }}</div>
+      </div>
+      <form method="get" class="d-flex gap-2 align-items-end">
+        <input type="hidden" name="user_id" value="{{ target_user.id }}">
+        <div>
+          <label class="form-label small mb-1">Bulan</label>
+          <input type="number" name="bulan" min="1" max="12" value="{{ bulan }}" class="form-control form-control-sm" style="width:80px;">
+        </div>
+        <div>
+          <label class="form-label small mb-1">Tahun</label>
+          <input type="number" name="tahun" value="{{ tahun }}" class="form-control form-control-sm" style="width:100px;">
+        </div>
+        <button type="submit" class="btn btn-sm btn-outline-primary">Tampilkan</button>
+      </form>
+    </div>
+
+    <div class="table-responsive mb-3">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr><th>Tanggal</th><th>Hari</th><th>Status</th><th>Masuk</th><th>Pulang</th><th>Keterangan</th><th>Durasi</th></tr>
+        </thead>
+        <tbody>
+          {% for baris in detail.baris %}
+          <tr {% if baris.jenis != 'kerja' %}class="table-secondary"{% endif %}>
+            <td>{{ baris.tanggal|date:"d-m-Y" }}</td>
+            <td>{{ baris.nama_hari }}</td>
+            <td>
+              <span class="badge {% if baris.status == 'Terlambat' %}bg-warning-lt{% elif baris.status == 'Alpa' or baris.status == 'Ditolak (anomali)' %}bg-danger-lt{% elif baris.status == 'Hadir' %}bg-success-lt{% else %}bg-secondary-lt{% endif %}">
+                {{ baris.status }}
+              </span>
+            </td>
+            <td>{{ baris.waktu_masuk }}</td>
+            <td>{{ baris.waktu_pulang }}</td>
+            <td class="small">{{ baris.keterangan }}</td>
+            <td>{{ baris.durasi_kerja }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="border rounded p-3 mb-3" style="background:#f7f9fc;">
+      <div class="row">
+        <div class="col-6 col-md-3">
+          <div class="text-muted small">Hari Hadir</div>
+          <div class="fw-bold fs-4">{{ detail.rekap.hari_hadir }}</div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="text-muted small">Total Jam Kerja</div>
+          <div class="fw-bold fs-4">{{ detail.rekap.total_jam_kerja }}</div>
+        </div>
+        {% if detail.rekap.target %}
+        <div class="col-6 col-md-3">
+          <div class="text-muted small">Target ({{ detail.rekap.kelompok.nama }})</div>
+          <div class="fw-bold">{{ detail.rekap.target.target_jam_kerja }} jam / {{ detail.rekap.target.target_hari_kerja }} hari</div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="text-muted small">Selisih</div>
+          <div class="fw-bold {% if detail.rekap.selisih_menit < 0 %}text-danger{% else %}text-success{% endif %}">
+            {{ detail.rekap.selisih_jam_kerja }}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <a class="btn btn-danger" href="{% url 'presensi_web:laporan_detail_pdf' %}?user_id={{ target_user.id }}&bulan={{ bulan }}&tahun={{ tahun }}">
+      <span class="ti ti-file-type-pdf me-1"></span> Unduh PDF
+    </a>
+    <a class="btn btn-outline-success" href="{% url 'presensi_web:laporan_detail_excel' %}?user_id={{ target_user.id }}&bulan={{ bulan }}&tahun={{ tahun }}">
+      <span class="ti ti-file-spreadsheet me-1"></span> Unduh Excel
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

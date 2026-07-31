@@ -21,6 +21,7 @@ from .decision import (
 )
 from .face import dekripsi_embedding, ekstrak_satu_wajah, enkripsi_embedding, kemiripan_kosinus
 from .geo import dalam_radius, jarak_meter
+from .laporan_detail import cari_pegawai, detail_presensi_bulanan
 from .laporan_internal import data_laporan_internal, get_user_qs_laporan_internal
 from .laporan_serdos import data_laporan_serdos, jenis_tanggal_bulan
 from .models import (
@@ -1922,3 +1923,175 @@ class LaporanInternalViewTest(TestCase):
         resp = self.client.get("/presensi/laporan-internal/")
         self.assertEqual(resp.status_code, 200)  # halaman tetap bisa diakses (role berwenang)
         # tidak error walau tidak ada satu pun dosen dalam cakupannya (kode_prodi beda)
+
+
+class CariPegawaiTest(TestCase):
+    """cari_pegawai -- pencarian nama/username/NIDN untuk Detail Presensi
+    Bulanan (fitur drill-down opsional)."""
+
+    def setUp(self):
+        self.dosen = User.objects.create_user(
+            username="caridosen", password="testpass123", role="dosen",
+            nidn="7700000001", first_name="Budi", last_name="Santoso",
+        )
+        self.semua = User.objects.filter(id=self.dosen.id)
+
+    def test_cari_lewat_nama(self):
+        hasil = cari_pegawai(self.semua, "Budi")
+        self.assertIn(self.dosen, hasil)
+
+    def test_cari_lewat_nidn(self):
+        hasil = cari_pegawai(self.semua, "7700000001")
+        self.assertIn(self.dosen, hasil)
+
+    def test_kata_kunci_kosong_kembalikan_kosong(self):
+        hasil = cari_pegawai(self.semua, "")
+        self.assertEqual(hasil.count(), 0)
+
+    def test_tidak_ketemu_kembalikan_kosong(self):
+        hasil = cari_pegawai(self.semua, "TidakAdaSamaSekali")
+        self.assertEqual(hasil.count(), 0)
+
+
+class DetailPresensiBulananTest(TestCase):
+    """detail_presensi_bulanan -- 1 baris per tanggal kalender (kerja/
+    minggu/libur/alpa/izin), keterangan granular, plus ringkasan (reuse
+    rekap_bulanan_user)."""
+
+    def setUp(self):
+        self.dosen = _buat_dosen_user(nidn="7800000001", username="detaildosen")
+        self.kelompok = KelompokPresensi.objects.create(
+            nama="Dosen Test", roles=["dosen"], jam_masuk=dt_time(8, 0), jam_pulang=dt_time(14, 0),
+        )
+        self.bulan, self.tahun = 7, 2026
+
+    def test_hari_dengan_presensi_telat(self):
+        Presensi.objects.create(
+            user=self.dosen, tanggal=date(2026, 7, 1), kelompok=self.kelompok, status=StatusPresensi.TELAT,
+            waktu_masuk=timezone.make_aware(dt.combine(date(2026, 7, 1), dt_time(8, 20))),
+            waktu_pulang=timezone.make_aware(dt.combine(date(2026, 7, 1), dt_time(14, 5))),
+            menit_terlambat=20,
+        )
+        hasil = detail_presensi_bulanan(self.dosen, self.bulan, self.tahun)
+        baris_1 = next(b for b in hasil["baris"] if b.tanggal == date(2026, 7, 1))
+        self.assertEqual(baris_1.status, "Terlambat")
+        self.assertEqual(baris_1.waktu_masuk, "08:20")
+        self.assertIn("Terlambat 20 menit", baris_1.keterangan)
+
+    def test_hari_kerja_tanpa_presensi_dianggap_alpa(self):
+        # 2026-07-01 adalah Rabu (hari kerja) -- tanpa Presensi/IzinCuti,
+        # harus dianggap Alpa.
+        self.assertEqual(date(2026, 7, 1).weekday(), 2)
+        hasil = detail_presensi_bulanan(self.dosen, self.bulan, self.tahun)
+        baris_1 = next(b for b in hasil["baris"] if b.tanggal == date(2026, 7, 1))
+        self.assertEqual(baris_1.status, "Alpa")
+
+    def test_hari_minggu_tanpa_presensi_dianggap_libur(self):
+        # 2026-07-05 adalah Minggu.
+        self.assertEqual(date(2026, 7, 5).weekday(), 6)
+        hasil = detail_presensi_bulanan(self.dosen, self.bulan, self.tahun)
+        baris_5 = next(b for b in hasil["baris"] if b.tanggal == date(2026, 7, 5))
+        self.assertEqual(baris_5.status, "Libur")
+
+    def test_hari_dengan_izin_disetujui(self):
+        IzinCuti.objects.create(
+            user=self.dosen, tipe=IzinCuti.Tipe.SAKIT,
+            tanggal_mulai=date(2026, 7, 2), tanggal_selesai=date(2026, 7, 2),
+            alasan="Demam", status=IzinCuti.StatusApproval.DISETUJUI,
+        )
+        hasil = detail_presensi_bulanan(self.dosen, self.bulan, self.tahun)
+        baris_2 = next(b for b in hasil["baris"] if b.tanggal == date(2026, 7, 2))
+        self.assertEqual(baris_2.status, "Sakit")
+        self.assertEqual(baris_2.keterangan, "Demam")
+
+    def test_rekap_ikut_disertakan(self):
+        Presensi.objects.create(
+            user=self.dosen, tanggal=date(2026, 7, 1), kelompok=self.kelompok, status=StatusPresensi.HADIR,
+            waktu_masuk=timezone.make_aware(dt.combine(date(2026, 7, 1), dt_time(8, 0))),
+            waktu_pulang=timezone.make_aware(dt.combine(date(2026, 7, 1), dt_time(14, 0))),
+        )
+        hasil = detail_presensi_bulanan(self.dosen, self.bulan, self.tahun)
+        self.assertEqual(hasil["rekap"]["hari_hadir"], 1)
+        self.assertEqual(hasil["rekap"]["total_jam_kerja"], "06:00")
+
+
+class LaporanDetailViewTest(TestCase):
+    """Halaman /presensi/laporan-detail/ + ekspor -- scoped dapat_kelola,
+    alur cari (0/1/banyak hasil) & akses langsung via user_id."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="lapdetailadmin", password="testpass123", role="admin")
+        self.dosen = User.objects.create_user(
+            username="lapdetaildosen", password="testpass123", role="dosen",
+            nidn="7900000001", first_name="Unik", last_name="Satu", kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.dosen_lain = User.objects.create_user(
+            username="lapdetaildosenlain", password="testpass123", role="dosen",
+            nidn="7900000002", first_name="Unik", last_name="Dua", kode_fakultas="FT", kode_prodi="TI",
+        )
+
+    def test_dosen_biasa_tidak_bisa_akses(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/laporan-detail/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_pencarian_tanpa_kata_kunci_tidak_menampilkan_apa_pun(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(resp.context["target_user"])
+        self.assertIsNone(resp.context["daftar_pilihan"])
+
+    def test_pencarian_satu_hasil_langsung_tampil_detail(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/", {"q": "7900000001"})
+        self.assertEqual(resp.context["target_user"], self.dosen)
+        self.assertIsNotNone(resp.context["detail"])
+
+    def test_pencarian_banyak_hasil_tampilkan_daftar_pilihan(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/", {"q": "Unik"})
+        self.assertIsNone(resp.context["target_user"])
+        self.assertEqual(resp.context["daftar_pilihan"].count(), 2)
+
+    def test_pencarian_tidak_ketemu(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/", {"q": "TidakAdaSamaSekali"})
+        self.assertIsNone(resp.context["target_user"])
+        self.assertIsNone(resp.context["daftar_pilihan"])
+
+    def test_akses_langsung_via_user_id(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/", {"user_id": self.dosen.id, "bulan": 7, "tahun": 2026})
+        self.assertEqual(resp.context["target_user"], self.dosen)
+
+    def test_kaprodi_di_luar_cakupan_dapat_404(self):
+        kaprodi = User.objects.create_user(
+            username="lapdetailkaprodi", password="testpass123", role="kaprodi", kode_prodi="SI",
+        )
+        self.client.force_login(kaprodi)
+        resp = self.client.get("/presensi/laporan-detail/", {"user_id": self.dosen.id})
+        self.assertEqual(resp.status_code, 404)
+
+    def test_admin_bisa_unduh_pdf(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/pdf/", {
+            "user_id": self.dosen.id, "bulan": "7", "tahun": "2026",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+
+    def test_admin_bisa_unduh_excel(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/excel/", {
+            "user_id": self.dosen.id, "bulan": "7", "tahun": "2026",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp["Content-Type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    def test_unduh_tanpa_pilih_pegawai_redirect(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/pdf/")
+        self.assertEqual(resp.status_code, 302)
