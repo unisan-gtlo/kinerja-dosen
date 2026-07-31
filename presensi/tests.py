@@ -1796,16 +1796,15 @@ class GetUserQsLaporanInternalTest(TestCase):
         )
         self.semua = User.objects.filter(id__in=[self.dosen.id, self.dekan.id, self.tendik.id])
 
-    def test_filter_kategori_dosen(self):
+    def test_filter_kategori_dosen_termasuk_pejabat_struktural(self):
+        # Pejabat struktural (Dekan/Wadek/Kaprodi/dst) SENGAJA digabung ke
+        # kategori "dosen" di laporan ini -- secara kepegawaian mereka
+        # tetap dosen, cuma dapat tugas tambahan struktural. Ini murni
+        # soal pengelompokan laporan, jam kerja presensi (KelompokPresensi)
+        # tetap terpisah seperti sebelumnya.
         hasil = get_user_qs_laporan_internal(self.semua, kategori="dosen")
         self.assertIn(self.dosen, hasil)
-        self.assertNotIn(self.dekan, hasil)
-        self.assertNotIn(self.tendik, hasil)
-
-    def test_filter_kategori_pejabat(self):
-        hasil = get_user_qs_laporan_internal(self.semua, kategori="pejabat")
         self.assertIn(self.dekan, hasil)
-        self.assertNotIn(self.dosen, hasil)
         self.assertNotIn(self.tendik, hasil)
 
     def test_filter_kategori_tendik(self):

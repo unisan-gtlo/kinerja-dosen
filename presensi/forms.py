@@ -120,7 +120,7 @@ class LaporanSerdosForm(forms.Form):
 
 
 KATEGORI_LAPORAN_INTERNAL_CHOICES = [
-    ("", "Semua Kategori"), ("dosen", "Dosen"), ("pejabat", "Pejabat"), ("tendik", "Tendik"),
+    ("", "Semua Kategori"), ("dosen", "Dosen (termasuk Pejabat Struktural)"), ("tendik", "Tendik"),
 ]
 
 

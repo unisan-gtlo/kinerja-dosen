@@ -1,9 +1,9 @@
 """Logika Laporan Presensi Internal -- laporan bulanan lintas-pegawai
 untuk kebutuhan internal kampus (BEDA dari presensi/laporan_serdos.py
 yang khusus format resmi LLDIKTI untuk dosen serdos). Bisa difilter per
-kategori (dosen/pejabat/tendik), fakultas, dan program studi. Menampilkan
-jam Masuk & Pulang per hari (bukan paraf) -- makanya TIDAK dibatasi ke
-dosen serdos saja, semua pegawai bisa masuk laporan ini.
+kategori (dosen/tendik), fakultas, dan program studi. Menampilkan jam
+Masuk & Pulang per hari (bukan paraf) -- makanya TIDAK dibatasi ke dosen
+serdos saja, semua pegawai bisa masuk laporan ini.
 
 Dipisah dari rekap.py karena bentuknya grid tanggal (seperti laporan
 serdos), bukan agregat total jam kerja bulanan.
@@ -17,9 +17,15 @@ from master.models import Prodi
 from .laporan_serdos import jenis_tanggal_bulan
 from .models import Presensi
 
+# Pejabat struktural (Dekan/Wadek/Kaprodi/Sekprodi/Rektorat/Biro) SENGAJA
+# digabung ke kategori "dosen" di LAPORAN ini -- secara kepegawaian
+# mereka tetap dosen yang diberi tugas tambahan struktural, jadi tidak
+# perlu jadi kategori terpisah untuk kebutuhan pelaporan internal.
+# Catatan: ini CUMA soal pengelompokan tampilan laporan -- jam kerja
+# presensi (KelompokPresensi "Dosen" vs "Pejabat", lihat CLAUDE.md § 9)
+# TETAP terpisah seperti sebelumnya, tidak ikut berubah di sini.
 KATEGORI_ROLES = {
-    "dosen": ["dosen"],
-    "pejabat": ["dekan", "wadek", "kaprodi", "sekprodi", "rektorat", "biro"],
+    "dosen": ["dosen", "dekan", "wadek", "kaprodi", "sekprodi", "rektorat", "biro"],
     "tendik": ["tendik"],
 }
 

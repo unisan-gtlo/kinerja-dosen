@@ -22,7 +22,7 @@ WARNA_ARSIR = colors.HexColor("#d9d9d9")
 
 
 def _label_filter(kategori, fakultas, prodi):
-    label_kategori = {"dosen": "Dosen", "pejabat": "Pejabat", "tendik": "Tendik"}.get(kategori, "")
+    label_kategori = {"dosen": "Dosen (termasuk Pejabat Struktural)", "tendik": "Tendik"}.get(kategori, "")
     bagian = []
     if label_kategori:
         bagian.append(f"Kategori: {label_kategori}")
