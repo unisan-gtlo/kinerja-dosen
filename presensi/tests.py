@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
 import numpy as np
+import openpyxl
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError, IntegrityError, transaction
 from django.test import TestCase
@@ -2017,6 +2018,39 @@ class LaporanInternalViewTest(TestCase):
         resp = self.client.get("/presensi/laporan-internal/")
         self.assertEqual(resp.status_code, 200)  # halaman tetap bisa diakses (role berwenang)
         # tidak error walau tidak ada satu pun dosen dalam cakupannya (kode_prodi beda)
+
+    def test_akun_tanpa_nidn_dikecualikan_dari_cakupan(self):
+        # Akun jabatan/administratif generik (mis. login "fikom" -> "Dekan
+        # Fikom") tidak punya NIDN sama sekali -- dikecualikan dari cakupan
+        # lintas-pegawai (_pengguna_dalam_cakupan) karena bukan representasi
+        # satu pegawai yang benar-benar presensi fisik (dikonfirmasi user).
+        User.objects.create_user(
+            username="labinternaljabatan", password="testpass123", role="dekan",
+            first_name="Dekan", last_name="Palsu", kode_fakultas="FT",
+        )
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-internal/excel/", {
+            "bulan": "7", "tahun": "2026", "kategori": "", "fakultas": "", "prodi": "",
+        })
+        wb = openpyxl.load_workbook(io.BytesIO(resp.content))
+        semua_nilai = [cell.value for row in wb.active.iter_rows() for cell in row]
+        self.assertNotIn("Dekan Palsu", semua_nilai)
+
+    def test_tendik_tanpa_nidn_tetap_masuk_cakupan(self):
+        # Beda dengan akun jabatan generik -- tendik memang tidak pernah
+        # punya NIDN, tapi TETAP pegawai sungguhan yang presensi fisik,
+        # jadi role='tendik' dikecualikan dari aturan exclude di atas.
+        User.objects.create_user(
+            username="labinternaltendikcakupan", password="testpass123", role="tendik",
+            first_name="Tendik", last_name="Asli", kode_fakultas="FT",
+        )
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-internal/excel/", {
+            "bulan": "7", "tahun": "2026", "kategori": "", "fakultas": "", "prodi": "",
+        })
+        wb = openpyxl.load_workbook(io.BytesIO(resp.content))
+        semua_nilai = [cell.value for row in wb.active.iter_rows() for cell in row]
+        self.assertIn("Tendik Asli", semua_nilai)
 
 
 class CariPegawaiTest(TestCase):

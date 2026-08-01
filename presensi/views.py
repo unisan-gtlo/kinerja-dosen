@@ -4,6 +4,7 @@ import openpyxl
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -280,8 +281,19 @@ def _pengguna_dalam_cakupan(request_user):
     """SEMUA role (dosen + staf/tendik + pejabat), BEDA dengan get_dosen_
     queryset (dosen-only) yang dipakai dashboard/data harian -- laporan
     bulanan ini memang dirancang lintas-pegawai sejak awal. Discope lewat
-    dapat_kelola, pola sama dengan tinjau_presensi/tinjau_izin."""
-    aktif = User.objects.filter(status_akun="aktif")
+    dapat_kelola, pola sama dengan tinjau_presensi/tinjau_izin.
+
+    Akun jabatan/administratif generik (mis. login "fikom" -> "Dekan
+    Fikom", dipakai atasan cuma untuk login lihat laporan, BUKAN untuk
+    presensi fisik -- dikonfirmasi user) sengaja DIKECUALIKAN di sini:
+    akun ini tidak punya NIDN (beda dengan akun dosen pribadi manapun
+    yang selalu ber-NIDN), jadi baris "Dekan Fikom" dkk di laporan cuma
+    noise, bukan data kehadiran yang berarti. Tendik dikecualikan dari
+    aturan ini (role='tendik' selalu dipertahankan) karena tendik memang
+    tidak pernah punya NIDN sama sekali, bukan tanda akun generik."""
+    aktif = User.objects.filter(status_akun="aktif").exclude(
+        ~Q(role="tendik") & (Q(nidn__isnull=True) | Q(nidn=""))
+    )
     ids_dalam_cakupan = [u.id for u in aktif if request_user.dapat_kelola(u)]
     return User.objects.filter(id__in=ids_dalam_cakupan)
 
