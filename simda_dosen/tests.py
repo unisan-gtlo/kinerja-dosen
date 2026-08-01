@@ -94,6 +94,7 @@ class KelolaDataTendikViewTest(TestCase):
     def test_admin_bisa_cari(self, mock_cls):
         mock_qs = MagicMock()
         mock_cls.objects.using.return_value = mock_qs
+        mock_qs.all.return_value = mock_qs
         mock_qs.filter.return_value = mock_qs
         mock_qs.order_by.return_value = []
 
