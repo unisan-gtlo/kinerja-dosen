@@ -1,7 +1,11 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.db.models import Q
-from .models import MataKuliahPublik, MahasiswaPublik, DataDosen
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .forms import DataTendikForm
+from .models import DataDosen, DataTendik, MahasiswaPublik, MataKuliahPublik
 
 
 @login_required
@@ -88,3 +92,84 @@ def cari_dosen(request):
         for d in qs.order_by('nama_lengkap')[:30]
     ]
     return JsonResponse({'results': results})
+
+
+# ============================================================
+# Kelola Data Tendik -- CRUD penuh ke master.data_tendik SIMDA,
+# admin-only (BUKAN discope dapat_kelola seperti Kelola User -- data
+# tendik tidak punya konsep fakultas/prodi untuk dipetakan ke situ,
+# dan field-nya termasuk data pribadi sensitif/HR terpusat). Pembuatan
+# akun LOGIN (accounts.User) TETAP langkah terpisah lewat Kelola User,
+# lihat DataTendik.__doc__ untuk alasan lengkap.
+# ============================================================
+
+def _bisa_kelola_data_tendik(user):
+    return user.role == 'admin'
+
+
+@login_required
+def daftar_tendik(request):
+    if not _bisa_kelola_data_tendik(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    q = request.GET.get('q', '').strip()
+    daftar = DataTendik.objects.using('simda').all()
+    if q:
+        daftar = daftar.filter(Q(nama_lengkap__icontains=q) | Q(nip__icontains=q) | Q(nip_yayasan__icontains=q))
+    daftar = daftar.order_by('nama_lengkap')
+
+    return render(request, 'simda_dosen/daftar_tendik.html', {'daftar': daftar, 'kata_kunci': q})
+
+
+@login_required
+def tambah_tendik(request):
+    if not _bisa_kelola_data_tendik(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    if request.method == 'POST':
+        form = DataTendikForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Data tendik berhasil ditambahkan.')
+            return redirect('simda_dosen:daftar_tendik')
+    else:
+        form = DataTendikForm()
+    return render(request, 'simda_dosen/tendik_form.html', {'form': form, 'judul': 'Tambah Data Tendik'})
+
+
+@login_required
+def ubah_tendik(request, tendik_id):
+    if not _bisa_kelola_data_tendik(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    tendik = get_object_or_404(DataTendik.objects.using('simda'), id=tendik_id)
+    if request.method == 'POST':
+        form = DataTendikForm(request.POST, request.FILES, instance=tendik)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Data tendik berhasil diperbarui.')
+            return redirect('simda_dosen:daftar_tendik')
+    else:
+        form = DataTendikForm(instance=tendik)
+    return render(request, 'simda_dosen/tendik_form.html', {
+        'form': form, 'judul': f'Ubah Data Tendik: {tendik.nama_lengkap}',
+    })
+
+
+@login_required
+def toggle_aktif_tendik(request, tendik_id):
+    """POST-only: aktifkan/nonaktifkan, BUKAN hapus -- data tendik
+    terhubung ke riwayat presensi/jabatan struktural, penghapusan fisik
+    berisiko merusak data historis. Field is_active sudah untuk ini."""
+    if not _bisa_kelola_data_tendik(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method != 'POST':
+        return redirect('simda_dosen:daftar_tendik')
+
+    tendik = get_object_or_404(DataTendik.objects.using('simda'), id=tendik_id)
+    tendik.is_active = not tendik.is_active
+    tendik.save(update_fields=['is_active'])
+    messages.success(
+        request, f"{tendik.nama_lengkap} sekarang {'aktif' if tendik.is_active else 'nonaktif'}.",
+    )
+    return redirect('simda_dosen:daftar_tendik')

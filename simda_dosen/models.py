@@ -600,41 +600,116 @@ class MahasiswaPublik(models.Model):
         return f'{self.nim} — {self.nama_lengkap}'
 
 
+class UnitKerja(models.Model):
+    """Read-only, sumbernya master.unit_kerja (tabel katalog organisasi --
+    BUKAN data pribadi/sensitif, sama seperti master.mata_kuliah, jadi
+    aman diakses langsung tanpa lewat view tersaring). Dipakai sebagai
+    dropdown unit kerja di form Kelola Data Tendik. `induk_id` disimpan
+    sebagai id mentah (bukan FK self-referencing) -- form Kelola Data
+    Tendik cuma butuh daftar datar (flat), tidak perlu render struktur
+    pohon unit/sub-unit."""
+    JENIS = [
+        ('akademik', 'Akademik'), ('administrasi', 'Administrasi'),
+        ('penunjang', 'Penunjang'), ('layanan', 'Layanan'), ('penelitian', 'Penelitian'),
+    ]
+
+    kode = models.CharField(max_length=20, unique=True)
+    nama = models.CharField(max_length=150)
+    singkatan = models.CharField(max_length=30, blank=True)
+    jenis = models.CharField(max_length=20, choices=JENIS)
+    induk_id = models.IntegerField(null=True, blank=True)
+    email = models.EmailField(blank=True)
+    no_telepon = models.CharField(max_length=20, blank=True)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = 'master"."unit_kerja'
+        verbose_name = 'Unit Kerja (SIMDA)'
+        verbose_name_plural = 'Unit Kerja (SIMDA)'
+        ordering = ['jenis', 'nama']
+
+    def __str__(self):
+        return f'{self.singkatan or self.kode} — {self.nama}'
+
+
 class DataTendik(models.Model):
-    """Read-only, sumbernya VIEW master.v_tendik_ringkas (BUKAN tabel
-    mentah master.data_tendik) -- lihat C:\\unisan\\simda\\sdm\\models.py
-    untuk skema tabel aslinya dan C:\\unisan\\simda\\buat_view_tendik_ringkas.sql
-    untuk definisi view + grant-nya. SENGAJA lewat view tersaring, BUKAN
-    tabel mentah: master.data_tendik berisi field pribadi sensitif (NIK,
-    alamat, rekening bank, NPWP, foto) yang tidak relevan untuk SIKD --
-    SIKD tidak punya fitur self-service profil tendik (beda dengan Dosen
-    yang memang jadi CRUD-owner datanya sendiri lewat sikd_rw, lihat
-    buat_role_sikd_rw.sql), jadi cuma butuh identitas dasar untuk resolve
-    nama resmi + status kepegawaian (lihat simda_dosen/utils.py::
-    attach_nama_resmi), sama prinsipnya dengan master.v_dosen_publik untuk
-    konsumen Portal. Dicocokkan ke accounts.User lewat nip_yayasan (tendik
-    tidak punya NIDN). unit_kerja_id/jenis_kepegawaian_id/
-    status_kepegawaian_id/golongan_id disimpan sebagai id mentah (bukan
-    FK) -- app unit_kerja SIMDA belum di-mirror di SIKD, sama seperti pola
-    agama_id di DataDosen."""
+    """CRUD PENUH lewat tabel mentah master.data_tendik (BUKAN lagi view
+    tersaring v_tendik_ringkas) -- lihat C:\\unisan\\simda\\sdm\\models.py
+    untuk skema aslinya dan C:\\unisan\\simda\\tambah_akses_tendik_penuh.sql
+    untuk grant SELECT/INSERT/UPDATE/DELETE-nya.
+
+    **Keputusan per fitur "Kelola Data Tendik" (2026-08-01):** awalnya
+    model ini SENGAJA dibuat read-only lewat view (lihat riwayat git) --
+    SIKD dulu tidak punya fitur apa pun yang butuh MENULIS data tendik.
+    Sekarang SIKD jadi entry-point CRUD penuh untuk data tendik (user
+    eksplisit minta cakupan field selengkap tabel SIMDA aslinya, termasuk
+    NIK/rekening/NPWP/foto), jadi sikd_rw dinaikkan ke akses baca-tulis
+    penuh ke tabel mentah, sama pola dengan master.data_dosen di
+    buat_role_sikd_rw.sql. Pembuatan akun LOGIN (accounts.User) TETAP
+    langkah terpisah lewat Kelola User (nip_yayasan diisi manual) --
+    TIDAK auto-dibuatkan dari sini, konsisten dengan pola Dosen.
+
+    Dicocokkan ke accounts.User lewat nip_yayasan (tendik tidak punya
+    NIDN). provinsi_domisili_id/kabupaten_domisili_id SENGAJA tidak
+    diberi dropdown di form (disimpan sebagai id mentah saja) -- sama
+    seperti gap yang sudah ada di form Profil Dosen (`profil/views.py`
+    tidak pernah mengekspos kedua field itu juga), karena app `wilayah`
+    SIMDA (Provinsi/KabupatenKota) belum di-mirror ke SIKD sama sekali;
+    membangun mirror+dropdown baru untuk itu di luar cakupan fitur ini."""
+    JENIS_KEL = [('L', 'Laki-laki'), ('P', 'Perempuan')]
+    PENDIDIKAN = [('SMA', 'SMA/Sederajat'), ('D3', 'D3'), ('S1', 'S1'), ('S2', 'S2')]
+
+    sso_user_id = models.IntegerField(null=True, blank=True)
     nip = models.CharField(max_length=30, blank=True)
     nip_yayasan = models.CharField(max_length=30, blank=True, db_index=True)
+    nik = models.CharField(max_length=20, blank=True)
     nama_lengkap = models.CharField(max_length=150)
+    jenis_kelamin = models.CharField(max_length=1, choices=JENIS_KEL, blank=True)
+    tempat_lahir = models.CharField(max_length=100, blank=True)
+    tgl_lahir = models.DateField(null=True, blank=True)
+    pendidikan_terakhir = models.CharField(max_length=5, choices=PENDIDIKAN, blank=True)
+    no_hp = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
     unit_kerja_id = models.IntegerField(null=True, blank=True)
     jabatan = models.CharField(max_length=100, blank=True, help_text='Jabatan/jobdesk sehari-hari, BUKAN jabatan struktural (lihat JabatanStruktural/PejabatStruktural)')
     jenis_kepegawaian_id = models.IntegerField(null=True, blank=True)
     status_kepegawaian_id = models.IntegerField(null=True, blank=True)
     golongan_id = models.IntegerField(null=True, blank=True)
+    tgl_mulai_kerja = models.DateField(null=True, blank=True)
+    nama_bank = models.CharField(max_length=50, blank=True)
+    no_rekening = models.CharField(max_length=30, blank=True)
+    atas_nama_rekening = models.CharField(max_length=150, blank=True)
+    foto = models.ImageField(upload_to='tendik/foto/', null=True, blank=True, storage=simda_media_storage)
     is_active = models.BooleanField(default=True)
+    tgl_dibuat = models.DateTimeField(auto_now_add=True)
+    tgl_diperbarui = models.DateTimeField(auto_now=True)
+    agama_id = models.IntegerField(null=True, blank=True)
+    status_pernikahan = models.CharField(max_length=20, blank=True)
+    alamat_domisili = models.TextField(blank=True)
+    provinsi_domisili_id = models.IntegerField(null=True, blank=True)
+    kabupaten_domisili_id = models.IntegerField(null=True, blank=True)
+    kode_pos = models.CharField(max_length=5, blank=True)
+    bidang_keahlian = models.CharField(max_length=150, blank=True)
+    no_sk_pengangkatan = models.CharField(max_length=100, blank=True)
+    tgl_sk_pengangkatan = models.DateField(null=True, blank=True)
+    npwp = models.CharField(max_length=20, blank=True)
 
     class Meta:
         managed = False
-        db_table = 'master"."v_tendik_ringkas'
+        db_table = 'master"."data_tendik'
         verbose_name = 'Data Tendik (SIMDA)'
         verbose_name_plural = 'Data Tendik (SIMDA)'
 
     def __str__(self):
         return self.nama_lengkap
+
+    @property
+    def unit_kerja_nama(self):
+        if not self.unit_kerja_id:
+            return ''
+        uk = UnitKerja.objects.using('simda').filter(id=self.unit_kerja_id).first()
+        return uk.nama if uk else ''
 
     @property
     def jenis_kepegawaian_nama(self):
