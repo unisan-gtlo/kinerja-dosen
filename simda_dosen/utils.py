@@ -3,6 +3,7 @@ import re
 from django.contrib import messages
 from django.db import DatabaseError
 from django.shortcuts import get_object_or_404, redirect
+from django.test.testcases import DatabaseOperationForbidden
 
 from .models import (
     DataDosen, DataTendik, BidangKeahlian, BidangKeahlianPublik, GolonganPublik,
@@ -51,7 +52,14 @@ def attach_nama_resmi(users):
     Detail) supaya nama yang tampil akurat. Ditangkap DatabaseError sama
     seperti get_pejabat_aktif() -- kalau akses master.data_tendik belum
     di-grant di SIMDA, laporan tetap render pakai nama akun lokal
-    (fallback), tidak 500."""
+    (fallback), tidak 500. Ditangkap juga DatabaseOperationForbidden --
+    ini BUKAN error koneksi sungguhan, tapi guard Django TestCase yang
+    memblokir query ke alias database yang tidak dideklarasikan di
+    `databases` test class (AssertionError, bukan turunan DatabaseError,
+    jadi harus ditangkap eksplisit) -- fungsi ini dipanggil dari banyak
+    test lama (LaporanBulananViewTest dkk.) yang ditulis sebelum fitur
+    ini ada dan tidak mendeklarasikan 'simda', TIDAK pernah muncul di
+    produksi (cuma ada di bawah Django test runner)."""
     users = list(users)
     nidn_list = [u.nidn for u in users if u.nidn]
     nip_list = [u.nip_yayasan for u in users if u.nip_yayasan]
@@ -66,7 +74,7 @@ def attach_nama_resmi(users):
             tendik_by_nip = {
                 t.nip_yayasan: t for t in DataTendik.objects.using('simda').filter(nip_yayasan__in=nip_list)
             }
-    except DatabaseError:
+    except (DatabaseError, DatabaseOperationForbidden):
         pass
 
     for u in users:
