@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .models import (
-    DataDosen, RiwayatJabatanFungsional, RiwayatPendidikanDosen, RiwayatBKD,
+    DataDosen, DataTendik, RiwayatJabatanFungsional, RiwayatPendidikanDosen, RiwayatBKD,
     FakultasPublik, ProdiPublik, TahunAkademikPublik,
     AgamaPublik, JabatanFungsionalPublik,
 )
@@ -12,6 +12,13 @@ class DataDosenAdmin(admin.ModelAdmin):
     list_display = ['nidn', 'nama_lengkap', 'kode_fakultas', 'kode_prodi', 'is_active']
     search_fields = ['nidn', 'nama_lengkap']
     list_filter = ['kode_fakultas', 'kode_prodi', 'is_active']
+
+
+@admin.register(DataTendik)
+class DataTendikAdmin(admin.ModelAdmin):
+    list_display = ['nip_yayasan', 'nama_lengkap', 'jabatan', 'is_active']
+    search_fields = ['nip_yayasan', 'nip', 'nama_lengkap']
+    list_filter = ['is_active']
 
 
 @admin.register(RiwayatJabatanFungsional)

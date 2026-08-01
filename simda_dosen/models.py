@@ -600,6 +600,64 @@ class MahasiswaPublik(models.Model):
         return f'{self.nim} — {self.nama_lengkap}'
 
 
+class DataTendik(models.Model):
+    """Read-only, sumbernya VIEW master.v_tendik_ringkas (BUKAN tabel
+    mentah master.data_tendik) -- lihat C:\\unisan\\simda\\sdm\\models.py
+    untuk skema tabel aslinya dan C:\\unisan\\simda\\buat_view_tendik_ringkas.sql
+    untuk definisi view + grant-nya. SENGAJA lewat view tersaring, BUKAN
+    tabel mentah: master.data_tendik berisi field pribadi sensitif (NIK,
+    alamat, rekening bank, NPWP, foto) yang tidak relevan untuk SIKD --
+    SIKD tidak punya fitur self-service profil tendik (beda dengan Dosen
+    yang memang jadi CRUD-owner datanya sendiri lewat sikd_rw, lihat
+    buat_role_sikd_rw.sql), jadi cuma butuh identitas dasar untuk resolve
+    nama resmi + status kepegawaian (lihat simda_dosen/utils.py::
+    attach_nama_resmi), sama prinsipnya dengan master.v_dosen_publik untuk
+    konsumen Portal. Dicocokkan ke accounts.User lewat nip_yayasan (tendik
+    tidak punya NIDN). unit_kerja_id/jenis_kepegawaian_id/
+    status_kepegawaian_id/golongan_id disimpan sebagai id mentah (bukan
+    FK) -- app unit_kerja SIMDA belum di-mirror di SIKD, sama seperti pola
+    agama_id di DataDosen."""
+    nip = models.CharField(max_length=30, blank=True)
+    nip_yayasan = models.CharField(max_length=30, blank=True, db_index=True)
+    nama_lengkap = models.CharField(max_length=150)
+    unit_kerja_id = models.IntegerField(null=True, blank=True)
+    jabatan = models.CharField(max_length=100, blank=True, help_text='Jabatan/jobdesk sehari-hari, BUKAN jabatan struktural (lihat JabatanStruktural/PejabatStruktural)')
+    jenis_kepegawaian_id = models.IntegerField(null=True, blank=True)
+    status_kepegawaian_id = models.IntegerField(null=True, blank=True)
+    golongan_id = models.IntegerField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = 'master"."v_tendik_ringkas'
+        verbose_name = 'Data Tendik (SIMDA)'
+        verbose_name_plural = 'Data Tendik (SIMDA)'
+
+    def __str__(self):
+        return self.nama_lengkap
+
+    @property
+    def jenis_kepegawaian_nama(self):
+        if not self.jenis_kepegawaian_id:
+            return ''
+        jk = JenisKepegawaianPublik.objects.using('simda').filter(id=self.jenis_kepegawaian_id).first()
+        return jk.nama if jk else ''
+
+    @property
+    def status_kepegawaian_nama(self):
+        if not self.status_kepegawaian_id:
+            return ''
+        sk = StatusKepegawaianPublik.objects.using('simda').filter(id=self.status_kepegawaian_id).first()
+        return sk.nama if sk else ''
+
+    @property
+    def golongan_nama(self):
+        if not self.golongan_id:
+            return ''
+        g = GolonganPublik.objects.using('simda').filter(id=self.golongan_id).first()
+        return f'{g.kode} ({g.pangkat})' if g else ''
+
+
 class JabatanStruktural(models.Model):
     """Read-only, sumbernya master.jabatan_struktural (tabel mentah --
     bukan data pribadi/sensitif, sama seperti master.mata_kuliah, jadi
@@ -633,15 +691,15 @@ class PejabatStruktural(models.Model):
     """Read-only, sumbernya master.pejabat_struktural. Dipakai untuk
     mengambil otomatis nama+NIP+gambar tanda tangan pejabat aktif (mis.
     Rektor) untuk blok tanda tangan di laporan resmi (lihat
-    presensi/laporan_serdos.py). `tendik` SENGAJA cuma disimpan sebagai
-    id mentah (bukan FK penuh) -- belum ada model DataTendik yang
-    di-mirror di SIKD, dan pemakaian saat ini (cari Rektor) hampir pasti
-    seorang dosen, bukan tendik."""
+    presensi/laporan_serdos.py). `tendik` sekarang FK penuh ke DataTendik
+    (sebelumnya cuma id mentah sebelum DataTendik di-mirror ke SIKD)."""
     jabatan = models.ForeignKey(JabatanStruktural, on_delete=models.DO_NOTHING, related_name='pejabat')
     dosen = models.ForeignKey(
         DataDosen, on_delete=models.DO_NOTHING, null=True, blank=True, related_name='jabatan_struktural',
     )
-    tendik_id = models.IntegerField(null=True, blank=True)
+    tendik = models.ForeignKey(
+        DataTendik, on_delete=models.DO_NOTHING, null=True, blank=True, related_name='jabatan_struktural',
+    )
     kode_fakultas = models.CharField(max_length=10, blank=True)
     kode_prodi = models.CharField(max_length=10, blank=True)
     tgl_mulai = models.DateField()
@@ -662,5 +720,10 @@ class PejabatStruktural(models.Model):
         ordering = ['jabatan__level', '-tgl_mulai']
 
     def __str__(self):
-        nama = self.dosen.nama_lengkap if self.dosen else f'tendik #{self.tendik_id}'
+        if self.dosen:
+            nama = self.dosen.nama_lengkap
+        elif self.tendik:
+            nama = self.tendik.nama_lengkap
+        else:
+            nama = 'tidak diketahui'
         return f'{self.jabatan.nama} — {nama}'

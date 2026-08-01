@@ -14,6 +14,7 @@ from datetime import date
 from django.utils import timezone
 
 from master.models import Prodi
+from simda_dosen.utils import attach_nama_resmi
 from .laporan_serdos import jenis_tanggal_bulan
 from .models import Presensi
 
@@ -63,8 +64,11 @@ def data_laporan_internal(user_qs, bulan, tahun):
     cakupan, urut nama. hari_grid: list HariGridInternal, jam kosong
     kalau tidak ada presensi tercatat hari itu (apa pun statusnya --
     laporan internal ini tampilkan apa adanya, tidak menyaring status
-    seperti laporan serdos)."""
-    users = list(user_qs.order_by("first_name", "username"))
+    seperti laporan serdos). `user.nama_resmi` (dari attach_nama_resmi)
+    dipakai sebagai nama tampilan -- resolve dari SIMDA (DataDosen/
+    DataTendik) supaya akun jabatan/administratif generik (mis. "Dekan
+    Fikom") tidak nongol dengan nama jabatan, bukan nama orang."""
+    users = attach_nama_resmi(user_qs.order_by("first_name", "username"))
     jenis_per_tanggal = jenis_tanggal_bulan(bulan, tahun)
 
     prodi_map = {p.kode_prodi: p.nama_prodi for p in Prodi.objects.all()}

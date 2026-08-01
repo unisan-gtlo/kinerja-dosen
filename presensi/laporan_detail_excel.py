@@ -42,7 +42,7 @@ def render_excel_detail_presensi(
     ws["A1"].font = Font(bold=True, size=13)
     ws["A1"].alignment = center
 
-    nama_tampil = user.get_full_name() or user.username
+    nama_tampil = getattr(user, "nama_resmi", None) or user.get_full_name() or user.username
     if user.nidn:
         nama_tampil += f" ({user.nidn})"
     ws.merge_cells("A2:G2")

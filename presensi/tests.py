@@ -14,7 +14,7 @@ from rest_framework.test import APITestCase
 from accounts.models import User
 from master.models import Fakultas, Prodi
 from profil.models import Sertifikasi
-from simda_dosen.utils import get_pejabat_aktif
+from simda_dosen.utils import attach_nama_resmi, get_pejabat_aktif, get_simda_tendik_or_none
 from .decision import (
     HasilCekWajah, hitung_ketepatan_masuk, hitung_ketepatan_pulang, resolve_kelompok, tentukan_status_waktu,
     verifikasi_wajah,
@@ -1677,7 +1677,7 @@ class GetPejabatAktifTest(TestCase):
 
         mock_pejabat.objects.using.assert_called_once_with("simda")
         mock_qs.filter.assert_called_once_with(jabatan__nama__iexact="Rektor", is_aktif=True)
-        mock_qs.select_related.assert_called_once_with("jabatan", "dosen")
+        mock_qs.select_related.assert_called_once_with("jabatan", "dosen", "tendik")
         mock_qs.first.assert_called_once()
 
     @patch("simda_dosen.utils.PejabatStruktural")
@@ -1694,6 +1694,100 @@ class GetPejabatAktifTest(TestCase):
         mock_qs.first.side_effect = DatabaseError("permission denied for table pejabat_struktural")
 
         self.assertIsNone(get_pejabat_aktif("Rektor"))
+
+
+class GetSimdaTendikOrNoneTest(TestCase):
+    """simda_dosen.utils.get_simda_tendik_or_none -- versi tendik dari
+    get_simda_dosen_or_none (unit test di-mock, sama pola dengan
+    GetDosenByNidnTest -- SIMDA tidak selalu tersedia saat test)."""
+
+    def test_tanpa_nip_yayasan_mengembalikan_none(self):
+        user = User.objects.create_user(username="tendiktanpanip", password="testpass123", role="tendik")
+        self.assertIsNone(get_simda_tendik_or_none(user))
+
+    @patch("simda_dosen.utils.DataTendik")
+    def test_query_dilakukan_lewat_koneksi_simda(self, mock_tendik_cls):
+        user = User.objects.create_user(
+            username="tendikdengannip", password="testpass123", role="tendik", nip_yayasan="1234567890",
+        )
+        mock_qs = MagicMock()
+        mock_tendik_cls.objects.using.return_value = mock_qs
+        mock_qs.filter.return_value = mock_qs
+
+        get_simda_tendik_or_none(user)
+
+        mock_tendik_cls.objects.using.assert_called_once_with("simda")
+        mock_qs.filter.assert_called_once_with(nip_yayasan="1234567890")
+        mock_qs.first.assert_called_once()
+
+
+class AttachNamaResmiTest(TestCase):
+    """simda_dosen.utils.attach_nama_resmi -- nama resmi dari SIMDA untuk
+    laporan presensi lintas-pegawai (Internal/Bulanan/Detail), supaya akun
+    jabatan/administratif generik (mis. "fikom" -> "Dekan Fikom") tidak
+    tampil dengan nama jabatan. Unit test di-mock, sama pola dengan
+    GetPejabatAktifTest -- SIMDA tidak selalu tersedia saat test."""
+
+    @patch("simda_dosen.utils.DataTendik")
+    @patch("simda_dosen.utils.DataDosen")
+    def test_dosen_dapat_nama_dari_simda(self, mock_dosen_cls, mock_tendik_cls):
+        dosen_user = User.objects.create_user(
+            username="attachdosen", password="testpass123", role="dosen", nidn="8800000001",
+        )
+        mock_dosen = MagicMock(nidn="8800000001", nama_lengkap_gelar="Dr. Contoh Dosen, M.Kom")
+        mock_dosen_cls.objects.using.return_value.filter.return_value = [mock_dosen]
+        mock_tendik_cls.objects.using.return_value.filter.return_value = []
+
+        hasil = attach_nama_resmi([dosen_user])
+
+        self.assertEqual(hasil[0].nama_resmi, "Dr. Contoh Dosen, M.Kom")
+
+    @patch("simda_dosen.utils.DataTendik")
+    @patch("simda_dosen.utils.DataDosen")
+    def test_tendik_dapat_nama_dari_simda(self, mock_dosen_cls, mock_tendik_cls):
+        tendik_user = User.objects.create_user(
+            username="attachtendik", password="testpass123", role="tendik", nip_yayasan="9900000001",
+        )
+        mock_tendik = MagicMock(nip_yayasan="9900000001", nama_lengkap="Contoh Tendik")
+        mock_dosen_cls.objects.using.return_value.filter.return_value = []
+        mock_tendik_cls.objects.using.return_value.filter.return_value = [mock_tendik]
+
+        hasil = attach_nama_resmi([tendik_user])
+
+        self.assertEqual(hasil[0].nama_resmi, "Contoh Tendik")
+
+    @patch("simda_dosen.utils.DataTendik")
+    @patch("simda_dosen.utils.DataDosen")
+    def test_akun_generik_tanpa_nidn_nip_fallback_ke_nama_akun(self, mock_dosen_cls, mock_tendik_cls):
+        # Akun jabatan/administratif generik (mis. "fikom") tidak punya
+        # NIDN/NIP -- tidak akan pernah resolve ke SIMDA, tetap fallback
+        # ke nama akun lokal (bukan crash/kosong).
+        akun_jabatan = User.objects.create_user(
+            username="fikom", password="testpass123", role="dekan",
+            first_name="Dekan", last_name="Fikom",
+        )
+        mock_dosen_cls.objects.using.return_value.filter.return_value = []
+        mock_tendik_cls.objects.using.return_value.filter.return_value = []
+
+        hasil = attach_nama_resmi([akun_jabatan])
+
+        self.assertEqual(hasil[0].nama_resmi, "Dekan Fikom")
+
+    @patch("simda_dosen.utils.DataTendik")
+    @patch("simda_dosen.utils.DataDosen")
+    def test_database_error_fallback_tidak_crash(self, mock_dosen_cls, mock_tendik_cls):
+        # Regresi: kalau akses master.data_dosen/data_tendik belum
+        # di-grant di SIMDA, laporan tetap render pakai nama akun lokal
+        # (fallback), bukan 500 -- sama prinsip dengan get_pejabat_aktif.
+        dosen_user = User.objects.create_user(
+            username="attacherr", password="testpass123", role="dosen", nidn="8800000002",
+            first_name="Nama", last_name="Lokal",
+        )
+        mock_dosen_cls.objects.using.return_value.filter.side_effect = DatabaseError("permission denied")
+
+        hasil = attach_nama_resmi([dosen_user])
+
+        self.assertEqual(hasil[0].nama_resmi, "Nama Lokal")
 
 
 class PengaturanUrutanSerdosViewTest(TestCase):

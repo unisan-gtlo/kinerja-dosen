@@ -13,6 +13,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
+from simda_dosen.utils import attach_nama_resmi
 from .models import Presensi, StatusPresensi, TargetKerjaBulanan, format_jam_menit
 
 NAMA_HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
@@ -117,16 +118,17 @@ def laporan_bulanan_jam_kerja(user_qs, bulan, tahun):
     -- laporan lintas-pegawai (dosen + staf) untuk dasar penggajian, lihat
     CLAUDE.md § 9. Beda dengan data_presensi_harian (1 baris per hari per
     orang, termasuk yang belum absen): di sini 1 baris per orang per bulan,
-    dan yang tanpa presensi sama sekali di bulan itu tidak ikut tampil."""
+    dan yang tanpa presensi sama sekali di bulan itu tidak ikut tampil.
+    `user.nama_resmi` (dari attach_nama_resmi) dipakai sebagai nama
+    tampilan -- resolve dari SIMDA (DataDosen/DataTendik) supaya akun
+    jabatan/administratif generik tidak nongol dengan nama jabatan."""
     user_ids_ada_presensi = (
         Presensi.objects.filter(user__in=user_qs, tanggal__year=tahun, tanggal__month=bulan)
         .values_list("user_id", flat=True).distinct()
     )
-    baris = [
-        {"user": u, **rekap_bulanan_user(u, bulan, tahun)}
-        for u in user_qs.filter(id__in=user_ids_ada_presensi)
-    ]
-    baris.sort(key=lambda b: b["user"].get_full_name() or b["user"].username)
+    users = attach_nama_resmi(user_qs.filter(id__in=user_ids_ada_presensi))
+    baris = [{"user": u, **rekap_bulanan_user(u, bulan, tahun)} for u in users]
+    baris.sort(key=lambda b: b["user"].nama_resmi)
     return baris
 
 

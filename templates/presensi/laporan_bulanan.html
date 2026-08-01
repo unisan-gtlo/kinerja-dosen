@@ -49,7 +49,7 @@
         <tbody>
           {% for item in halaman %}
           <tr>
-            <td>{{ item.user.get_full_name|default:item.user.username }}</td>
+            <td>{{ item.user.nama_resmi }}</td>
             <td>{{ item.user.get_role_display_id }}</td>
             <td>{{ item.kelompok.nama|default:"—" }}</td>
             <td>{{ item.hari_hadir }}</td>

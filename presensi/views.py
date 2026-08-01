@@ -16,7 +16,7 @@ from rest_framework.views import APIView
 
 from accounts.models import User
 from laporan.views import get_dosen_queryset
-from simda_dosen.utils import get_pejabat_aktif
+from simda_dosen.utils import attach_nama_resmi, get_pejabat_aktif
 from .decision import (
     cek_lokasi, hitung_ketepatan_masuk, hitung_ketepatan_pulang, resolve_kelompok, tentukan_status_waktu,
     verifikasi_wajah,
@@ -354,7 +354,7 @@ def export_excel_laporan_bulanan(request):
         target = item["target"]
         row_data = [
             idx,
-            u.get_full_name() or u.username,
+            u.nama_resmi,
             u.get_role_display_id(),
             item["kelompok"].nama if item["kelompok"] else "-",
             item["hari_hadir"],
@@ -455,11 +455,15 @@ def export_excel_laporan_internal(request):
 def _cari_target_user_laporan_detail(request):
     """Tentukan target_user (kalau ada) + daftar_pilihan (kalau pencarian
     cocok ke lebih dari 1 orang) untuk Detail Presensi Bulanan -- dipakai
-    bareng oleh halaman & kedua ekspor."""
+    bareng oleh halaman & kedua ekspor. `.nama_resmi` ditempel di sini
+    (bukan di cari_pegawai()) supaya cari_pegawai() tetap mengembalikan
+    queryset -- .count()/.first() di atas butuh queryset, bukan list."""
     cakupan = _pengguna_dalam_cakupan(request.user)
     user_id = request.GET.get("user_id", "").strip()
     if user_id.isdigit():
-        return get_object_or_404(cakupan, id=int(user_id)), None
+        target = get_object_or_404(cakupan, id=int(user_id))
+        attach_nama_resmi([target])
+        return target, None
 
     kata_kunci = request.GET.get("q", "").strip()
     if not kata_kunci:
@@ -468,9 +472,11 @@ def _cari_target_user_laporan_detail(request):
     hasil = cari_pegawai(cakupan, kata_kunci)
     jumlah = hasil.count()
     if jumlah == 1:
-        return hasil.first(), None
+        target = hasil.first()
+        attach_nama_resmi([target])
+        return target, None
     if jumlah > 1:
-        return None, hasil
+        return None, attach_nama_resmi(hasil)
     return None, None
 
 

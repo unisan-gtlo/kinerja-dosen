@@ -71,7 +71,7 @@ def render_excel_laporan_internal(user_qs, bulan, tahun, kategori="", fakultas="
         ws.row_dimensions[row_num].height = 24
 
         ws.cell(row=row_num, column=1, value=idx).alignment = center
-        nama_cell = ws.cell(row=row_num, column=2, value=baris["user"].get_full_name() or baris["user"].username)
+        nama_cell = ws.cell(row=row_num, column=2, value=baris["user"].nama_resmi)
         nama_cell.alignment = left
         ws.cell(row=row_num, column=3, value=baris["nama_prodi"]).alignment = center
 

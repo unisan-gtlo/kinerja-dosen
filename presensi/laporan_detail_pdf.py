@@ -44,10 +44,11 @@ def render_pdf_detail_presensi(
     ringkasan_style = ParagraphStyle("ringkasan", parent=styles["Normal"], fontSize=10, spaceAfter=3)
     ttd_style = ParagraphStyle("ttd", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER)
 
+    nama_resmi = getattr(user, "nama_resmi", None) or user.get_full_name() or user.username
     elements = [
         Paragraph("DETAIL PRESENSI BULANAN", judul_style),
         Paragraph(
-            f"{user.get_full_name() or user.username}" + (f" ({user.nidn})" if user.nidn else ""), sub_style,
+            f"{nama_resmi}" + (f" ({user.nidn})" if user.nidn else ""), sub_style,
         ),
         Paragraph(f"{NAMA_BULAN[bulan - 1]} {tahun}", sub_style),
         Spacer(1, 0.4 * cm),

@@ -5,7 +5,7 @@ from django.db import DatabaseError
 from django.shortcuts import get_object_or_404, redirect
 
 from .models import (
-    DataDosen, BidangKeahlian, BidangKeahlianPublik, GolonganPublik,
+    DataDosen, DataTendik, BidangKeahlian, BidangKeahlianPublik, GolonganPublik,
     JenisKepegawaianPublik, PejabatStruktural, StatusKepegawaianPublik,
 )
 
@@ -27,6 +27,58 @@ def get_simda_dosen_or_none(user):
     if not user or not user.nidn:
         return None
     return DataDosen.objects.using('simda').filter(nidn=user.nidn).first()
+
+
+def get_simda_tendik_or_none(user):
+    """Versi tendik dari get_simda_dosen_or_none() -- dicocokkan lewat
+    nip_yayasan (tendik tidak punya NIDN). Return None kalau nip_yayasan
+    kosong atau tidak match ke SIMDA."""
+    if not user or not user.nip_yayasan:
+        return None
+    return DataTendik.objects.using('simda').filter(nip_yayasan=user.nip_yayasan).first()
+
+
+def attach_nama_resmi(users):
+    """Tempel atribut `.nama_resmi` (nama asli dari SIMDA, bukan first_name/
+    last_name akun login) ke tiap User dalam `users` -- dosen dicocokkan
+    lewat nidn ke DataDosen, tendik lewat nip_yayasan ke DataTendik.
+    Fallback ke get_full_name()/username kalau tidak ketemu di SIMDA sama
+    sekali (mis. akun jabatan/administratif generik yang memang bukan
+    representasi satu pegawai -- lihat CLAUDE.md, akun ini TIDAK akan
+    pernah resolve ke SIMDA karena tidak mewakili satu NIDN/NIP tertentu).
+
+    Dipakai laporan lintas-pegawai presensi (Internal/Bulanan Jam Kerja/
+    Detail) supaya nama yang tampil akurat. Ditangkap DatabaseError sama
+    seperti get_pejabat_aktif() -- kalau akses master.data_tendik belum
+    di-grant di SIMDA, laporan tetap render pakai nama akun lokal
+    (fallback), tidak 500."""
+    users = list(users)
+    nidn_list = [u.nidn for u in users if u.nidn]
+    nip_list = [u.nip_yayasan for u in users if u.nip_yayasan]
+
+    dosen_by_nidn, tendik_by_nip = {}, {}
+    try:
+        if nidn_list:
+            dosen_by_nidn = {
+                d.nidn: d for d in DataDosen.objects.using('simda').filter(nidn__in=nidn_list)
+            }
+        if nip_list:
+            tendik_by_nip = {
+                t.nip_yayasan: t for t in DataTendik.objects.using('simda').filter(nip_yayasan__in=nip_list)
+            }
+    except DatabaseError:
+        pass
+
+    for u in users:
+        dosen = dosen_by_nidn.get(u.nidn) if u.nidn else None
+        tendik = tendik_by_nip.get(u.nip_yayasan) if u.nip_yayasan else None
+        if dosen:
+            u.nama_resmi = dosen.nama_lengkap_gelar
+        elif tendik:
+            u.nama_resmi = tendik.nama_lengkap
+        else:
+            u.nama_resmi = u.get_full_name() or u.username
+    return users
 
 
 def attach_kepegawaian_labels(users):
@@ -200,7 +252,7 @@ def get_pejabat_aktif(nama_jabatan):
         return (
             PejabatStruktural.objects.using('simda')
             .filter(jabatan__nama__iexact=nama_jabatan, is_aktif=True)
-            .select_related('jabatan', 'dosen')
+            .select_related('jabatan', 'dosen', 'tendik')
             .first()
         )
     except DatabaseError:

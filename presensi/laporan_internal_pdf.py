@@ -77,7 +77,7 @@ def render_pdf_laporan_internal(user_qs, bulan, tahun, kategori="", fakultas="",
     table_data = [header_row]
 
     for idx, baris in enumerate(daftar, start=1):
-        nama = Paragraph(baris["user"].get_full_name() or baris["user"].username, cell_style)
+        nama = Paragraph(baris["user"].nama_resmi, cell_style)
         sel_tanggal = [
             Paragraph(f"{hari.jam_masuk}<br/>{hari.jam_pulang}", jam_style) if (hari.jam_masuk or hari.jam_pulang) else ""
             for hari in baris["hari_grid"]
