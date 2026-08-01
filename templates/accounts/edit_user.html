@@ -20,6 +20,11 @@
           <input type="text" name="nidn" class="form-control" value="{{ target_user.nidn|default:'' }}">
         </div>
         <div class="col-md-6">
+          <label class="form-label fw-semibold">NIP Yayasan</label>
+          <input type="text" name="nip_yayasan" class="form-control" value="{{ target_user.nip_yayasan|default:'' }}"
+                 placeholder="Untuk role Tendik -- harus sama persis dengan data di Kelola Data Tendik">
+        </div>
+        <div class="col-md-6">
           <label class="form-label fw-semibold">Nama Depan</label>
           <input type="text" name="first_name" class="form-control" value="{{ target_user.first_name }}">
         </div>
@@ -41,6 +46,7 @@
           <label class="form-label fw-semibold">Role</label>
           <select name="role" class="form-select">
             <option value="dosen" {% if target_user.role == 'dosen' %}selected{% endif %}>Dosen</option>
+            <option value="tendik" {% if target_user.role == 'tendik' %}selected{% endif %}>Tendik</option>
             <option value="operator" {% if target_user.role == 'operator' %}selected{% endif %}>Operator</option>
             <option value="kaprodi" {% if target_user.role == 'kaprodi' %}selected{% endif %}>Kaprodi</option>
             <option value="sekprodi" {% if target_user.role == 'sekprodi' %}selected{% endif %}>Sekprodi</option>

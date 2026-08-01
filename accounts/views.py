@@ -272,6 +272,7 @@ def tambah_user(request):
         last_name = request.POST.get('last_name', '').strip()
         email = request.POST.get('email', '').strip()
         nidn = request.POST.get('nidn', '').strip()
+        nip_yayasan = request.POST.get('nip_yayasan', '').strip()
         role = request.POST.get('role', 'dosen')
         kode_fakultas = request.POST.get('kode_fakultas', '').strip()
         kode_prodi = request.POST.get('kode_prodi', '').strip()
@@ -303,6 +304,7 @@ def tambah_user(request):
                 last_name=last_name,
                 email=email,
                 nidn=nidn,
+                nip_yayasan=nip_yayasan,
                 role=role,
                 kode_fakultas=kode_fakultas,
                 kode_prodi=kode_prodi,
@@ -341,6 +343,7 @@ def edit_user(request, user_id):
         target_user.last_name = request.POST.get('last_name', '').strip()
         target_user.email = request.POST.get('email', '').strip()
         target_user.nidn = request.POST.get('nidn', '').strip()
+        target_user.nip_yayasan = request.POST.get('nip_yayasan', '').strip()
         kode_fakultas = request.POST.get('kode_fakultas', '').strip()
         kode_prodi = request.POST.get('kode_prodi', '').strip()
 
