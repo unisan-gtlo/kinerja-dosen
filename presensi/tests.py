@@ -2146,7 +2146,7 @@ class LaporanDetailViewTest(TestCase):
         self.client.force_login(self.admin)
         resp = self.client.get("/presensi/laporan-detail/", {"q": "Unik"})
         self.assertIsNone(resp.context["target_user"])
-        self.assertEqual(resp.context["daftar_pilihan"].count(), 2)
+        self.assertEqual(len(resp.context["daftar_pilihan"]), 2)
 
     def test_pencarian_tidak_ketemu(self):
         self.client.force_login(self.admin)
