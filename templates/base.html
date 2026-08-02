@@ -495,15 +495,9 @@
                   </a>
                 </li>
                 <li class="nav-item">
-                  <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'laporan_bulanan' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
-                     href="{% url 'presensi_web:laporan_bulanan' %}">
-                    <span class="nav-link-title">Laporan Bulanan Jam Kerja</span>
-                  </a>
-                </li>
-                <li class="nav-item">
                   <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'laporan_internal' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
                      href="{% url 'presensi_web:laporan_internal' %}">
-                    <span class="nav-link-title">Laporan Presensi Internal</span>
+                    <span class="nav-link-title">Laporan Presensi Internal &amp; Bulanan Jam Kerja</span>
                   </a>
                 </li>
                 <li class="nav-item">

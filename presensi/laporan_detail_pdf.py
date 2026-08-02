@@ -2,6 +2,7 @@
 lebar seperti laporan lain), A4 portrait cukup karena cuma 1 orang."""
 import io
 
+from django.utils import timezone
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4

@@ -7,6 +7,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -27,6 +28,8 @@ from .forms import (
     HariLiburForm, IzinCutiForm, KelompokPresensiForm, LaporanInternalForm, LaporanSerdosForm,
     TargetKerjaBulananForm,
 )
+from .laporan_bulanan_excel import render_excel_laporan_bulanan
+from .laporan_bulanan_pdf import render_pdf_laporan_bulanan
 from .laporan_detail import cari_pegawai, detail_presensi_bulanan
 from .laporan_detail_excel import render_excel_detail_presensi
 from .laporan_detail_pdf import render_pdf_detail_presensi
@@ -300,99 +303,78 @@ def _pengguna_dalam_cakupan(request_user):
 
 @login_required
 def laporan_bulanan_presensi(request):
-    """Laporan rekap jam kerja BULANAN lintas-pegawai (dosen + staf) --
-    dasar penggajian, lihat CLAUDE.md § 9. Beda dari dashboard_presensi/
-    data_presensi yang masih dosen-only."""
-    if not _bisa_tinjau_presensi(request.user):
-        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
-
-    bulan, tahun = _bulan_tahun_dari_request(request)
-    daftar = laporan_bulanan_jam_kerja(_pengguna_dalam_cakupan(request.user), bulan, tahun)
-    halaman = Paginator(daftar, 25).get_page(request.GET.get("halaman"))
-    bulan_pilihan = [(i, datetime(2000, i, 1).strftime("%B")) for i in range(1, 13)]
-
-    return render(request, "presensi/laporan_bulanan.html", {
-        "halaman": halaman, "bulan": bulan, "tahun": tahun, "bulan_pilihan": bulan_pilihan,
-    })
+    """URL lama /presensi/laporan-bulanan/ -- Laporan Bulanan Jam Kerja
+    digabung jadi satu halaman dengan Laporan Presensi Internal
+    (2026-08-02, lihat CLAUDE.md), supaya form filter (kategori/fakultas/
+    prodi) dan blok pengesahan cukup satu tempat. View ini sekarang
+    cuma redirect supaya bookmark/tautan lama tetap jalan -- query
+    string dipertahankan karena nama parameternya (bulan/tahun) sama
+    persis dengan LaporanInternalForm."""
+    url = reverse("presensi_web:laporan_internal")
+    if request.GET:
+        url = f"{url}?{request.GET.urlencode()}"
+    return redirect(url)
 
 
 @login_required
 def export_excel_laporan_bulanan(request):
-    """Ekspor Excel laporan bulanan jam kerja -- gaya sama dengan
-    export_excel_presensi."""
+    """Ekspor Excel Ringkasan Jam Kerja -- bagian dari halaman gabungan
+    Laporan Presensi Internal, pakai form (kategori/fakultas/prodi) dan
+    blok pengesahan yang sama dengan grid harian."""
     if not _bisa_tinjau_presensi(request.user):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
 
-    bulan, tahun = _bulan_tahun_dari_request(request)
-    daftar = laporan_bulanan_jam_kerja(_pengguna_dalam_cakupan(request.user), bulan, tahun)
+    form = LaporanInternalForm(request.GET)
+    if not form.is_valid():
+        messages.error(request, "Parameter laporan tidak valid, periksa kembali isian form.")
+        return redirect("presensi_web:laporan_internal")
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Laporan Bulanan"
+    data = form.cleaned_data
+    bulan, tahun = int(data["bulan"]), data["tahun"]
+    user_qs = _dapatkan_user_qs_dari_form_internal(request, data)
+    daftar = laporan_bulanan_jam_kerja(user_qs, bulan, tahun)
 
-    header_font = Font(bold=True, color="FFFFFF", size=11)
-    header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
-    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    left = Alignment(horizontal="left", vertical="center", wrap_text=True)
-    thin = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+    buffer = render_excel_laporan_bulanan(
+        daftar, bulan, tahun, kategori=data["kategori"], fakultas=data["fakultas"], prodi=data["prodi"],
+        **_parameter_penandatangan(request),
     )
-
-    nama_bulan = datetime(tahun, bulan, 1).strftime("%B %Y")
-
-    ws.merge_cells("A1:H1")
-    ws["A1"] = "LAPORAN BULANAN JAM KERJA"
-    ws["A1"].font = Font(bold=True, size=14)
-    ws["A1"].alignment = center
-
-    ws.merge_cells("A2:H2")
-    ws["A2"] = f"Universitas Ichsan Gorontalo · {nama_bulan}"
-    ws["A2"].font = Font(bold=True, size=12)
-    ws["A2"].alignment = center
-
-    headers = ["No", "Nama", "Role", "Kelompok", "Hari Hadir", "Total Jam Kerja", "Target Jam Kerja", "Selisih"]
-    row_header = 4
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=row_header, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = center
-        cell.border = thin
-    ws.row_dimensions[row_header].height = 26
-
-    for idx, item in enumerate(daftar, 1):
-        u = item["user"]
-        target = item["target"]
-        row_data = [
-            idx,
-            u.nama_resmi,
-            u.get_role_display_id(),
-            item["kelompok"].nama if item["kelompok"] else "-",
-            item["hari_hadir"],
-            item["total_jam_kerja"],
-            f"{target.target_jam_kerja} jam" if target else "-",
-            item["selisih_jam_kerja"] or "-",
-        ]
-        row_num = row_header + idx
-        for col, value in enumerate(row_data, 1):
-            cell = ws.cell(row=row_num, column=col, value=value)
-            cell.border = thin
-            cell.alignment = center if col != 2 else left
-
-    col_widths = [5, 28, 16, 16, 10, 14, 14, 10]
-    for col, width in enumerate(col_widths, 1):
-        ws.column_dimensions[get_column_letter(col)].width = width
-
-    response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response = HttpResponse(
+        buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
     response["Content-Disposition"] = f'attachment; filename="Laporan_Bulanan_{tahun}-{bulan:02d}.xlsx"'
-    wb.save(response)
+    return response
+
+
+@login_required
+def export_pdf_laporan_bulanan(request):
+    """Ekspor PDF Ringkasan Jam Kerja -- BARU, sebelumnya laporan ini
+    cuma punya ekspor Excel."""
+    if not _bisa_tinjau_presensi(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    form = LaporanInternalForm(request.GET)
+    if not form.is_valid():
+        messages.error(request, "Parameter laporan tidak valid, periksa kembali isian form.")
+        return redirect("presensi_web:laporan_internal")
+
+    data = form.cleaned_data
+    bulan, tahun = int(data["bulan"]), data["tahun"]
+    user_qs = _dapatkan_user_qs_dari_form_internal(request, data)
+    daftar = laporan_bulanan_jam_kerja(user_qs, bulan, tahun)
+
+    pdf_bytes = render_pdf_laporan_bulanan(
+        daftar, bulan, tahun, kategori=data["kategori"], fakultas=data["fakultas"], prodi=data["prodi"],
+        **_parameter_penandatangan(request),
+    )
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="Laporan_Bulanan_{tahun}-{bulan:02d}.pdf"'
     return response
 
 
 def _dapatkan_user_qs_dari_form_internal(request, data):
     """Cakupan (dapat_kelola) + filter kategori/fakultas/prodi -- dipakai
-    bareng oleh halaman & kedua ekspor Laporan Presensi Internal."""
+    bareng oleh halaman & keempat ekspor (Grid Harian + Ringkasan Jam
+    Kerja) Laporan Presensi Internal."""
     return get_user_qs_laporan_internal(
         _pengguna_dalam_cakupan(request.user),
         kategori=data.get("kategori", ""), fakultas=data.get("fakultas", ""), prodi=data.get("prodi", ""),
@@ -401,11 +383,14 @@ def _dapatkan_user_qs_dari_form_internal(request, data):
 
 @login_required
 def halaman_laporan_internal(request):
-    """Laporan Presensi Internal (BEDA dari Laporan Bulanan Jam Kerja --
-    ini grid tanggal dengan jam Masuk/Pulang per hari, bukan agregat
-    total jam kerja). Sama seperti Laporan Bulanan: cakupan lintas-
-    pegawai (dosen+staf+pejabat) di-scope lewat dapat_kelola, BUKAN
-    admin-only."""
+    """Laporan Presensi Internal -- sejak 2026-08-02 juga jadi rumah
+    Laporan Bulanan Jam Kerja (lihat CLAUDE.md): satu form filter
+    (bulan/tahun/kategori/fakultas/prodi) + satu blok pengesahan dipakai
+    bersama, tapi tetap 2 keluaran terpisah -- Grid Harian (jam Masuk/
+    Pulang per tanggal) dan Ringkasan Jam Kerja (total vs target, dasar
+    penggajian) -- karena bentuk tabelnya beda, tidak dipaksakan jadi
+    satu tabel. Cakupan lintas-pegawai (dosen+staf+pejabat) di-scope
+    lewat dapat_kelola, BUKAN admin-only."""
     if not _bisa_tinjau_presensi(request.user):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
 
@@ -415,7 +400,20 @@ def halaman_laporan_internal(request):
         hari_ini = timezone.localdate()
         form = LaporanInternalForm(initial={"bulan": hari_ini.month, "tahun": hari_ini.year})
 
-    return render(request, "presensi/laporan_internal.html", {"form": form})
+    halaman_ringkasan = None
+    if form.is_valid():
+        data = form.cleaned_data
+        bulan, tahun = int(data["bulan"]), data["tahun"]
+        user_qs = _dapatkan_user_qs_dari_form_internal(request, data)
+        daftar_ringkasan = laporan_bulanan_jam_kerja(user_qs, bulan, tahun)
+        halaman_ringkasan = Paginator(daftar_ringkasan, 25).get_page(request.GET.get("halaman"))
+    else:
+        bulan, tahun = timezone.localdate().month, timezone.localdate().year
+
+    return render(request, "presensi/laporan_internal.html", {
+        "form": form, "bulan": bulan, "tahun": tahun, "halaman_ringkasan": halaman_ringkasan,
+        "penandatangan": _parameter_penandatangan(request),
+    })
 
 
 @login_required
@@ -434,6 +432,7 @@ def export_pdf_laporan_internal(request):
 
     pdf_bytes = render_pdf_laporan_internal(
         user_qs, bulan, tahun, kategori=data["kategori"], fakultas=data["fakultas"], prodi=data["prodi"],
+        **_parameter_penandatangan(request),
     )
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="Laporan_Presensi_Internal_{tahun}-{bulan:02d}.pdf"'
@@ -456,6 +455,7 @@ def export_excel_laporan_internal(request):
 
     buffer = render_excel_laporan_internal(
         user_qs, bulan, tahun, kategori=data["kategori"], fakultas=data["fakultas"], prodi=data["prodi"],
+        **_parameter_penandatangan(request),
     )
     response = HttpResponse(
         buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -492,13 +492,17 @@ def _cari_target_user_laporan_detail(request):
     return None, None
 
 
-def _parameter_penandatangan_detail(request):
-    """Kota/tanggal cetak/identitas penandatangan untuk Detail Presensi
-    Bulanan -- SEMUA opsional & manual (tidak auto-fill dari Pejabat
-    Struktural SIMDA seperti Laporan Serdos), karena laporan ini bisa
-    ditandatangani siapa saja (atasan langsung, HR, dst), bukan cuma
-    Rektor. id_penandatangan diisi bebas apa adanya oleh pengguna, mis.
-    "NIP. 199001012020121001" atau "NIDN. 0910097601"."""
+def _parameter_penandatangan(request):
+    """Kota/tanggal cetak/identitas penandatangan untuk laporan presensi
+    lintas-pegawai (Internal/Bulanan/Detail) -- SEMUA opsional & manual
+    (tidak auto-fill dari Pejabat Struktural SIMDA seperti Laporan
+    Serdos), karena laporan-laporan ini bisa ditandatangani siapa saja
+    (atasan langsung, HR, dst), bukan cuma Rektor. id_penandatangan
+    diisi bebas apa adanya oleh pengguna, mis. "NIP. 199001012020121001"
+    atau "NIDN. 0910097601". Awalnya cuma untuk Detail Presensi Bulanan
+    (nama fungsi dulu ..._detail), sekarang dipakai bareng oleh Laporan
+    Internal & Laporan Bulanan Jam Kerja juga sejak keduanya digabung
+    jadi satu halaman."""
     tanggal_cetak_str = request.GET.get("tanggal_cetak", "").strip()
     try:
         tanggal_cetak = datetime.strptime(tanggal_cetak_str, "%Y-%m-%d").date()
@@ -527,7 +531,7 @@ def halaman_laporan_detail(request):
     kata_kunci = request.GET.get("q", "").strip()
     bulan, tahun = _bulan_tahun_dari_request(request)
     target_user, daftar_pilihan = _cari_target_user_laporan_detail(request)
-    penandatangan = _parameter_penandatangan_detail(request)
+    penandatangan = _parameter_penandatangan(request)
 
     detail = detail_presensi_bulanan(target_user, bulan, tahun) if target_user else None
 
@@ -549,7 +553,7 @@ def export_pdf_laporan_detail(request):
         return redirect("presensi_web:laporan_detail")
 
     bulan, tahun = _bulan_tahun_dari_request(request)
-    pdf_bytes = render_pdf_detail_presensi(target_user, bulan, tahun, **_parameter_penandatangan_detail(request))
+    pdf_bytes = render_pdf_detail_presensi(target_user, bulan, tahun, **_parameter_penandatangan(request))
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = (
         f'attachment; filename="Detail_Presensi_{target_user.username}_{tahun}-{bulan:02d}.pdf"'
@@ -568,7 +572,7 @@ def export_excel_laporan_detail(request):
         return redirect("presensi_web:laporan_detail")
 
     bulan, tahun = _bulan_tahun_dari_request(request)
-    buffer = render_excel_detail_presensi(target_user, bulan, tahun, **_parameter_penandatangan_detail(request))
+    buffer = render_excel_detail_presensi(target_user, bulan, tahun, **_parameter_penandatangan(request))
     response = HttpResponse(
         buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )

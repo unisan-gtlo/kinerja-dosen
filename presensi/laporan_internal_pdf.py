@@ -5,6 +5,7 @@ lebih hemat lebar)."""
 import io
 
 from django.contrib.staticfiles import finders
+from django.utils import timezone
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import landscape
@@ -33,8 +34,14 @@ def _label_filter(kategori, fakultas, prodi):
     return " · ".join(bagian)
 
 
-def render_pdf_laporan_internal(user_qs, bulan, tahun, kategori="", fakultas="", prodi=""):
-    """Return bytes PDF."""
+def render_pdf_laporan_internal(
+    user_qs, bulan, tahun, kategori="", fakultas="", prodi="", *,
+    kota="Gorontalo", tanggal_cetak=None, jabatan_penandatangan="", nama_penandatangan="", id_penandatangan="",
+):
+    """Return bytes PDF. Blok pengesahan opsional & manual -- sama pola
+    dengan laporan_detail_pdf.py, dipakai bareng sejak Laporan Internal
+    & Laporan Bulanan Jam Kerja digabung satu halaman (2026-08-02)."""
+    tanggal_cetak = tanggal_cetak or timezone.localdate()
     daftar = data_laporan_internal(user_qs, bulan, tahun)
     jenis_list = jenis_tanggal_bulan(bulan, tahun)
     jumlah_hari = len(jenis_list)
@@ -51,6 +58,7 @@ def render_pdf_laporan_internal(user_qs, bulan, tahun, kategori="", fakultas="",
     cell_style = ParagraphStyle("cell", parent=styles["Normal"], fontSize=6, alignment=TA_LEFT, leading=7)
     jam_style = ParagraphStyle("jam", parent=styles["Normal"], fontSize=6, alignment=TA_CENTER, leading=7)
     ket_style = ParagraphStyle("ket", parent=styles["Normal"], fontSize=7)
+    ttd_style = ParagraphStyle("ttd", parent=styles["Normal"], fontSize=9, alignment=TA_CENTER)
 
     elements = []
     logo_path = finders.find("img/kampus.png")
@@ -111,6 +119,17 @@ def render_pdf_laporan_internal(user_qs, bulan, tahun, kategori="", fakultas="",
         '<font backColor="#d9d9d9">&nbsp;&nbsp;&nbsp;&nbsp;</font>&nbsp;: Hari Minggu/Libur -- jam kosong berarti tidak ada presensi tercatat.',
         ket_style,
     ))
+
+    if jabatan_penandatangan or nama_penandatangan or id_penandatangan:
+        blok_kanan = [Paragraph(f"{kota}, {tanggal_cetak.strftime('%d %B %Y').upper()}", ttd_style)]
+        if jabatan_penandatangan:
+            blok_kanan.append(Paragraph(f"{jabatan_penandatangan.upper()},", ttd_style))
+        blok_kanan.append(Spacer(1, 1.2 * cm))
+        blok_kanan.append(Paragraph(f"<u>{nama_penandatangan or '.........................'}</u>", ttd_style))
+        if id_penandatangan:
+            blok_kanan.append(Paragraph(id_penandatangan, ttd_style))
+        elements.append(Spacer(1, 0.5 * cm))
+        elements.append(Table([["", blok_kanan]], colWidths=[None, 7 * cm]))
 
     doc.build(elements)
     buffer.seek(0)

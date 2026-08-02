@@ -3,16 +3,18 @@
 {% block page_title %}Laporan Presensi Internal{% endblock %}
 
 {% block content %}
-<div class="card">
+<div class="card mb-3">
   <div class="card-body">
     <h3 class="card-title">Laporan Presensi Internal</h3>
     <p class="text-muted">
-      Rekap jam Masuk &amp; Pulang harian selama sebulan, untuk kebutuhan
-      internal kampus (bukan format LLDIKTI). Bisa difilter per kategori
-      pegawai, fakultas, dan program studi.
+      Rekap presensi bulanan lintas-pegawai untuk kebutuhan internal kampus (bukan format LLDIKTI).
+      Satu filter untuk 2 bentuk laporan: <strong>Grid Harian</strong> (jam Masuk/Pulang per tanggal)
+      dan <strong>Ringkasan Jam Kerja</strong> (total vs target -- dasar penggajian, dulu halaman
+      terpisah "Laporan Bulanan Jam Kerja", sekarang digabung ke sini).
     </p>
 
     <form method="get">
+      <h4 class="mt-2">Filter</h4>
       <div class="row g-2 mb-3">
         <div class="col-6 col-md-3">
           <label class="form-label">Bulan</label>
@@ -40,13 +42,138 @@
       <div class="alert alert-danger">Periksa kembali isian form.</div>
       {% endif %}
 
-      <button type="submit" formaction="{% url 'presensi_web:laporan_internal_pdf' %}" class="btn btn-danger">
-        <span class="ti ti-file-type-pdf me-1"></span> Unduh PDF
-      </button>
-      <button type="submit" formaction="{% url 'presensi_web:laporan_internal_excel' %}" class="btn btn-outline-success">
-        <span class="ti ti-file-spreadsheet me-1"></span> Unduh Excel
-      </button>
+      <h4>Pengesahan Laporan <span class="text-muted fs-6">(opsional)</span></h4>
+      <p class="text-muted small">
+        Isi kalau laporan ini perlu dibubuhi blok tanda tangan pengesah (mis. untuk dilampirkan
+        sebagai bukti fisik). Kosongkan semua kalau tidak perlu -- blok tanda tangan tidak akan dicetak.
+        Berlaku untuk kedua bentuk laporan (Grid Harian &amp; Ringkasan Jam Kerja).
+      </p>
+      <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3">
+          <label class="form-label small mb-1">Kota</label>
+          <input type="text" name="kota" value="{{ penandatangan.kota }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label small mb-1">Tanggal Cetak</label>
+          <input type="date" name="tanggal_cetak" value="{{ penandatangan.tanggal_cetak|date:'Y-m-d' }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label small mb-1">Jabatan Penandatangan</label>
+          <input type="text" name="jabatan_penandatangan" value="{{ penandatangan.jabatan_penandatangan }}"
+                 placeholder="mis. Dekan Fakultas Teknik" class="form-control form-control-sm">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label small mb-1">Nama Penandatangan</label>
+          <input type="text" name="nama_penandatangan" value="{{ penandatangan.nama_penandatangan }}"
+                 class="form-control form-control-sm">
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label small mb-1">NIP/NIDN Penandatangan</label>
+          <input type="text" name="id_penandatangan" value="{{ penandatangan.id_penandatangan }}"
+                 placeholder="mis. NIP. 199001012020121001" class="form-control form-control-sm">
+          <div class="form-text">Diisi apa adanya, termasuk label "NIP."/"NIDN." di depannya.</div>
+        </div>
+      </div>
+
+      <div class="row g-2">
+        <div class="col-12 col-md-6">
+          <div class="border rounded p-2">
+            <div class="fw-semibold small mb-1">Grid Harian</div>
+            <div class="text-muted small mb-2">Jam Masuk/Pulang per tanggal.</div>
+            <button type="submit" formaction="{% url 'presensi_web:laporan_internal_pdf' %}" class="btn btn-sm btn-danger">
+              <span class="ti ti-file-type-pdf me-1"></span> Unduh PDF
+            </button>
+            <button type="submit" formaction="{% url 'presensi_web:laporan_internal_excel' %}" class="btn btn-sm btn-outline-success">
+              <span class="ti ti-file-spreadsheet me-1"></span> Unduh Excel
+            </button>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="border rounded p-2">
+            <div class="fw-semibold small mb-1">Ringkasan Jam Kerja</div>
+            <div class="text-muted small mb-2">Total jam kerja vs target -- dasar penggajian.</div>
+            <button type="submit" formaction="{% url 'presensi_web:laporan_bulanan_pdf' %}" class="btn btn-sm btn-danger">
+              <span class="ti ti-file-type-pdf me-1"></span> Unduh PDF
+            </button>
+            <button type="submit" formaction="{% url 'presensi_web:laporan_bulanan_ekspor' %}" class="btn btn-sm btn-outline-success">
+              <span class="ti ti-file-spreadsheet me-1"></span> Unduh Excel
+            </button>
+          </div>
+        </div>
+      </div>
     </form>
   </div>
 </div>
+
+{% if halaman_ringkasan %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">Ringkasan Jam Kerja</h3>
+    <p class="text-muted small">Cuma menampilkan orang yang punya presensi di bulan terpilih.</p>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Role</th>
+            <th>Kelompok</th>
+            <th>Hari Hadir</th>
+            <th>Total Jam Kerja</th>
+            <th>Target Jam Kerja</th>
+            <th>Selisih</th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in halaman_ringkasan %}
+          <tr>
+            <td>{{ item.user.nama_resmi }}</td>
+            <td>{{ item.user.get_role_display_id }}</td>
+            <td>{{ item.kelompok.nama|default:"—" }}</td>
+            <td>{{ item.hari_hadir }}</td>
+            <td class="fw-bold">{{ item.total_jam_kerja }}</td>
+            <td>{% if item.target %}{{ item.target.target_jam_kerja }} jam{% else %}—{% endif %}</td>
+            <td>
+              {% if item.selisih_jam_kerja %}
+              <span class="badge {% if item.selisih_menit < 0 %}bg-danger-lt{% else %}bg-success-lt{% endif %}">
+                {{ item.selisih_jam_kerja }}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-nowrap">
+              <a class="btn btn-sm btn-outline-primary"
+                 href="{% url 'presensi_web:laporan_detail' %}?user_id={{ item.user.id }}&bulan={{ bulan }}&tahun={{ tahun }}">
+                Lihat Detail
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-muted text-center">Tidak ada presensi pada bulan ini.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if halaman_ringkasan.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center mt-3">
+      <span class="text-muted fs-13">Halaman {{ halaman_ringkasan.number }} dari {{ halaman_ringkasan.paginator.num_pages }}</span>
+      <div class="d-flex gap-2">
+        {% if halaman_ringkasan.has_previous %}
+        <a class="btn btn-sm btn-outline-secondary"
+           href="?bulan={{ bulan }}&tahun={{ tahun }}&kategori={{ form.kategori.value|default:'' }}&fakultas={{ form.fakultas.value|default:'' }}&prodi={{ form.prodi.value|default:'' }}&halaman={{ halaman_ringkasan.previous_page_number }}">
+          ‹ Sebelumnya
+        </a>
+        {% endif %}
+        {% if halaman_ringkasan.has_next %}
+        <a class="btn btn-sm btn-outline-secondary"
+           href="?bulan={{ bulan }}&tahun={{ tahun }}&kategori={{ form.kategori.value|default:'' }}&fakultas={{ form.fakultas.value|default:'' }}&prodi={{ form.prodi.value|default:'' }}&halaman={{ halaman_ringkasan.next_page_number }}">
+          Berikutnya ›
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 {% endblock %}

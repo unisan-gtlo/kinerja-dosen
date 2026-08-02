@@ -3,6 +3,7 @@ presensi/laporan_internal_pdf.py, layout & data sama persis."""
 import io
 
 import openpyxl
+from django.utils import timezone
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -15,8 +16,13 @@ WARNA_HEADER = "1e3a5f"
 WARNA_ARSIR = "D9D9D9"
 
 
-def render_excel_laporan_internal(user_qs, bulan, tahun, kategori="", fakultas="", prodi=""):
-    """Return io.BytesIO berisi file .xlsx."""
+def render_excel_laporan_internal(
+    user_qs, bulan, tahun, kategori="", fakultas="", prodi="", *,
+    kota="Gorontalo", tanggal_cetak=None, jabatan_penandatangan="", nama_penandatangan="", id_penandatangan="",
+):
+    """Return io.BytesIO berisi file .xlsx. Blok pengesahan opsional &
+    manual -- sama pola dengan laporan_detail_excel.py."""
+    tanggal_cetak = tanggal_cetak or timezone.localdate()
     daftar = data_laporan_internal(user_qs, bulan, tahun)
     jenis_list = jenis_tanggal_bulan(bulan, tahun)
     jumlah_hari = len(jenis_list)
@@ -100,6 +106,26 @@ def render_excel_laporan_internal(user_qs, bulan, tahun, kategori="", fakultas="
         row=baris_ket, column=2,
         value=": Hari Minggu/Libur -- jam kosong berarti tidak ada presensi tercatat.",
     ).font = Font(size=9)
+
+    if jabatan_penandatangan or nama_penandatangan or id_penandatangan:
+        kolom_ttd = max(jumlah_kolom - 3, 4)
+        baris_ttd = baris_ket + 2
+
+        ws.cell(row=baris_ttd, column=kolom_ttd, value=f"{kota}, {tanggal_cetak.strftime('%d %B %Y').upper()}")
+        ws.cell(row=baris_ttd, column=kolom_ttd).alignment = center
+        if jabatan_penandatangan:
+            ws.cell(row=baris_ttd + 1, column=kolom_ttd, value=f"{jabatan_penandatangan.upper()},")
+            ws.cell(row=baris_ttd + 1, column=kolom_ttd).alignment = center
+
+        baris_nama_ttd = baris_ttd + 5
+        nama_cell = ws.cell(
+            row=baris_nama_ttd, column=kolom_ttd, value=nama_penandatangan or ".........................",
+        )
+        nama_cell.font = Font(underline="single")
+        nama_cell.alignment = center
+        if id_penandatangan:
+            id_cell = ws.cell(row=baris_nama_ttd + 1, column=kolom_ttd, value=id_penandatangan)
+            id_cell.alignment = center
 
     buffer = io.BytesIO()
     wb.save(buffer)

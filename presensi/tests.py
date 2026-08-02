@@ -1138,10 +1138,36 @@ class DashboardDataPresensiViewTest(TestCase):
         )
 
 
-class LaporanBulananViewTest(TestCase):
-    """Halaman /presensi/laporan-bulanan/ -- BEDA dari /presensi/data/
-    (dosen-only lewat get_dosen_queryset), di sini lintas-pegawai (dosen +
-    staf/tendik), discope lewat dapat_kelola sama seperti /presensi/tinjau/."""
+class LaporanBulananRedirectTest(TestCase):
+    """URL lama /presensi/laporan-bulanan/ -- sejak Laporan Bulanan Jam
+    Kerja digabung ke Laporan Presensi Internal (2026-08-02, lihat
+    CLAUDE.md), halaman ini cuma redirect. Query string (bulan/tahun)
+    dipertahankan karena nama parameternya sama dengan LaporanInternalForm."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="redirectbulananadmin", password="testpass123", role="admin")
+        self.dosen = User.objects.create_user(username="redirectbulanandosen", password="testpass123", role="dosen")
+
+    def test_redirect_ke_laporan_internal_dengan_query_string(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-bulanan/?bulan=7&tahun=2026")
+        self.assertRedirects(resp, "/presensi/laporan-internal/?bulan=7&tahun=2026")
+
+    def test_dosen_biasa_akhirnya_tetap_ditolak(self):
+        # Redirect sendiri tidak cek permission (itu tanggung jawab
+        # halaman tujuan) -- follow=True supaya assert menyentuh hasil
+        # akhirnya, bukan status code redirect (302) itu sendiri.
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/laporan-bulanan/", follow=True)
+        self.assertEqual(resp.status_code, 403)
+
+
+class LaporanRingkasanJamKerjaTest(TestCase):
+    """Ringkasan Jam Kerja -- bagian dari halaman gabungan Laporan
+    Presensi Internal (dulu halaman terpisah "Laporan Bulanan Jam
+    Kerja"). Discope dapat_kelola sama seperti grid harian di halaman
+    yang sama, BEDA dari /presensi/data/ (dosen-only lewat
+    get_dosen_queryset)."""
 
     def setUp(self):
         self.dosen = User.objects.create_user(
@@ -1166,13 +1192,13 @@ class LaporanBulananViewTest(TestCase):
 
     def test_dosen_biasa_tidak_bisa_akses(self):
         self.client.force_login(self.dosen)
-        resp = self.client.get("/presensi/laporan-bulanan/")
+        resp = self.client.get("/presensi/laporan-internal/")
         self.assertEqual(resp.status_code, 403)
 
     def test_admin_melihat_dosen_dan_staf(self):
         admin = User.objects.create_user(username="lapadmin", password="testpass123", role="admin")
         self.client.force_login(admin)
-        resp = self.client.get(f"/presensi/laporan-bulanan/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
+        resp = self.client.get(f"/presensi/laporan-internal/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "lapdosen")
         self.assertContains(resp, "lapstaf")
@@ -1180,7 +1206,7 @@ class LaporanBulananViewTest(TestCase):
     def test_total_jam_kerja_tampil_format_jam_menit(self):
         admin = User.objects.create_user(username="lapadmin2", password="testpass123", role="admin")
         self.client.force_login(admin)
-        resp = self.client.get(f"/presensi/laporan-bulanan/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
+        resp = self.client.get(f"/presensi/laporan-internal/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
         self.assertContains(resp, "06:00")  # dosen: 08.00-14.00
         self.assertContains(resp, "08:00")  # staf: 08.00-16.00
 
@@ -1189,16 +1215,28 @@ class LaporanBulananViewTest(TestCase):
             username="lapkaprodi", password="testpass123", role="kaprodi", kode_prodi="TI",
         )
         self.client.force_login(kaprodi)
-        resp = self.client.get(f"/presensi/laporan-bulanan/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
+        resp = self.client.get(f"/presensi/laporan-internal/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "lapdosen")
         self.assertNotContains(resp, "lapstaf")
+
+    def test_filter_fakultas_diterapkan_ke_ringkasan(self):
+        # Regresi: Ringkasan Jam Kerja dulu tidak punya filter
+        # fakultas/prodi sama sekali (halaman terpisah), sekarang
+        # otomatis kebagian lewat form yang sama dengan grid harian.
+        admin = User.objects.create_user(username="lapadmin4", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.get(
+            f"/presensi/laporan-internal/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}&kategori=tendik",
+        )
+        self.assertContains(resp, "lapstaf")
+        self.assertNotContains(resp, "lapdosen")
 
     def test_bulan_tanpa_presensi_kosong(self):
         admin = User.objects.create_user(username="lapadmin3", password="testpass123", role="admin")
         self.client.force_login(admin)
         bulan_lalu = self.hari_ini.month - 1 or 12
-        resp = self.client.get(f"/presensi/laporan-bulanan/?bulan={bulan_lalu}&tahun={self.hari_ini.year}")
+        resp = self.client.get(f"/presensi/laporan-internal/?bulan={bulan_lalu}&tahun={self.hari_ini.year}")
         self.assertEqual(resp.status_code, 200)
         self.assertNotContains(resp, "lapdosen")
 
@@ -1216,6 +1254,28 @@ class LaporanBulananViewTest(TestCase):
             resp["Content-Type"],
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
+    def test_admin_bisa_ekspor_pdf(self):
+        # BARU -- sebelumnya Ringkasan Jam Kerja cuma punya ekspor Excel.
+        admin = User.objects.create_user(username="lapekspor2", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        resp = self.client.get(f"/presensi/laporan-bulanan/pdf/?bulan={self.hari_ini.month}&tahun={self.hari_ini.year}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+
+    def test_ekspor_dengan_penandatangan_tidak_error(self):
+        admin = User.objects.create_user(username="lapekspor3", password="testpass123", role="admin")
+        self.client.force_login(admin)
+        params = {
+            "bulan": self.hari_ini.month, "tahun": self.hari_ini.year,
+            "kota": "Gorontalo", "tanggal_cetak": "2026-08-01",
+            "jabatan_penandatangan": "Kepala Biro SDM", "nama_penandatangan": "Contoh Nama",
+            "id_penandatangan": "NIP. 199001012020121001",
+        }
+        resp_excel = self.client.get("/presensi/laporan-bulanan/ekspor/", params)
+        resp_pdf = self.client.get("/presensi/laporan-bulanan/pdf/", params)
+        self.assertEqual(resp_excel.status_code, 200)
+        self.assertEqual(resp_pdf.status_code, 200)
 
 
 class PengaturanKelompokViewTest(TestCase):
@@ -2017,6 +2077,27 @@ class LaporanInternalViewTest(TestCase):
         self.assertEqual(
             resp["Content-Type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
+    def test_halaman_menampilkan_ringkasan_jam_kerja(self):
+        # Regresi: Laporan Bulanan Jam Kerja digabung ke halaman ini
+        # (2026-08-02) -- context halaman_ringkasan harus ada begitu
+        # bulan/tahun diisi.
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-internal/", {"bulan": "7", "tahun": "2026"})
+        self.assertIsNotNone(resp.context["halaman_ringkasan"])
+
+    def test_unduh_dengan_penandatangan_tidak_error(self):
+        self.client.force_login(self.admin)
+        params = {
+            "bulan": "7", "tahun": "2026", "kategori": "", "fakultas": "", "prodi": "",
+            "kota": "Gorontalo", "tanggal_cetak": "2026-08-01",
+            "jabatan_penandatangan": "Kepala Biro SDM", "nama_penandatangan": "Contoh Nama",
+            "id_penandatangan": "NIP. 199001012020121001",
+        }
+        resp_pdf = self.client.get("/presensi/laporan-internal/pdf/", params)
+        resp_excel = self.client.get("/presensi/laporan-internal/excel/", params)
+        self.assertEqual(resp_pdf.status_code, 200)
+        self.assertEqual(resp_excel.status_code, 200)
 
     def test_kaprodi_di_luar_cakupan_tidak_melihat_dosen_lain(self):
         kaprodi = User.objects.create_user(

@@ -13,6 +13,7 @@ urlpatterns = [
     path("data/ekspor/", views.export_excel_presensi, name="data_ekspor"),
     path("laporan-bulanan/", views.laporan_bulanan_presensi, name="laporan_bulanan"),
     path("laporan-bulanan/ekspor/", views.export_excel_laporan_bulanan, name="laporan_bulanan_ekspor"),
+    path("laporan-bulanan/pdf/", views.export_pdf_laporan_bulanan, name="laporan_bulanan_pdf"),
     path("tinjau/", views.tinjau_presensi, name="tinjau"),
     path("tinjau/<int:presensi_id>/putuskan/", views.putuskan_presensi, name="putuskan"),
     path("tinjau/<int:presensi_id>/putuskan-lembur/", views.putuskan_lembur, name="putuskan_lembur"),
