@@ -1,5 +1,5 @@
 import io
-from datetime import date, datetime as dt, time as dt_time
+from datetime import date, datetime as dt, time as dt_time, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
@@ -633,7 +633,15 @@ class AbsenPulangAPITest(APITestCase):
         # test) -- timezone.localdate() sendiri memanggil now() internal,
         # jadi kalau dipanggil di dalam test yang sudah di-patch, hasilnya
         # ikut jadi MagicMock, bukan tanggal asli.
-        self.hari_ini = timezone.localdate()
+        #
+        # SENGAJA di-pin ke hari Senin minggu ini (bukan tanggal hari ini
+        # apa adanya) -- regresi: test lembur di bawah ini gagal kalau
+        # kebetulan dijalankan hari Minggu, karena kelompok "Dosen" cuma
+        # kerja Senin-Sabtu (tentukan_status_waktu menganggap Minggu bukan
+        # hari kerja, jadi hitungan lembur/wajib-keterangan tidak diproses
+        # sama sekali). Senin dijamin selalu hari kerja kelompok manapun.
+        hari_ini_asli = timezone.localdate()
+        self.hari_ini = hari_ini_asli - timedelta(days=hari_ini_asli.weekday())
 
     def test_pulang_tanpa_absen_masuk_ditolak(self):
         resp = self.client.post("/api/presensi/pulang", _payload_absen(), format="multipart")
