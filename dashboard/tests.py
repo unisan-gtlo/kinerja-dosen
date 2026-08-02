@@ -1,3 +1,55 @@
 from django.test import TestCase
+from django.utils import timezone
 
-# Create your tests here.
+from accounts.models import User
+from presensi.models import IzinCuti
+
+
+class DashboardTendikTest(TestCase):
+    """Dashboard role=tendik -- sengaja BUKAN Tri Dharma (Penelitian/
+    Pengabdian/dst), fokus ringkasan presensi diri sendiri (lihat
+    dashboard/views.py, CLAUDE.md bagian Dashboard Tendik). User test
+    SENGAJA tidak diisi nip_yayasan supaya get_simda_tendik_or_none tidak
+    perlu query SIMDA sungguhan (return None lebih awal) -- konsisten
+    dengan get_simda_dosen_or_none yang juga tanpa proteksi DatabaseError
+    di level ini (parity yang sudah ada, bukan celah baru)."""
+
+    def setUp(self):
+        self.tendik = User.objects.create_user(
+            username="dashboardtendik", password="testpass123", role="tendik",
+        )
+
+    def test_tendik_bisa_akses_dashboard(self):
+        self.client.force_login(self.tendik)
+        resp = self.client.get("/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("rekap_bulan_ini", resp.context)
+        self.assertIn("tendik_profil", resp.context)
+        self.assertIsNone(resp.context["tendik_profil"])
+
+    def test_tendik_tidak_lihat_data_tri_dharma(self):
+        # Dashboard tendik sengaja tidak set context Tri Dharma sama
+        # sekali -- beda dari dashboard dosen maupun dashboard oversight
+        # admin/dekan/dst yang keduanya penuh angka Penelitian/Pengabdian.
+        self.client.force_login(self.tendik)
+        resp = self.client.get("/")
+        self.assertNotIn("total_penelitian", resp.context)
+
+    def test_izin_menunggu_dihitung(self):
+        hari_ini = timezone.localdate()
+        IzinCuti.objects.create(
+            user=self.tendik, tipe=IzinCuti.Tipe.IZIN,
+            tanggal_mulai=hari_ini, tanggal_selesai=hari_ini, alasan="Contoh",
+        )
+        self.client.force_login(self.tendik)
+        resp = self.client.get("/")
+        self.assertEqual(resp.context["izin_menunggu"], 1)
+
+    def test_tendik_tidak_lihat_menu_manajemen(self):
+        # Regresi: section "Manajemen" (Rekap Data/Export Laporan) di
+        # base.html dulu di-gate `role != 'dosen'` (negatif) -- bocor ke
+        # tendik walau kedua link itu 100% berbasis data dosen. Sekarang
+        # allowlist eksplisit mengecualikan tendik juga.
+        self.client.force_login(self.tendik)
+        resp = self.client.get("/")
+        self.assertNotContains(resp, "Rekap Data")

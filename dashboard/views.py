@@ -1,6 +1,7 @@
 from django.db.models import Q
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 from accounts.models import User
 from master.models import Fakultas, Prodi, TahunAkademik, Pengaturan
 from simda_dosen.models import (
@@ -8,8 +9,10 @@ from simda_dosen.models import (
     GolonganPublik, JenisKepegawaianPublik, StatusKepegawaianPublik,
 )
 from simda_dosen.utils import (
-    get_simda_dosen_or_none, filter_dosen_qs_by_kepegawaian, attach_kepegawaian_labels,
+    get_simda_dosen_or_none, get_simda_tendik_or_none, filter_dosen_qs_by_kepegawaian, attach_kepegawaian_labels,
 )
+from presensi.models import IzinCuti, Presensi
+from presensi.rekap import rekap_bulanan_user
 from kinerja.models import DokumenKinerja
 from penelitian.models import Penelitian, PublikasiKarya as Publikasi, PatenHki as HKI
 from pengabdian.models import Pengabdian as PKM, Pembicara, PengelolaJurnal, JabatanStruktural
@@ -269,6 +272,22 @@ def index(request):
             context['nama_prodi'] = prodi_obj.nama_prodi
         except Exception:
             context['nama_prodi'] = user.kode_prodi or '-'
+
+    elif user.role == 'tendik':
+        # Tendik TIDAK punya data Tri Dharma (Penelitian/Pengabdian/dst) --
+        # dashboard-nya sengaja beda total dari dosen maupun dashboard
+        # oversight admin/dekan/dst (yang isinya rekap dosen lain, tidak
+        # relevan buat tendik). Fokus ke ringkasan presensi diri sendiri,
+        # reuse rekap_bulanan_user (presensi/rekap.py) -- tidak ada logika
+        # baru untuk itu.
+        hari_ini = timezone.localdate()
+        context['tendik_profil'] = get_simda_tendik_or_none(user)
+        context['rekap_bulan_ini'] = rekap_bulanan_user(user, hari_ini.month, hari_ini.year)
+        context['presensi_hari_ini'] = Presensi.objects.filter(user=user, tanggal=hari_ini).first()
+        context['izin_menunggu'] = IzinCuti.objects.filter(
+            user=user, status=IzinCuti.StatusApproval.MENUNGGU,
+        ).count()
+        context['izin_terbaru'] = IzinCuti.objects.filter(user=user).order_by('-dibuat')[:5]
 
     return render(request, 'dashboard/index.html', context)
 

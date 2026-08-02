@@ -306,6 +306,124 @@
   </div>
 </div>
 
+{% elif request.user.role == 'tendik' %}
+<!-- Dashboard Tendik -- sengaja BUKAN Tri Dharma (Penelitian/Pengabdian/
+     dst) sama sekali, dan BUKAN dashboard oversight admin/dekan (yang
+     isinya rekap DOSEN LAIN, tidak relevan buat tendik). Fokus ke
+     ringkasan presensi diri sendiri -- lihat dashboard/views.py. -->
+<style>
+  .welcome-card-tendik {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2d6a9f 100%);
+    border-radius: 16px; color: white; padding: 30px;
+  }
+  .stat-card-tendik {
+    border-radius: 12px; padding: 20px; color: white; position: relative; overflow: hidden;
+  }
+  .stat-card-tendik .icon-bg {
+    position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+    font-size: 48px; opacity: 0.2;
+  }
+  .stat-card-tendik .number { font-size: 28px; font-weight: 700; }
+  .stat-card-tendik .label { font-size: 13px; font-weight: 600; }
+</style>
+
+<div class="row g-3 mb-3">
+  <div class="col-12">
+    <div class="welcome-card-tendik">
+      <div class="mb-2" style="font-size:13px; opacity:0.8">
+        <span class="ti ti-calendar me-1"></span> {% now "j F Y" %}
+      </div>
+      <h2 style="color:#ffffff !important; font-size:24px; font-weight:700; margin-bottom:4px;">
+        Selamat Datang, {{ tendik_profil.nama_lengkap|default:request.user.get_full_name|default:request.user.username }}!
+      </h2>
+      <p style="color:rgba(255,255,255,0.8); font-size:13px; margin-bottom:0">
+        {% if tendik_profil %}
+          {{ tendik_profil.jabatan|default:"" }}{% if tendik_profil.jabatan and tendik_profil.unit_kerja_nama %} &middot; {% endif %}{{ tendik_profil.unit_kerja_nama }}
+        {% else %}
+          Data belum tertaut ke SIMDA -- hubungi admin untuk memastikan NIP Yayasan sudah sesuai.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="stat-card-tendik" style="background:linear-gradient(135deg,#22c55e,#16a34a)">
+      <div class="number">{{ rekap_bulan_ini.hari_hadir }}</div>
+      <div class="label">Hari Hadir Bulan Ini</div>
+      <div class="icon-bg"><span class="ti ti-calendar-check"></span></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card-tendik" style="background:linear-gradient(135deg,#2d6a9f,#1e3a5f)">
+      <div class="number">{{ rekap_bulan_ini.total_jam_kerja }}</div>
+      <div class="label">Total Jam Kerja</div>
+      <div class="icon-bg"><span class="ti ti-clock-hour-4"></span></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card-tendik" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+      <div class="number">
+        {% if rekap_bulan_ini.target %}{{ rekap_bulan_ini.target.target_jam_kerja }} jam{% else %}&mdash;{% endif %}
+      </div>
+      <div class="label">Target Jam Kerja</div>
+      <div class="icon-bg"><span class="ti ti-target-arrow"></span></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card-tendik" style="background:{% if rekap_bulan_ini.selisih_menit < 0 %}linear-gradient(135deg,#ef4444,#dc2626){% else %}linear-gradient(135deg,#22c55e,#16a34a){% endif %}">
+      <div class="number">{{ rekap_bulan_ini.selisih_jam_kerja|default:"—" }}</div>
+      <div class="label">Selisih vs Target</div>
+      <div class="icon-bg"><span class="ti ti-scale"></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h3 class="card-title">Presensi Hari Ini</h3>
+        {% if presensi_hari_ini %}
+        <p class="mb-1">Masuk: <strong>{{ presensi_hari_ini.waktu_masuk|time:"H:i"|default:"—" }}</strong></p>
+        <p class="mb-1">Pulang: <strong>{{ presensi_hari_ini.waktu_pulang|time:"H:i"|default:"Belum absen pulang" }}</strong></p>
+        {% else %}
+        <p class="text-muted mb-0">Belum absen hari ini.</p>
+        {% endif %}
+        <a class="btn btn-primary btn-sm mt-2" href="{% url 'presensi_web:index' %}">
+          <span class="ti ti-fingerprint me-1"></span> Ke Halaman Absen
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h3 class="card-title mb-0">Izin/Cuti Terbaru</h3>
+          {% if izin_menunggu %}
+          <span class="badge bg-warning-lt">{{ izin_menunggu }} menunggu persetujuan</span>
+          {% endif %}
+        </div>
+        {% for izin in izin_terbaru %}
+        <div class="d-flex justify-content-between border-bottom py-1">
+          <span>{{ izin.get_tipe_display }} &middot; {{ izin.tanggal_mulai|date:"d/m" }}–{{ izin.tanggal_selesai|date:"d/m" }}</span>
+          <span class="badge {% if izin.status == 'disetujui' %}bg-success-lt{% elif izin.status == 'ditolak' %}bg-danger-lt{% else %}bg-warning-lt{% endif %}">
+            {{ izin.get_status_display }}
+          </span>
+        </div>
+        {% empty %}
+        <p class="text-muted mb-0">Belum ada pengajuan izin/cuti.</p>
+        {% endfor %}
+        <a class="btn btn-outline-secondary btn-sm mt-2" href="{% url 'presensi_web:izin' %}">
+          <span class="ti ti-file-text me-1"></span> Ajukan / Lihat Semua
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% else %}
 <!-- Dashboard Admin/Rektorat/Dekan -->
 <style>

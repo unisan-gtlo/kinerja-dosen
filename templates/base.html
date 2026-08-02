@@ -278,6 +278,7 @@
                 {% elif user.role == 'kaprodi' %}Kepala Prodi
                 {% elif user.role == 'sekprodi' %}Sekretaris Prodi
                 {% elif user.role == 'operator' %}Operator
+                {% elif user.role == 'tendik' %}Tendik
                 {% else %}Dosen{% endif %}
               </div>
               {% if user.kode_prodi %}
@@ -404,8 +405,10 @@
           </li>
           {% endif %}
 
-          <!-- Manajemen — semua kecuali dosen -->
-          {% if user.role != 'dosen' %}
+          <!-- Manajemen — semua kecuali dosen & tendik (keduanya tidak
+               membawahi data dosen lain, rekap/laporan di sini 100%
+               berbasis data dosen -- lihat dashboard/views.py::rekap) -->
+          {% if user.role != 'dosen' and user.role != 'tendik' %}
           <li class="nav-item">
             <div class="nav-section">Manajemen</div>
           </li>
