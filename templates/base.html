@@ -19,6 +19,8 @@
     .user-name { color: #ffffff !important; font-size: 13px; font-weight: 600; }
     .user-role { color: rgba(255,255,255,0.65) !important; font-size: 11px; }
     .user-prodi { color: rgba(255,255,255,0.45) !important; font-size: 10px; }
+    .navbar-vertical .nav-link[data-bs-toggle="collapse"] .ti-chevron-down { transition: transform 0.2s; }
+    .navbar-vertical .nav-link[data-bs-toggle="collapse"][aria-expanded="true"] .ti-chevron-down { transform: rotate(180deg); }
 
     /* Tab navigasi */
     .nav-tabs .nav-link { color: #1e3a5f !important; font-weight: 500; border-bottom: 3px solid transparent; }
@@ -328,8 +330,10 @@
           </li>
           {% endif %}
 
-          <!-- Data Dosen — dosen, operator, admin -->
-          {% if user.role == 'dosen' or user.role == 'operator' or user.role == 'admin' %}
+          <!-- Data Dosen — dosen, operator (admin sengaja DIKELUARKAN,
+               2026-08-02 -- admin bukan dosen dan tidak punya profil
+               sendiri di sini, cuma bikin sidebar ramai tanpa guna) -->
+          {% if user.role == 'dosen' or user.role == 'operator' %}
           <li class="nav-item">
             <div class="nav-section">Data Dosen</div>
           </li>
@@ -428,101 +432,133 @@
           </li>
           {% endif %}
 
-          <!-- Administrasi — admin + dekan/wadek/kaprodi/sekprodi/operator (scoped). Rektorat/Biro baca saja. -->
+          <!-- Administrasi — admin + dekan/wadek/kaprodi/sekprodi/operator (scoped). Rektorat/Biro baca saja.
+               Dikelompokkan jadi 3 submenu collapsible (Kepegawaian/Presensi (Admin)/Sistem) sejak
+               2026-08-02 -- sebelumnya 13 item rata tanpa pengelompokan, sidebar terlalu ramai. -->
           {% if user.role == 'admin' or user.role == 'dekan' or user.role == 'wadek' or user.role == 'kaprodi' or user.role == 'sekprodi' or user.role == 'operator' %}
           <li class="nav-item">
             <div class="nav-section">Administrasi</div>
           </li>
+
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'kelola_user' %}active{% endif %}"
-               href="{% url 'accounts:kelola_user' %}">
+            <a class="nav-link" href="#grup-kepegawaian" data-bs-toggle="collapse" role="button"
+               aria-expanded="false" aria-controls="grup-kepegawaian">
               <span class="nav-link-icon"><span class="ti ti-users"></span></span>
-              <span class="nav-link-title">Kelola User</span>
+              <span class="nav-link-title">Kepegawaian</span>
+              <span class="ti ti-chevron-down ms-auto" style="font-size:12px"></span>
             </a>
+            <div class="collapse" id="grup-kepegawaian">
+              <ul class="nav flex-column">
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'kelola_user' %}active{% endif %}"
+                     href="{% url 'accounts:kelola_user' %}">
+                    <span class="nav-link-title">Kelola User</span>
+                  </a>
+                </li>
+                {% if user.role == 'admin' %}
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.app_name == 'simda_dosen' and 'tendik' in request.resolver_match.url_name %}active{% endif %}"
+                     href="{% url 'simda_dosen:daftar_tendik' %}">
+                    <span class="nav-link-title">Kelola Data Tendik</span>
+                  </a>
+                </li>
+                {% endif %}
+              </ul>
+            </div>
           </li>
+
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
-               href="{% url 'presensi_web:dashboard' %}">
-              <span class="nav-link-icon"><span class="ti ti-chart-bar"></span></span>
-              <span class="nav-link-title">Dashboard Presensi</span>
+            <a class="nav-link" href="#grup-presensi-admin" data-bs-toggle="collapse" role="button"
+               aria-expanded="false" aria-controls="grup-presensi-admin">
+              <span class="nav-link-icon"><span class="ti ti-map-pin-check"></span></span>
+              <span class="nav-link-title">Presensi (Admin)</span>
+              <span class="ti ti-chevron-down ms-auto" style="font-size:12px"></span>
             </a>
+            <div class="collapse" id="grup-presensi-admin">
+              <ul class="nav flex-column">
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+                     href="{% url 'presensi_web:dashboard' %}">
+                    <span class="nav-link-title">Dashboard Presensi</span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'tinjau' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+                     href="{% url 'presensi_web:tinjau' %}">
+                    <span class="nav-link-title">Tinjau Presensi</span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'izin_tinjau' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+                     href="{% url 'presensi_web:izin_tinjau' %}">
+                    <span class="nav-link-title">Persetujuan Izin</span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'laporan_bulanan' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+                     href="{% url 'presensi_web:laporan_bulanan' %}">
+                    <span class="nav-link-title">Laporan Bulanan Jam Kerja</span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'laporan_internal' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+                     href="{% url 'presensi_web:laporan_internal' %}">
+                    <span class="nav-link-title">Laporan Presensi Internal</span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'laporan_detail' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+                     href="{% url 'presensi_web:laporan_detail' %}">
+                    <span class="nav-link-title">Detail Presensi Bulanan</span>
+                  </a>
+                </li>
+                {% if user.role == 'admin' %}
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'laporan_serdos' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
+                     href="{% url 'presensi_web:laporan_serdos' %}">
+                    <span class="nav-link-title">Laporan Daftar Hadir Serdos</span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if 'presensi/pengaturan' in request.path %}active{% endif %}"
+                     href="{% url 'presensi_web:pengaturan_kelompok' %}">
+                    <span class="nav-link-title">Pengaturan Presensi</span>
+                  </a>
+                </li>
+                {% endif %}
+              </ul>
+            </div>
           </li>
+
+          {% if user.role == 'admin' %}
           <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'tinjau' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
-               href="{% url 'presensi_web:tinjau' %}">
-              <span class="nav-link-icon"><span class="ti ti-shield-check"></span></span>
-              <span class="nav-link-title">Tinjau Presensi</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'laporan_bulanan' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
-               href="{% url 'presensi_web:laporan_bulanan' %}">
-              <span class="nav-link-icon"><span class="ti ti-report-money"></span></span>
-              <span class="nav-link-title">Laporan Bulanan Jam Kerja</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'laporan_internal' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
-               href="{% url 'presensi_web:laporan_internal' %}">
-              <span class="nav-link-icon"><span class="ti ti-report"></span></span>
-              <span class="nav-link-title">Laporan Presensi Internal</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'laporan_detail' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
-               href="{% url 'presensi_web:laporan_detail' %}">
-              <span class="nav-link-icon"><span class="ti ti-search"></span></span>
-              <span class="nav-link-title">Detail Presensi Bulanan</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'izin_tinjau' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
-               href="{% url 'presensi_web:izin_tinjau' %}">
-              <span class="nav-link-icon"><span class="ti ti-file-check"></span></span>
-              <span class="nav-link-title">Persetujuan Izin</span>
-            </a>
-          </li>
-          {% if request.user.role == 'admin' %}
-          <li class="nav-item">
-            <a class="nav-link {% if 'presensi/pengaturan' in request.path %}active{% endif %}"
-               href="{% url 'presensi_web:pengaturan_kelompok' %}">
-              <span class="nav-link-icon"><span class="ti ti-clock-cog"></span></span>
-              <span class="nav-link-title">Pengaturan Presensi</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.url_name == 'laporan_serdos' and request.resolver_match.app_name == 'presensi_web' %}active{% endif %}"
-               href="{% url 'presensi_web:laporan_serdos' %}">
-              <span class="nav-link-icon"><span class="ti ti-writing-sign"></span></span>
-              <span class="nav-link-title">Laporan Daftar Hadir Serdos</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.app_name == 'simda_dosen' and 'tendik' in request.resolver_match.url_name %}active{% endif %}"
-               href="{% url 'simda_dosen:daftar_tendik' %}">
-              <span class="nav-link-icon"><span class="ti ti-id-badge-2"></span></span>
-              <span class="nav-link-title">Kelola Data Tendik</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if 'log-aktivitas' in request.path %}active{% endif %}"
-              href="{% url 'accounts:log_aktivitas' %}">
-              <span class="nav-link-icon"><span class="ti ti-shield-search"></span></span>
-              <span class="nav-link-title">Log Aktivitas</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if request.resolver_match.app_name == 'master' %}active{% endif %}"
-               href="{% url 'master:index' %}">
+            <a class="nav-link" href="#grup-sistem" data-bs-toggle="collapse" role="button"
+               aria-expanded="false" aria-controls="grup-sistem">
               <span class="nav-link-icon"><span class="ti ti-settings"></span></span>
-              <span class="nav-link-title">Data Master</span>
+              <span class="nav-link-title">Sistem</span>
+              <span class="ti ti-chevron-down ms-auto" style="font-size:12px"></span>
             </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/admin/" target="_blank" rel="noopener">
-              <span class="nav-link-icon"><span class="ti ti-brand-django"></span></span>
-              <span class="nav-link-title">Django Admin</span>
-            </a>
+            <div class="collapse" id="grup-sistem">
+              <ul class="nav flex-column">
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if 'log-aktivitas' in request.path %}active{% endif %}"
+                    href="{% url 'accounts:log_aktivitas' %}">
+                    <span class="nav-link-title">Log Aktivitas</span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.app_name == 'master' %}active{% endif %}"
+                     href="{% url 'master:index' %}">
+                    <span class="nav-link-title">Data Master</span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link ps-5" href="/admin/" target="_blank" rel="noopener">
+                    <span class="nav-link-title">Django Admin</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
           </li>
           {% endif %}
           {% endif %}
