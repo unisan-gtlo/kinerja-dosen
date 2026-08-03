@@ -313,6 +313,15 @@
               <span class="nav-link-title">Riwayat Presensi</span>
             </a>
           </li>
+          {% if user.role == 'dosen' or user.role == 'tendik' %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.app_name == 'presensi_web' and request.resolver_match.url_name == 'laporan_detail' %}active{% endif %}"
+               href="{% url 'presensi_web:laporan_detail' %}">
+              <span class="nav-link-icon"><span class="ti ti-report"></span></span>
+              <span class="nav-link-title">Detail Presensi Bulanan</span>
+            </a>
+          </li>
+          {% endif %}
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'presensi_web' and request.resolver_match.url_name == 'izin' %}active{% endif %}"
                href="{% url 'presensi_web:izin' %}">

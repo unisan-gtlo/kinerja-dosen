@@ -3,6 +3,7 @@
 {% block page_title %}Detail Presensi Bulanan{% endblock %}
 
 {% block content %}
+{% if not mode_diri_sendiri %}
 <div class="card mb-3">
   <div class="card-body">
     <h3 class="card-title">Detail Presensi Bulanan</h3>
@@ -22,6 +23,18 @@
     </form>
   </div>
 </div>
+{% else %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h3 class="card-title">Detail Presensi Bulanan</h3>
+    <p class="text-muted mb-0">
+      Rincian presensi Anda per hari dalam satu bulan, lengkap dengan opsi
+      unduh PDF/Excel -- pilih periode (bulan/tahun) di bawah untuk melihat
+      bulan lain.
+    </p>
+  </div>
+</div>
+{% endif %}
 
 {% if daftar_pilihan %}
 <div class="card mb-3">

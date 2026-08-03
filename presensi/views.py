@@ -130,6 +130,15 @@ def _bisa_tinjau_presensi(user):
     return user.role == "admin" or user.role in ROLE_PENGELOLA_SCOPED
 
 
+def _bisa_akses_laporan_detail(user):
+    """Detail Presensi Bulanan -- BEDA dari 3 laporan lintas-pegawai lain
+    (Internal/Bulanan/Serdos, semuanya _bisa_tinjau_presensi-only): dosen
+    & tendik juga boleh akses, TAPI cuma untuk data diri sendiri (self-
+    service, tidak bisa cari/pilih pegawai lain) -- lihat
+    _cari_target_user_laporan_detail() untuk gerbang cakupannya."""
+    return user.role in ("dosen", "tendik") or _bisa_tinjau_presensi(user)
+
+
 def _bisa_kelola_pengaturan_presensi(user):
     # BEDA dengan _bisa_tinjau_presensi (di-scope fakultas/prodi) -- jam
     # kerja/hari libur/target bulanan berlaku institusi-wide, jadi sengaja
@@ -469,7 +478,16 @@ def _cari_target_user_laporan_detail(request):
     cocok ke lebih dari 1 orang) untuk Detail Presensi Bulanan -- dipakai
     bareng oleh halaman & kedua ekspor. `.nama_resmi` ditempel di sini
     (bukan di cari_pegawai()) supaya cari_pegawai() tetap mengembalikan
-    queryset -- .count()/.first() di atas butuh queryset, bukan list."""
+    queryset -- .count()/.first() di atas butuh queryset, bukan list.
+
+    Dosen/tendik SELALU di-set ke diri sendiri (self-service, tidak
+    boleh cari/pilih pegawai lain lewat q/user_id) -- gerbang pencarian
+    lintas-pegawai di bawah ini cuma berlaku untuk role yang lolos
+    _bisa_tinjau_presensi (lihat _bisa_akses_laporan_detail)."""
+    if request.user.role in ("dosen", "tendik"):
+        attach_nama_resmi([request.user])
+        return request.user, None
+
     cakupan = _pengguna_dalam_cakupan(request.user)
     user_id = request.GET.get("user_id", "").strip()
     if user_id.isdigit():
@@ -525,7 +543,7 @@ def halaman_laporan_detail(request):
     yang selalu menampilkan banyak orang sekaligus. Alur: cari -> kalau
     cocok lebih dari 1, pilih dari daftar -> tampil detail + ringkasan
     (reuse rekap_bulanan_user, lihat presensi/laporan_detail.py)."""
-    if not _bisa_tinjau_presensi(request.user):
+    if not _bisa_akses_laporan_detail(request.user):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
 
     kata_kunci = request.GET.get("q", "").strip()
@@ -539,12 +557,13 @@ def halaman_laporan_detail(request):
         "kata_kunci": kata_kunci, "bulan": bulan, "tahun": tahun,
         "target_user": target_user, "daftar_pilihan": daftar_pilihan, "detail": detail,
         "penandatangan": penandatangan,
+        "mode_diri_sendiri": request.user.role in ("dosen", "tendik"),
     })
 
 
 @login_required
 def export_pdf_laporan_detail(request):
-    if not _bisa_tinjau_presensi(request.user):
+    if not _bisa_akses_laporan_detail(request.user):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
 
     target_user, _daftar_pilihan = _cari_target_user_laporan_detail(request)
@@ -563,7 +582,7 @@ def export_pdf_laporan_detail(request):
 
 @login_required
 def export_excel_laporan_detail(request):
-    if not _bisa_tinjau_presensi(request.user):
+    if not _bisa_akses_laporan_detail(request.user):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
 
     target_user, _daftar_pilihan = _cari_target_user_laporan_detail(request)

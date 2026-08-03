@@ -2247,10 +2247,50 @@ class LaporanDetailViewTest(TestCase):
             nidn="7900000002", first_name="Unik", last_name="Dua", kode_fakultas="FT", kode_prodi="TI",
         )
 
-    def test_dosen_biasa_tidak_bisa_akses(self):
+    def test_dosen_akses_self_service_selalu_lihat_diri_sendiri(self):
+        """Bug fix per 2026-08-03: dosen/tendik sekarang boleh akses
+        halaman ini, TAPI cuma untuk data diri sendiri (self-service) --
+        tanpa q/user_id pun target_user langsung ke diri sendiri."""
         self.client.force_login(self.dosen)
         resp = self.client.get("/presensi/laporan-detail/")
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["target_user"], self.dosen)
+        self.assertTrue(resp.context["mode_diri_sendiri"])
+
+    def test_dosen_tidak_bisa_lihat_dosen_lain_lewat_user_id(self):
+        """dosen_id/user_id dari dosen/tendik diabaikan -- selalu
+        di-paksa ke diri sendiri, tidak bisa mengintip dosen lain."""
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/laporan-detail/", {"user_id": self.dosen_lain.id})
+        self.assertEqual(resp.context["target_user"], self.dosen)
+
+    def test_dosen_tidak_bisa_lihat_dosen_lain_lewat_pencarian_q(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/laporan-detail/", {"q": "Unik Dua"})
+        self.assertEqual(resp.context["target_user"], self.dosen)
+
+    def test_tendik_akses_self_service(self):
+        tendik = User.objects.create_user(username="lapdetailtendik", password="testpass123", role="tendik")
+        self.client.force_login(tendik)
+        resp = self.client.get("/presensi/laporan-detail/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["target_user"], tendik)
+
+    def test_dosen_bisa_unduh_pdf_diri_sendiri(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/presensi/laporan-detail/pdf/", {"bulan": "7", "tahun": "2026"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+
+    def test_admin_bukan_dosen_tendik_tetap_lewat_alur_cari(self):
+        """Peran dapat_kelola-scoped (admin dkk) TIDAK di-paksa ke diri
+        sendiri -- alur cari/pilih pegawai lain tetap berfungsi seperti
+        sebelumnya."""
+        self.client.force_login(self.admin)
+        resp = self.client.get("/presensi/laporan-detail/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(resp.context["target_user"])
+        self.assertFalse(resp.context["mode_diri_sendiri"])
 
     def test_pencarian_tanpa_kata_kunci_tidak_menampilkan_apa_pun(self):
         self.client.force_login(self.admin)
