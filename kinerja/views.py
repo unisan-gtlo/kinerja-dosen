@@ -4,7 +4,10 @@ from django.contrib import messages
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import RiwayatBKD, TahunAkademikPublik
-from simda_dosen.utils import get_simda_dosen_or_none, dapat_kelola_nidn, resolve_target_user
+from simda_dosen.utils import (
+    get_simda_dosen_or_none, dapat_kelola_nidn,
+    resolve_target_user_tambah, bisa_tambah_tridarma,
+)
 from simda_dosen.file_compress import compress_uploaded_file
 from profil.models import Diklat, Sertifikasi, TesKompetensi
 from pendidikan.models import (
@@ -37,6 +40,7 @@ def bkd_index(request):
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
     bisa_edit = user.dapat_kelola(target_user) and input_terbuka
+    bisa_tambah = bisa_tambah_tridarma(user, target_user) and input_terbuka
 
     filter_tahun = request.GET.get('tahun', '')
     filter_semester = request.GET.get('semester', '')
@@ -54,6 +58,7 @@ def bkd_index(request):
         'tahun_list': tahun_list,
         'periode_list': TahunAkademikPublik.objects.using('simda').all(),
         'bisa_edit': bisa_edit,
+        'bisa_tambah': bisa_tambah,
         'input_terbuka': input_terbuka,
         'filter_tahun': filter_tahun,
         'filter_semester': filter_semester,
@@ -72,7 +77,7 @@ def tambah_bkd(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user, err = resolve_target_user(request, dosen_id, 'kinerja:bkd_index')
+    target_user, err = resolve_target_user_tambah(request, dosen_id, 'kinerja:bkd_index')
     if err:
         return err
     dosen = get_simda_dosen_or_none(target_user)

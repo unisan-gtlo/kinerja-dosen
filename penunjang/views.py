@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import DataDosen
-from simda_dosen.utils import get_simda_dosen_or_none
+from simda_dosen.utils import get_simda_dosen_or_none, bisa_tambah_tridarma
 from kinerja.utils import attach_dokumen_count
 from .models import AnggotaProfesi, Penghargaan, PenunjangLain, AnggotaPenunjangLain
 
@@ -61,6 +61,7 @@ def index(request):
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
     bisa_edit = user.dapat_kelola(target_user) and input_terbuka
+    bisa_tambah = bisa_tambah_tridarma(user, target_user) and input_terbuka
 
     try:
         per_page = int(request.GET.get('per_page', DEFAULT_PER_PAGE))
@@ -87,6 +88,7 @@ def index(request):
         'target_user': target_user,
         'tahun_list': tahun_list,
         'bisa_edit': bisa_edit,
+        'bisa_tambah': bisa_tambah,
         'input_terbuka': input_terbuka,
         'per_page': per_page,
         'per_page_choices': PER_PAGE_CHOICES,
@@ -110,8 +112,8 @@ def tambah_profesi(request):
         return redirect('penunjang:index')
 
     target_user = _target_user(request, from_post=True)
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('penunjang:index')
     AnggotaProfesi.objects.create(
         user=target_user,
@@ -176,8 +178,8 @@ def tambah_penghargaan(request):
         return redirect('penunjang:index')
 
     target_user = _target_user(request, from_post=True)
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('penunjang:index')
     Penghargaan.objects.create(
         user=target_user,
@@ -242,8 +244,8 @@ def tambah_penunjang(request):
         return redirect('penunjang:index')
 
     target_user = _target_user(request, from_post=True)
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('penunjang:index')
     PenunjangLain.objects.create(
         user=target_user,

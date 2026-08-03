@@ -243,6 +243,34 @@ def resolve_target_user(request, dosen_id, redirect_url_name):
     return target_user, None
 
 
+def bisa_tambah_tridarma(user, target_user):
+    """Tambah (create) data Profil/Tri Dharma dibatasi LEBIH KETAT dari
+    dapat_kelola() biasa (yang tetap dipakai apa adanya untuk Edit/Hapus):
+    menambahkan data ATAS NAMA dosen lain cuma boleh admin/operator --
+    dekan/wadek/kaprodi/sekprodi/rektorat/biro TIDAK LAGI bisa (per
+    2026-08-03), meski dapat_kelola() masih True untuk mereka (dipakai
+    Edit/Hapus data yang sudah ada). Data diri sendiri (self-service)
+    TETAP boleh ditambahkan siapa pun, tidak terpengaruh pembatasan ini."""
+    if user.id == target_user.id:
+        return True
+    return user.role in ('admin', 'operator') and user.dapat_kelola(target_user)
+
+
+def resolve_target_user_tambah(request, dosen_id, redirect_url_name):
+    """Sama seperti resolve_target_user(), TAPI khusus untuk aksi TAMBAH
+    (create) -- dibatasi lewat bisa_tambah_tridarma() (lihat
+    dokumentasinya), bukan cuma dapat_kelola() biasa."""
+    from accounts.models import User
+    user = request.user
+    if not dosen_id:
+        return user, None
+    target_user = get_object_or_404(User, id=dosen_id)
+    if not bisa_tambah_tridarma(user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
+        return None, redirect(redirect_url_name)
+    return target_user, None
+
+
 def get_pejabat_aktif(nama_jabatan):
     """Cari pejabat struktural yang SEDANG aktif menjabat `nama_jabatan`
     (mis. "Rektor") -- dipakai untuk mengambil otomatis nama+NIP+gambar

@@ -13,6 +13,8 @@ from simda_dosen.utils import (
     sync_jabfung_aktif, sync_pendidikan_terakhir, sync_golongan_terakhir,
     get_golongan_ref_list_dosen,
     resolve_target_user as resolve_target_user_util,
+    resolve_target_user_tambah as resolve_target_user_tambah_util,
+    bisa_tambah_tridarma,
 )
 from simda_dosen.file_compress import compress_uploaded_file
 from kinerja.utils import attach_dokumen_count
@@ -28,6 +30,10 @@ def cek_status_input():
 
 def resolve_target_user(request, dosen_id):
     return resolve_target_user_util(request, dosen_id, 'profil:index')
+
+
+def resolve_target_user_tambah(request, dosen_id):
+    return resolve_target_user_tambah_util(request, dosen_id, 'profil:index')
 
 @login_required
 def index(request):
@@ -54,6 +60,7 @@ def index(request):
     input_terbuka = cek_status_input()
     bisa_edit = user.dapat_kelola(target_user) and input_terbuka
     bisa_edit_kepegawaian = user.dapat_kelola(target_user) and input_terbuka
+    bisa_tambah = bisa_tambah_tridarma(user, target_user) and input_terbuka
     has_serdos = Sertifikasi.objects.filter(
         user=target_user, jenis_sertifikasi='serdos'
     ).exists()
@@ -68,6 +75,7 @@ def index(request):
         'tahun_list': tahun_list,
         'bisa_edit': bisa_edit,
         'bisa_edit_kepegawaian': bisa_edit_kepegawaian,
+        'bisa_tambah': bisa_tambah,
         'input_terbuka': input_terbuka,
         'has_serdos': has_serdos,
         'agama_list': AgamaPublik.objects.using('simda').all(),
@@ -160,7 +168,7 @@ def tambah_jabfung(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user, err = resolve_target_user(request, dosen_id)
+    target_user, err = resolve_target_user_tambah(request, dosen_id)
     if err:
         return err
     dosen = get_simda_dosen_or_none(target_user)
@@ -207,7 +215,7 @@ def tambah_pangkat(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user, err = resolve_target_user(request, dosen_id)
+    target_user, err = resolve_target_user_tambah(request, dosen_id)
     if err:
         return err
     dosen = get_simda_dosen_or_none(target_user)
@@ -278,7 +286,7 @@ def tambah_pendidikan(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user, err = resolve_target_user(request, dosen_id)
+    target_user, err = resolve_target_user_tambah(request, dosen_id)
     if err:
         return err
     dosen = get_simda_dosen_or_none(target_user)
@@ -379,6 +387,7 @@ def kualifikasi_index(request):
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
     bisa_edit = user.dapat_kelola(target_user) and input_terbuka
+    bisa_tambah = bisa_tambah_tridarma(user, target_user) and input_terbuka
 
     diklat_list = target_user.diklat_set.all()
 
@@ -386,6 +395,7 @@ def kualifikasi_index(request):
         'target_user': target_user,
         'tahun_list': tahun_list,
         'bisa_edit': bisa_edit,
+        'bisa_tambah': bisa_tambah,
         'input_terbuka': input_terbuka,
         'diklat_list': attach_dokumen_count(diklat_list, 'diklat'),
     }
@@ -402,7 +412,7 @@ def tambah_diklat(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user, err = resolve_target_user(request, dosen_id)
+    target_user, err = resolve_target_user_tambah(request, dosen_id)
     if err:
         return err
 
@@ -489,12 +499,14 @@ def kompetensi_index(request):
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
     bisa_edit = user.dapat_kelola(target_user) and input_terbuka
+    bisa_tambah = bisa_tambah_tridarma(user, target_user) and input_terbuka
     bisa_validasi = user.role in Sertifikasi.ROLE_BOLEH_VALIDASI
 
     context = {
         'target_user': target_user,
         'tahun_list': tahun_list,
         'bisa_edit': bisa_edit,
+        'bisa_tambah': bisa_tambah,
         'bisa_validasi': bisa_validasi,
         'input_terbuka': input_terbuka,
         'sertifikasi_list': attach_dokumen_count(target_user.sertifikasi_set.all(), 'sertifikasi'),
@@ -513,7 +525,7 @@ def tambah_sertifikasi(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user, err = resolve_target_user(request, dosen_id)
+    target_user, err = resolve_target_user_tambah(request, dosen_id)
     if err:
         return err
 
@@ -590,7 +602,7 @@ def tambah_tes(request):
 
     user = request.user
     dosen_id = request.POST.get('dosen_id')
-    target_user, err = resolve_target_user(request, dosen_id)
+    target_user, err = resolve_target_user_tambah(request, dosen_id)
     if err:
         return err
 
@@ -667,6 +679,7 @@ def dokumen_index(request):
     target_user = _dokumen_target_user(request)
     input_terbuka = cek_status_input()
     bisa_edit = user.dapat_kelola(target_user) and input_terbuka
+    bisa_tambah = bisa_tambah_tridarma(user, target_user) and input_terbuka
 
     dokumen_lain_list = target_user.dokumen_set.all().order_by('-tgl_input')
 
@@ -744,6 +757,7 @@ def dokumen_index(request):
     context = {
         'target_user': target_user,
         'bisa_edit': bisa_edit,
+        'bisa_tambah': bisa_tambah,
         'input_terbuka': input_terbuka,
         'dokumen_gabungan': dokumen_gabungan,
         'jenis_dokumen_choices': DokumenLain.JENIS_DOKUMEN,
@@ -765,8 +779,8 @@ def tambah_dokumen_lain(request):
     else:
         target_user = request.user
 
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('profil:dokumen_index')
 
     dok = DokumenLain(

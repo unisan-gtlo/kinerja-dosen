@@ -9,6 +9,7 @@ from django.test import TestCase
 from accounts.models import User
 
 from .forms import DataTendikForm
+from .utils import bisa_tambah_tridarma
 
 
 class DataTendikFormTest(TestCase):
@@ -138,3 +139,40 @@ class KelolaDataTendikViewTest(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertFalse(mock_instance.is_active)
         mock_instance.save.assert_called_once_with(update_fields=["is_active"])
+
+
+class BisaTambahTridarmaTest(TestCase):
+    """bisa_tambah_tridarma() -- gerbang TAMBAH (create) data Profil/Tri
+    Dharma per 2026-08-03: menambahkan data ATAS NAMA dosen lain cuma
+    boleh admin/operator (Dekan/Wadek/Kaprodi/Sekprodi/Rektorat/Biro
+    TIDAK LAGI boleh, meski dapat_kelola() masih True untuk mereka --
+    dipakai Edit/Hapus). Data diri sendiri selalu boleh siapa pun."""
+
+    def setUp(self):
+        self.dosen_ft = User.objects.create_user(
+            username="bisatambah_dosen", password="testpass123", role="dosen", kode_fakultas="FT",
+        )
+        self.admin = User.objects.create_user(username="bisatambah_admin", password="testpass123", role="admin")
+        self.operator_ft = User.objects.create_user(
+            username="bisatambah_operator", password="testpass123", role="operator", kode_fakultas="FT",
+        )
+        self.dekan_ft = User.objects.create_user(
+            username="bisatambah_dekan", password="testpass123", role="dekan", kode_fakultas="FT",
+        )
+        self.rektorat = User.objects.create_user(username="bisatambah_rektorat", password="testpass123", role="rektorat")
+
+    def test_diri_sendiri_selalu_boleh(self):
+        self.assertTrue(bisa_tambah_tridarma(self.dekan_ft, self.dekan_ft))
+        self.assertTrue(bisa_tambah_tridarma(self.rektorat, self.rektorat))
+
+    def test_admin_boleh_untuk_dosen_lain(self):
+        self.assertTrue(bisa_tambah_tridarma(self.admin, self.dosen_ft))
+
+    def test_operator_fakultas_sama_boleh_untuk_dosen_lain(self):
+        self.assertTrue(bisa_tambah_tridarma(self.operator_ft, self.dosen_ft))
+
+    def test_dekan_fakultas_sama_tidak_lagi_boleh_untuk_dosen_lain(self):
+        self.assertFalse(bisa_tambah_tridarma(self.dekan_ft, self.dosen_ft))
+
+    def test_rektorat_tidak_boleh_untuk_dosen_lain(self):
+        self.assertFalse(bisa_tambah_tridarma(self.rektorat, self.dosen_ft))

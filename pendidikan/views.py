@@ -6,7 +6,7 @@ from django.db.models import Q
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import MataKuliahPublik, MahasiswaPublik, ProdiPublik, DataDosen
-from simda_dosen.utils import get_simda_dosen_or_none
+from simda_dosen.utils import get_simda_dosen_or_none, bisa_tambah_tridarma
 from kinerja.utils import attach_dokumen_count
 from .models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
@@ -98,6 +98,7 @@ def index(request):
     tahun_list = TahunAkademik.objects.filter(status='aktif').order_by('-urutan')
     input_terbuka = cek_status_input()
     bisa_edit = user.dapat_kelola(target_user) and input_terbuka
+    bisa_tambah = bisa_tambah_tridarma(user, target_user) and input_terbuka
 
     try:
         per_page = int(request.GET.get('per_page', DEFAULT_PER_PAGE))
@@ -121,6 +122,7 @@ def index(request):
         'target_user': target_user,
         'tahun_list': tahun_list,
         'bisa_edit': bisa_edit,
+        'bisa_tambah': bisa_tambah,
         'input_terbuka': input_terbuka,
         'prodi_list': ProdiPublik.objects.using('simda').all(),
         'per_page': per_page,
@@ -157,8 +159,8 @@ def tambah_pengajaran(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('pendidikan:index')
     mk_id = request.POST.get('mata_kuliah_id')
     mk = get_object_or_404(MataKuliahPublik.objects.using('simda'), id=mk_id) if mk_id else None
@@ -242,8 +244,8 @@ def tambah_bimbingan(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('pendidikan:index')
     mhs_id = request.POST.get('mahasiswa_id')
     mhs = get_object_or_404(MahasiswaPublik.objects.using('simda'), id=mhs_id) if mhs_id else None
@@ -323,8 +325,8 @@ def tambah_pengujian(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('pendidikan:index')
     mhs_id = request.POST.get('mahasiswa_id')
     mhs = get_object_or_404(MahasiswaPublik.objects.using('simda'), id=mhs_id) if mhs_id else None
@@ -402,8 +404,8 @@ def tambah_bahan_ajar(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('pendidikan:index')
     BahanAjar.objects.create(
         user=target_user,
@@ -569,8 +571,8 @@ def tambah_pembinaan_mahasiswa(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('pendidikan:index')
     PembinaanMahasiswa.objects.create(
         user=target_user,
@@ -631,8 +633,8 @@ def tambah_orasi_ilmiah(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('pendidikan:index')
     OrasiIlmiah.objects.create(
         user=target_user,
@@ -693,8 +695,8 @@ def tambah_tugas_tambahan(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
-    if not request.user.dapat_kelola(target_user):
-        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+    if not bisa_tambah_tridarma(request.user, target_user):
+        messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return redirect('pendidikan:index')
     TugasTambahan.objects.create(
         user=target_user,
