@@ -759,7 +759,15 @@ def tambah_dokumen_lain(request):
         messages.error(request, 'Input data sedang dikunci.')
         return redirect('profil:dokumen_index')
 
-    target_user = _dokumen_target_user(request) if request.POST.get('dosen_id') else request.user
+    dosen_id = request.POST.get('dosen_id')
+    if dosen_id and request.user.role in ['admin', 'kaprodi', 'sekprodi', 'operator', 'dekan', 'wadek', 'rektorat', 'biro']:
+        target_user = get_object_or_404(User, id=dosen_id)
+    else:
+        target_user = request.user
+
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('profil:dokumen_index')
 
     dok = DokumenLain(
         user=target_user,

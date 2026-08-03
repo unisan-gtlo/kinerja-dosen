@@ -1,6 +1,6 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from accounts.models import User
 from master.models import Fakultas, Prodi, TahunAkademik, Pengaturan
 from simda_dosen.models import (
@@ -847,18 +847,15 @@ def export_excel_hki(request):
 
 @login_required
 def export_pdf_dosen(request, dosen_id):
-    from django.shortcuts import get_object_or_404
     target_dosen = get_object_or_404(User, id=dosen_id)
 
-    # Cek akses — dosen hanya bisa lihat miliknya sendiri
-    if request.user.role == 'dosen' and request.user.id != target_dosen.id:
-        messages.error(request, 'Anda tidak memiliki akses laporan dosen lain.')
-        return redirect('dashboard:index')
-        
-    # Cek akses
-    if request.user.role == 'dosen' and request.user != target_dosen:
-        from django.http import HttpResponseForbidden
-        return HttpResponseForbidden()
+    # Diri sendiri selalu boleh; selain itu dibatasi ke cakupan
+    # fakultas/prodi yang sama seperti Rekap Data (get_dosen_queryset) --
+    # dosen lain di luar cakupan dan tendik (tidak pernah masuk queryset
+    # ini) otomatis ditolak.
+    if request.user.id != target_dosen.id and not get_dosen_queryset(request.user).filter(id=target_dosen.id).exists():
+        return HttpResponseForbidden('Anda tidak memiliki akses ke laporan dosen ini.')
+
     tahun_range, filter_tahun, periode_label = get_tahun_range(request)
     filter_semester = request.GET.get('semester', '')
 
@@ -1282,6 +1279,14 @@ def export_pdf_dosen(request, dosen_id):
 
 @login_required
 def export_excel_statistik_kinerja(request):
+    # Laporan agregat INSTITUSI-WIDE (semua fakultas/prodi tanpa filter
+    # cakupan) -- beda dengan Rekap Detail yang sudah dibatasi
+    # get_dosen_queryset per role, jadi role fakultas/prodi-scoped
+    # (dekan/wadek/operator/kaprodi/sekprodi) sengaja TIDAK diikutkan di
+    # sini, cuma role yang memang berhak lihat semua (admin/rektorat/biro).
+    if request.user.role not in ['admin', 'rektorat', 'biro']:
+        return HttpResponseForbidden('Anda tidak memiliki akses ke laporan ini.')
+
     filter_tahun = request.GET.get('tahun', '')
     filter_tahun_awal = request.GET.get('tahun_awal', '')
     filter_tahun_akhir = request.GET.get('tahun_akhir', '')
@@ -1534,6 +1539,11 @@ def export_excel_statistik_kinerja(request):
 
 @login_required
 def export_excel_statistik_profil(request):
+    # Sama seperti export_excel_statistik_kinerja -- agregat institusi-wide,
+    # sengaja dibatasi ke role yang berhak lihat semua fakultas/prodi.
+    if request.user.role not in ['admin', 'rektorat', 'biro']:
+        return HttpResponseForbidden('Anda tidak memiliki akses ke laporan ini.')
+
     from master.models import Fakultas, Prodi
 
     fakultas_list = Fakultas.objects.filter(status='aktif').order_by('kode_fakultas')

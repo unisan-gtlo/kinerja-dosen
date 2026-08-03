@@ -164,3 +164,106 @@ class ExportExcelStatistikProfilBucketingTest(TestCase):
         ]
         self.assertTrue(any(kw == {"kode_fakultas": "FT"} for kw in filter_kwargs_used))
         self.assertTrue(any(kw == {"kode_prodi": "TI"} for kw in filter_kwargs_used))
+
+
+class StatistikExportAksesTest(TestCase):
+    """Bug fix per 2026-08-03: export_excel_statistik_kinerja dan
+    export_excel_statistik_profil sebelumnya TIDAK punya pengecekan role
+    sama sekali -- siapa pun yang login (termasuk dosen/tendik) bisa
+    mengunduh statistik agregat SELURUH institusi. Sekarang dibatasi ke
+    admin/rektorat/biro (role yang memang berhak lihat semua fakultas/
+    prodi tanpa batas cakupan)."""
+
+    def setUp(self):
+        self.dosen = User.objects.create_user(
+            username="dosen_statistik", password="testpass123", role="dosen",
+        )
+        self.dekan = User.objects.create_user(
+            username="dekan_statistik", password="testpass123", role="dekan", kode_fakultas="FT",
+        )
+        self.rektorat = User.objects.create_user(
+            username="rektorat_statistik", password="testpass123", role="rektorat",
+        )
+        self.admin = User.objects.create_user(
+            username="admin_statistik", password="testpass123", role="admin",
+        )
+        self.client = Client()
+
+    def test_dosen_ditolak_statistik_kinerja(self):
+        self.client.login(username="dosen_statistik", password="testpass123")
+        response = self.client.get(reverse("laporan:excel_statistik_kinerja"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_dekan_ditolak_statistik_kinerja(self):
+        self.client.login(username="dekan_statistik", password="testpass123")
+        response = self.client.get(reverse("laporan:excel_statistik_kinerja"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_dosen_ditolak_statistik_profil(self):
+        self.client.login(username="dosen_statistik", password="testpass123")
+        response = self.client.get(reverse("laporan:excel_statistik_profil"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_rektorat_diterima_statistik_kinerja(self):
+        self.client.login(username="rektorat_statistik", password="testpass123")
+        response = self.client.get(reverse("laporan:excel_statistik_kinerja"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_diterima_statistik_profil(self):
+        self.client.login(username="admin_statistik", password="testpass123")
+        response = self.client.get(reverse("laporan:excel_statistik_profil"))
+        self.assertEqual(response.status_code, 200)
+
+
+class ExportPdfDosenAksesTest(TestCase):
+    """Bug fix per 2026-08-03: export_pdf_dosen sebelumnya cuma menolak
+    role 'dosen' yang melihat dosen lain -- dekan/kaprodi bisa mengambil
+    PDF dosen di luar fakultas/prodinya, dan tendik tidak dicek sama
+    sekali. Sekarang dibatasi lewat get_dosen_queryset (cakupan yang
+    sama dengan Rekap Data), kecuali melihat data diri sendiri."""
+
+    def setUp(self):
+        self.dosen_ft = User.objects.create_user(
+            username="dosen_ft_pdfdosen", password="testpass123", role="dosen",
+            kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.dekan_ft = User.objects.create_user(
+            username="dekan_ft_pdfdosen", password="testpass123", role="dekan",
+            kode_fakultas="FT",
+        )
+        self.dekan_feb = User.objects.create_user(
+            username="dekan_feb_pdfdosen", password="testpass123", role="dekan",
+            kode_fakultas="FEB",
+        )
+        self.tendik = User.objects.create_user(
+            username="tendik_pdfdosen", password="testpass123", role="tendik",
+        )
+        self.client = Client()
+
+    @patch("laporan.views.get_simda_dosen_or_none")
+    def test_dekan_beda_fakultas_ditolak(self, mock_profil_fn):
+        mock_profil_fn.return_value = None
+        self.client.login(username="dekan_feb_pdfdosen", password="testpass123")
+        response = self.client.get(reverse("laporan:pdf_dosen", args=[self.dosen_ft.id]))
+        self.assertEqual(response.status_code, 403)
+
+    @patch("laporan.views.get_simda_dosen_or_none")
+    def test_tendik_ditolak(self, mock_profil_fn):
+        mock_profil_fn.return_value = None
+        self.client.login(username="tendik_pdfdosen", password="testpass123")
+        response = self.client.get(reverse("laporan:pdf_dosen", args=[self.dosen_ft.id]))
+        self.assertEqual(response.status_code, 403)
+
+    @patch("laporan.views.get_simda_dosen_or_none")
+    def test_dekan_fakultas_sama_diterima(self, mock_profil_fn):
+        mock_profil_fn.return_value = None
+        self.client.login(username="dekan_ft_pdfdosen", password="testpass123")
+        response = self.client.get(reverse("laporan:pdf_dosen", args=[self.dosen_ft.id]))
+        self.assertEqual(response.status_code, 200)
+
+    @patch("laporan.views.get_simda_dosen_or_none")
+    def test_dosen_lihat_diri_sendiri_diterima(self, mock_profil_fn):
+        mock_profil_fn.return_value = None
+        self.client.login(username="dosen_ft_pdfdosen", password="testpass123")
+        response = self.client.get(reverse("laporan:pdf_dosen", args=[self.dosen_ft.id]))
+        self.assertEqual(response.status_code, 200)

@@ -157,6 +157,9 @@ def tambah_pengajaran(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pendidikan:index')
     mk_id = request.POST.get('mata_kuliah_id')
     mk = get_object_or_404(MataKuliahPublik.objects.using('simda'), id=mk_id) if mk_id else None
     if not mk:
@@ -239,6 +242,9 @@ def tambah_bimbingan(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pendidikan:index')
     mhs_id = request.POST.get('mahasiswa_id')
     mhs = get_object_or_404(MahasiswaPublik.objects.using('simda'), id=mhs_id) if mhs_id else None
     if not mhs:
@@ -317,6 +323,9 @@ def tambah_pengujian(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pendidikan:index')
     mhs_id = request.POST.get('mahasiswa_id')
     mhs = get_object_or_404(MahasiswaPublik.objects.using('simda'), id=mhs_id) if mhs_id else None
     if not mhs:
@@ -393,6 +402,9 @@ def tambah_bahan_ajar(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pendidikan:index')
     BahanAjar.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -557,6 +569,9 @@ def tambah_pembinaan_mahasiswa(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pendidikan:index')
     PembinaanMahasiswa.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -616,6 +631,9 @@ def tambah_orasi_ilmiah(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pendidikan:index')
     OrasiIlmiah.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -675,6 +693,9 @@ def tambah_tugas_tambahan(request):
         return redirect('pendidikan:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pendidikan:index')
     TugasTambahan.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',

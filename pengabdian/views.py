@@ -119,6 +119,9 @@ def tambah_pengabdian(request):
         return redirect('pengabdian:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pengabdian:index')
     Pengabdian.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -298,6 +301,9 @@ def tambah_pembicara(request):
         return redirect('pengabdian:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pengabdian:index')
     Pembicara.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -373,6 +379,9 @@ def tambah_jurnal(request):
         return redirect('pengabdian:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pengabdian:index')
     PengelolaJurnal.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -438,6 +447,9 @@ def tambah_jabatan(request):
         return redirect('pengabdian:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('pengabdian:index')
     JabatanStruktural.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',

@@ -110,6 +110,9 @@ def tambah_profesi(request):
         return redirect('penunjang:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('penunjang:index')
     AnggotaProfesi.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -173,6 +176,9 @@ def tambah_penghargaan(request):
         return redirect('penunjang:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('penunjang:index')
     Penghargaan.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -236,6 +242,9 @@ def tambah_penunjang(request):
         return redirect('penunjang:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('penunjang:index')
     PenunjangLain.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',

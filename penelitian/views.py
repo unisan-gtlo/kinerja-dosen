@@ -119,6 +119,9 @@ def tambah_penelitian(request):
         return redirect('penelitian:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('penelitian:index')
     Penelitian.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -298,6 +301,9 @@ def tambah_publikasi(request):
         return redirect('penelitian:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('penelitian:index')
     PublikasiKarya.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -381,6 +387,9 @@ def tambah_paten(request):
         return redirect('penelitian:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('penelitian:index')
     PatenHki.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',

@@ -86,6 +86,9 @@ def tambah_beasiswa(request):
         return redirect('reward:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('reward:index')
     Beasiswa.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -143,6 +146,9 @@ def tambah_kesejahteraan(request):
         return redirect('reward:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('reward:index')
     Kesejahteraan.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -200,6 +206,9 @@ def tambah_tunjangan(request):
         return redirect('reward:index')
 
     target_user = _target_user(request, from_post=True)
+    if not request.user.dapat_kelola(target_user):
+        messages.error(request, 'Tidak memiliki akses untuk mengelola data dosen ini.')
+        return redirect('reward:index')
     Tunjangan.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
