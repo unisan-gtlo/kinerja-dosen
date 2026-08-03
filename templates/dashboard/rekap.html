@@ -514,8 +514,32 @@
                 <span class="ti ti-user"></span>
               </a>
               <a href="{% url 'pendidikan:index' %}?dosen_id={{ r.dosen.id }}"
-                 class="btn btn-xs btn-outline-success" title="Kinerja">
+                 class="btn btn-xs btn-outline-success" title="Pendidikan">
                 <span class="ti ti-chart-bar"></span>
+              </a>
+              <a href="{% url 'penelitian:index' %}?dosen_id={{ r.dosen.id }}"
+                 class="btn btn-xs btn-outline-success" title="Penelitian">
+                <span class="ti ti-flask"></span>
+              </a>
+              <a href="{% url 'pengabdian:index' %}?dosen_id={{ r.dosen.id }}"
+                 class="btn btn-xs btn-outline-success" title="Pengabdian">
+                <span class="ti ti-hand-heart"></span>
+              </a>
+              <a href="{% url 'penunjang:index' %}?dosen_id={{ r.dosen.id }}"
+                 class="btn btn-xs btn-outline-secondary" title="Penunjang">
+                <span class="ti ti-puzzle"></span>
+              </a>
+              <a href="{% url 'reward:index' %}?dosen_id={{ r.dosen.id }}"
+                 class="btn btn-xs btn-outline-secondary" title="Reward">
+                <span class="ti ti-award"></span>
+              </a>
+              <a href="{% url 'profil:kualifikasi_index' %}?dosen_id={{ r.dosen.id }}"
+                 class="btn btn-xs btn-outline-primary" title="Kualifikasi">
+                <span class="ti ti-school"></span>
+              </a>
+              <a href="{% url 'profil:kompetensi_index' %}?dosen_id={{ r.dosen.id }}"
+                 class="btn btn-xs btn-outline-primary" title="Kompetensi">
+                <span class="ti ti-certificate"></span>
               </a>
               <a href="{% url 'laporan:pdf_dosen' r.dosen.id %}{% if filter_tahun %}?tahun={{ filter_tahun }}&semester={{ filter_semester }}{% endif %}"
                  class="btn btn-xs btn-outline-danger" title="PDF">
