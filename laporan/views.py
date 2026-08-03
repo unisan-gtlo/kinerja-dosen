@@ -67,6 +67,22 @@ def get_dosen_queryset(user, filter_prodi='', filter_fakultas='', filter_status=
     return qs.order_by('kode_fakultas', 'kode_prodi', 'first_name')
 
 
+def _identitas_tampilan_dosen(dosen, profil):
+    """Nama+gelar, kode fakultas, kode prodi untuk ditampilkan di laporan --
+    utamakan data SIMDA (profil = DataDosen) yang jadi sumber kebenaran
+    identitas akademik, fallback ke data akun (accounts.User) kalau dosen
+    belum ter-mirror di SIMDA."""
+    if profil:
+        nama = profil.nama_lengkap_gelar
+        kode_fakultas = profil.kode_fakultas or dosen.kode_fakultas or '-'
+        kode_prodi = profil.kode_prodi or dosen.kode_prodi or '-'
+    else:
+        nama = dosen.get_full_name() or dosen.username
+        kode_fakultas = dosen.kode_fakultas or '-'
+        kode_prodi = dosen.kode_prodi or '-'
+    return nama, kode_fakultas, kode_prodi
+
+
 def get_tahun_range(request):
     """Ambil list tahun akademik berdasarkan filter yang dipilih"""
     tahun = request.GET.get('tahun', '')
@@ -192,12 +208,14 @@ def export_excel_rekap(request):
             jabfung = '-'
             pendidikan = '-'
 
+        nama_tampil, kode_fakultas_tampil, kode_prodi_tampil = _identitas_tampilan_dosen(dosen, profil)
+
         row_data = [
             idx,
-            dosen.get_full_name() or dosen.username,
+            nama_tampil,
             dosen.nidn or '-',
-            dosen.kode_fakultas or '-',
-            dosen.kode_prodi or '-',
+            kode_fakultas_tampil,
+            kode_prodi_tampil,
             jabfung,
             pendidikan,
             profil.status_kepegawaian_nama if profil else '-',
@@ -576,11 +594,13 @@ def export_pdf_rekap(request):
             jabfung = '-'
             pendidikan = '-'
 
+        nama_tampil, kode_fakultas_tampil, kode_prodi_tampil = _identitas_tampilan_dosen(dosen, profil)
+
         table_data.append([
             str(idx),
-            Paragraph(dosen.get_full_name() or dosen.username, small_style),
+            Paragraph(nama_tampil, small_style),
             dosen.nidn or '-',
-            dosen.kode_prodi or '-',
+            kode_prodi_tampil,
             jabfung,
             pendidikan,
             profil.status_kepegawaian_nama if profil else '-',
@@ -918,14 +938,12 @@ def export_pdf_dosen(request, dosen_id):
     elements.append(header_table)
     elements.append(Spacer(1, 0.4*cm))
 
-    # Identitas Dosen
-    nama = target_dosen.get_full_name() or target_dosen.username
+    # Identitas Dosen -- utamakan data SIMDA (profil), fallback ke akun
+    nama, fakultas, prodi = _identitas_tampilan_dosen(target_dosen, profil)
     nidn = target_dosen.nidn or '-'
-    prodi = target_dosen.kode_prodi or '-'
-    fakultas = target_dosen.kode_fakultas or '-'
     jabfung_aktif = profil.jabatan_fungsional_nama if profil else '-'
     pendidikan = profil.pendidikan_terakhir if profil else '-'
-    bidang = '-'
+    bidang = profil.bidang_keahlian_nama if profil else '-'
     status_kpg = profil.status_kepegawaian_nama if profil else '-'
 
     identitas_data = [
@@ -1524,9 +1542,14 @@ def export_excel_statistik_profil(request):
     )
 
     def get_profil_counts(filter_kwargs):
-        dosen_qs = User.objects.filter(role='dosen', **filter_kwargs)
-        total = dosen_qs.count()
-        nidn_list = list(dosen_qs.exclude(nidn__isnull=True).exclude(nidn='').values_list('nidn', flat=True))
+        """filter_kwargs (kode_fakultas/kode_prodi) diterapkan ke DataDosen
+        (SIMDA) -- bukan accounts.User -- supaya populasi per Fakultas/Prodi
+        konsisten dengan afiliasi akademik resmi di SIMDA, bukan copy
+        kode_fakultas/kode_prodi di tabel akun login yang bisa saja belum
+        sinkron."""
+        simda_qs = DataDosen.objects.using('simda').filter(**filter_kwargs)
+        total = simda_qs.count()
+        nidn_list = list(simda_qs.values_list('nidn', flat=True))
 
         # Pendidikan
         s1 = DataDosen.objects.using('simda').filter(
@@ -1558,10 +1581,11 @@ def export_excel_statistik_profil(request):
         lk = count_jabfung('Lektor Kepala')
         gb = count_jabfung('Guru Besar')
 
-        # Sertifikasi dosen
+        # Sertifikasi dosen -- Sertifikasi FK ke accounts.User (bukan
+        # DataDosen, beda database), jadi dicocokkan lewat NIDN
         from profil.models import Sertifikasi
         serdos = Sertifikasi.objects.filter(
-            user__in=dosen_qs, jenis_sertifikasi='serdos'
+            user__nidn__in=nidn_list, jenis_sertifikasi='serdos'
         ).values('user').distinct().count()
 
         # Status keaktifan -- sumbernya DataDosen SIMDA, cocokkan lewat nidn
