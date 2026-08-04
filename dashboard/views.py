@@ -606,5 +606,6 @@ def rekap(request):
         'per_halaman': str(per_halaman),
         'rekap_categories': REKAP_CATEGORIES,
         'current_generic': current_generic,
+        'pengaturan': Pengaturan.objects.first(),
     }
     return render(request, 'dashboard/rekap.html', context)

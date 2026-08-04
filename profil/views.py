@@ -68,6 +68,7 @@ def index(request):
     context = {
         'target_user': target_user,
         'profil': profil,
+        'pengaturan': Pengaturan.objects.first(),
         'jabfung_list': jabfung_list,
         'pangkat_list': pangkat_list,
         'pendidikan_list': pendidikan_list,

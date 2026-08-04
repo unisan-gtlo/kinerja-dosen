@@ -149,6 +149,18 @@ def simpan_pengaturan(request):
         pengaturan.ts1_tahun = request.POST.get('ts1_tahun', '')
         pengaturan.ts2_label = request.POST.get('ts2_label', 'TS-2')
         pengaturan.ts2_tahun = request.POST.get('ts2_tahun', '')
+        # Kosongkan field template URL BUKAN berarti "hapus" -- kalau
+        # dikirim kosong (mis. tidak sengaja terhapus di form), biarkan
+        # nilai lama tetap ada, supaya link riset tidak mendadak rusak
+        # institusi-wide gara-gara submit form yang salah.
+        for field in (
+            'url_template_sinta', 'url_template_scopus',
+            'url_template_google_scholar', 'url_template_orcid',
+            'url_template_garuda',
+        ):
+            nilai = request.POST.get(field, '').strip()
+            if nilai:
+                setattr(pengaturan, field, nilai)
         pengaturan.save()
         messages.success(request, 'Pengaturan berhasil disimpan.')
     return redirect('master:index')

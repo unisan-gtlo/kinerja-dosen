@@ -475,6 +475,40 @@
               <label class="form-label fw-semibold">Tahun TS-2</label>
               <input type="text" name="ts2_tahun" class="form-control" value="{{ pengaturan.ts2_tahun|default:'' }}">
             </div>
+            <div class="col-12"><hr><small class="text-muted fw-semibold">Template URL Profil Riset Dosen</small></div>
+            <div class="col-12">
+              <div class="alert alert-info py-2 mb-0">
+                <span class="ti ti-info-circle me-1"></span>
+                Pakai placeholder <code>{id}</code> untuk posisi ID Sinta/Scopus/dst milik dosen. Kalau domain atau
+                format URL-nya berubah, cukup ubah di sini -- tidak perlu ubah kode program. Dikosongkan =
+                nilai lama tetap dipakai.
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Template URL SINTA</label>
+              <input type="text" name="url_template_sinta" class="form-control"
+                     value="{{ pengaturan.url_template_sinta|default:'' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Template URL Scopus</label>
+              <input type="text" name="url_template_scopus" class="form-control"
+                     value="{{ pengaturan.url_template_scopus|default:'' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Template URL Google Scholar</label>
+              <input type="text" name="url_template_google_scholar" class="form-control"
+                     value="{{ pengaturan.url_template_google_scholar|default:'' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Template URL ORCID</label>
+              <input type="text" name="url_template_orcid" class="form-control"
+                     value="{{ pengaturan.url_template_orcid|default:'' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Template URL Garuda</label>
+              <input type="text" name="url_template_garuda" class="form-control"
+                     value="{{ pengaturan.url_template_garuda|default:'' }}">
+            </div>
           </div>
           <div class="mt-4">
             <button type="submit" class="btn btn-primary">

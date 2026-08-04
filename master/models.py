@@ -80,6 +80,33 @@ class Pengaturan(models.Model):
     ts1_tahun = models.CharField(max_length=10, default='2023-2024')
     ts2_label = models.CharField(max_length=10, default='TS-2')
     ts2_tahun = models.CharField(max_length=10, default='2022-2023')
+
+    # Template URL profil riset dosen (SINTA/Scopus/dst) -- placeholder
+    # "{id}" diganti dengan nilai ID Sinta/Scopus/dst milik dosen saat
+    # ditampilkan. Dibuat bisa diatur di sini (bukan hardcode di
+    # template) supaya kalau domain/format URL-nya berubah, admin tinggal
+    # ubah di halaman Pengaturan tanpa perlu ubah kode.
+    url_template_sinta = models.CharField(
+        max_length=255, blank=True,
+        default='https://sinta.kemdiktisaintek.go.id/authors/profile/{id}/?view=garuda',
+    )
+    url_template_scopus = models.CharField(
+        max_length=255, blank=True,
+        default='https://www.scopus.com/authid/detail.uri?authorId={id}',
+    )
+    url_template_google_scholar = models.CharField(
+        max_length=255, blank=True,
+        default='https://scholar.google.com/citations?user={id}',
+    )
+    url_template_orcid = models.CharField(
+        max_length=255, blank=True,
+        default='https://orcid.org/{id}',
+    )
+    url_template_garuda = models.CharField(
+        max_length=255, blank=True,
+        default='https://garuda.kemdikbud.go.id/author/view/{id}',
+    )
+
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

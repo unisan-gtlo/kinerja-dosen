@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load master_extras %}
 {% block title %}Rekap Data — SIKD{% endblock %}
 {% block page_title %}Rekap Data{% endblock %}
 
@@ -561,19 +562,19 @@
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                   {% if r.id_sinta %}
-                  <li><a class="dropdown-item" href="https://sinta.kemdiktisaintek.go.id/profile/{{ r.id_sinta }}" target="_blank" rel="noopener">SINTA</a></li>
+                  <li><a class="dropdown-item" href="{{ pengaturan.url_template_sinta|format_link:r.id_sinta }}" target="_blank" rel="noopener">SINTA</a></li>
                   {% endif %}
                   {% if r.id_scopus %}
-                  <li><a class="dropdown-item" href="https://www.scopus.com/authid/detail.uri?authorId={{ r.id_scopus }}" target="_blank" rel="noopener">Scopus</a></li>
+                  <li><a class="dropdown-item" href="{{ pengaturan.url_template_scopus|format_link:r.id_scopus }}" target="_blank" rel="noopener">Scopus</a></li>
                   {% endif %}
                   {% if r.id_google_scholar %}
-                  <li><a class="dropdown-item" href="https://scholar.google.com/citations?user={{ r.id_google_scholar }}" target="_blank" rel="noopener">Google Scholar</a></li>
+                  <li><a class="dropdown-item" href="{{ pengaturan.url_template_google_scholar|format_link:r.id_google_scholar }}" target="_blank" rel="noopener">Google Scholar</a></li>
                   {% endif %}
                   {% if r.orcid %}
-                  <li><a class="dropdown-item" href="https://orcid.org/{{ r.orcid }}" target="_blank" rel="noopener">ORCID</a></li>
+                  <li><a class="dropdown-item" href="{{ pengaturan.url_template_orcid|format_link:r.orcid }}" target="_blank" rel="noopener">ORCID</a></li>
                   {% endif %}
                   {% if r.id_garuda %}
-                  <li><a class="dropdown-item" href="https://garuda.kemdikbud.go.id/author/view/{{ r.id_garuda }}" target="_blank" rel="noopener">Garuda</a></li>
+                  <li><a class="dropdown-item" href="{{ pengaturan.url_template_garuda|format_link:r.id_garuda }}" target="_blank" rel="noopener">Garuda</a></li>
                   {% endif %}
                 </ul>
               </div>
