@@ -2,7 +2,7 @@
 tersedia saat test, jadi query ke sana di-mock (pola sama dengan
 GetPejabatAktifTest/GetDosenByNidnTest di presensi/tests.py)."""
 import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
@@ -107,6 +107,35 @@ class KelolaDataTendikViewTest(TestCase):
 
         self.assertEqual(resp.status_code, 200)
         mock_qs.filter.assert_called_once()
+
+    @patch("simda_dosen.views.DataTendik")
+    def test_avatar_foto_tampil_di_daftar(self, mock_cls):
+        # Avatar foto profil di depan nama -- sama modelnya dengan Rekap
+        # Data dosen (templates/dashboard/rekap.html): <img> kalau ada
+        # foto, ikon ti-user-circle kalau tidak. Item daftar pakai Mock
+        # BIASA (bukan MagicMock) -- MagicMock otomatis mengimplementasi
+        # __getitem__, dan resolusi variabel Django ({{ t.foto }}) selalu
+        # mencoba dictionary-lookup (`t['foto']`) LEBIH DULU sebelum
+        # attribute-lookup (dicek lewat hasattr(type(t), '__getitem__'),
+        # bukan instance) -- kalau MagicMock, itu selalu sukses dan
+        # mengembalikan mock bersarang alih-alih nilai yang di-set,
+        # bikin assertion di test ini salah lolos/gagal tanpa terdeteksi.
+        dengan_foto = Mock(id=1, nama_lengkap="Punya Foto", nip_yayasan="", jabatan="",
+                            unit_kerja_nama="", status_kepegawaian_nama="", is_active=True)
+        dengan_foto.foto.url = "/media/tendik/foto/contoh.jpg"
+        tanpa_foto = Mock(id=2, nama_lengkap="Tanpa Foto", nip_yayasan="", jabatan="",
+                           unit_kerja_nama="", status_kepegawaian_nama="", is_active=True, foto=None)
+
+        mock_qs = MagicMock()
+        mock_cls.objects.using.return_value = mock_qs
+        mock_qs.all.return_value = mock_qs
+        mock_qs.order_by.return_value = [dengan_foto, tanpa_foto]
+
+        self.client.force_login(self.admin)
+        resp = self.client.get("/simda-dosen/tendik/")
+
+        self.assertContains(resp, '<img src="/media/tendik/foto/contoh.jpg"')
+        self.assertContains(resp, "ti-user-circle")
 
     def test_dosen_biasa_tidak_bisa_ekspor_pdf(self):
         self.client.force_login(self.dosen)

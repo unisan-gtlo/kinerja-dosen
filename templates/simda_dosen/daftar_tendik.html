@@ -52,7 +52,16 @@
         <tbody>
           {% for t in daftar %}
           <tr>
-            <td>{{ t.nama_lengkap }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                {% if t.foto %}
+                <img src="{{ t.foto.url }}" alt="" style="width:36px; height:36px; border-radius:50%; object-fit:cover; flex-shrink:0">
+                {% else %}
+                <span class="ti ti-user-circle" style="font-size:36px; color:#adb5bd; flex-shrink:0"></span>
+                {% endif %}
+                {{ t.nama_lengkap }}
+              </div>
+            </td>
             <td>{{ t.nip_yayasan|default:"—" }}</td>
             <td>{{ t.jabatan|default:"—" }}</td>
             <td>{{ t.unit_kerja_nama|default:"—" }}</td>
