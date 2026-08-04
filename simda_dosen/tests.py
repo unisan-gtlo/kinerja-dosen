@@ -1,6 +1,7 @@
 """Test untuk simda_dosen -- SIMDA (koneksi 'simda') tidak selalu
 tersedia saat test, jadi query ke sana di-mock (pola sama dengan
 GetPejabatAktifTest/GetDosenByNidnTest di presensi/tests.py)."""
+import datetime
 from unittest.mock import MagicMock, patch
 
 from django.db import DatabaseError
@@ -8,8 +9,8 @@ from django.test import TestCase, Client
 
 from accounts.models import User
 
-from .forms import DataTendikForm, ProfilSayaTendikForm
-from .models import DataTendik, RiwayatPendidikanTendik
+from .forms import DataTendikForm, ProfilSayaTendikForm, RiwayatPelatihanTendikForm
+from .models import DataTendik, RiwayatPelatihanTendik, RiwayatPendidikanTendik
 from .utils import bisa_tambah_tridarma, get_or_create_unit_kerja
 
 
@@ -513,3 +514,65 @@ class ProfilSayaTendikFormAgamaKosongTest(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         for field in ("unit_kerja_id", "jenis_kepegawaian_id", "status_kepegawaian_id", "golongan_id", "agama_id"):
             self.assertIsNone(form.cleaned_data[field], f"{field} seharusnya None, bukan string kosong")
+
+
+class TendikDateInputFormatTest(TestCase):
+    """Bug fix 2026-08-05: field bertipe tanggal (Tanggal Lahir, Tanggal
+    Mulai Kerja, Tanggal SK Pengangkatan, Tanggal Mulai/Selesai Pelatihan)
+    di Kelola Tendik terlihat KOSONG saat form dibuka untuk diedit,
+    walau datanya tersimpan benar di database -- kalau admin/tendik lalu
+    submit ulang form itu tanpa menyentuh field tanggalnya, nilai kosong
+    tadi MENIMPA tanggal yang sudah benar jadi NULL ("tanggal tidak
+    tersimpan").
+
+    Akar masalah: `forms.DateInput(attrs={"type": "date"})` TANPA
+    `format="%Y-%m-%d"` merender value existing pakai format locale
+    id-id ("25-12-1985"), yang TIDAK valid untuk value <input
+    type="date"> HTML5 (harus persis ISO 8601) -- browser menampilkan
+    field itu kosong. `settings.DATE_INPUT_FORMATS` TIDAK bisa dipakai
+    untuk memperbaiki ini (dicoba & diverifikasi TIDAK berpengaruh --
+    locale module id-id selalu menang atas setting global selama l10n
+    aktif, lihat riwayat percakapan), jadi diperbaiki dengan
+    `format="%Y-%m-%d"` eksplisit di tiap widget."""
+
+    @patch("simda_dosen.forms.AgamaPublik")
+    def test_profil_saya_tendik_tgl_lahir_render_iso(self, mock_agama):
+        mock_agama.objects.using.return_value.order_by.return_value = []
+        tendik = DataTendik(id=1, nama_lengkap="Contoh", tgl_lahir=datetime.date(1985, 12, 25))
+        form = ProfilSayaTendikForm(instance=tendik)
+
+        self.assertEqual(form["tgl_lahir"].value(), "1985-12-25")
+
+    @patch("simda_dosen.forms.AgamaPublik")
+    @patch("simda_dosen.forms.UnitKerja")
+    @patch("simda_dosen.forms.JenisKepegawaianPublik")
+    @patch("simda_dosen.forms.StatusKepegawaianPublik")
+    @patch("simda_dosen.forms.GolonganPublik")
+    def test_data_tendik_form_semua_field_tanggal_render_iso(
+        self, mock_golongan, mock_status, mock_jenis, mock_unit, mock_agama,
+    ):
+        for mock_ref in (mock_unit, mock_jenis, mock_status, mock_golongan, mock_agama):
+            mock_ref.objects.using.return_value.filter.return_value.order_by.return_value = []
+            mock_ref.objects.using.return_value.all.return_value = []
+            mock_ref.objects.using.return_value.order_by.return_value = []
+
+        tendik = DataTendik(
+            id=1, nama_lengkap="Contoh",
+            tgl_lahir=datetime.date(1985, 12, 25),
+            tgl_mulai_kerja=datetime.date(2010, 1, 15),
+            tgl_sk_pengangkatan=datetime.date(2010, 1, 1),
+        )
+        form = DataTendikForm(instance=tendik)
+
+        self.assertEqual(form["tgl_lahir"].value(), "1985-12-25")
+        self.assertEqual(form["tgl_mulai_kerja"].value(), "2010-01-15")
+        self.assertEqual(form["tgl_sk_pengangkatan"].value(), "2010-01-01")
+
+    def test_riwayat_pelatihan_tendik_form_tanggal_render_iso(self):
+        riwayat = RiwayatPelatihanTendik(
+            id=1, tanggal_mulai=datetime.date(2020, 6, 1), tanggal_selesai=datetime.date(2020, 6, 5),
+        )
+        form = RiwayatPelatihanTendikForm(instance=riwayat)
+
+        self.assertEqual(form["tanggal_mulai"].value(), "2020-06-01")
+        self.assertEqual(form["tanggal_selesai"].value(), "2020-06-05")

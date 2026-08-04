@@ -59,6 +59,18 @@ class DataTendikForm(forms.ModelForm):
     )
 
     class Meta:
+        # Semua widget DateInput di bawah WAJIB `format="%Y-%m-%d"` --
+        # locale id-id (LANGUAGE_CODE) merender tanggal existing sebagai
+        # "25-12-1985" secara default (format lokal pertama di locale
+        # module), yang TIDAK valid untuk value <input type="date">
+        # HTML5 (harus persis ISO 8601) -- browser jadi menampilkan
+        # field-nya KOSONG saat form dibuka utk edit walau datanya
+        # tersimpan benar, dan kalau form itu di-submit ulang tanpa
+        # tanggal disentuh, nilai kosong itu MENIMPA tanggal yang sudah
+        # benar jadi NULL. `settings.DATE_INPUT_FORMATS` TIDAK bisa
+        # dipakai untuk memperbaiki ini (locale module id-id selalu
+        # menang atas setting global selama l10n aktif) -- harus
+        # override `format=` per widget.
         model = DataTendik
         fields = [
             "nip", "nip_yayasan", "nik", "nama_lengkap", "jenis_kelamin", "tempat_lahir", "tgl_lahir",
@@ -74,12 +86,12 @@ class DataTendikForm(forms.ModelForm):
             "nama_lengkap": forms.TextInput(attrs={"class": "form-control"}),
             "jenis_kelamin": forms.Select(attrs={"class": "form-select"}),
             "tempat_lahir": forms.TextInput(attrs={"class": "form-control"}),
-            "tgl_lahir": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "tgl_lahir": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
             "pendidikan_terakhir": forms.Select(attrs={"class": "form-select"}),
             "no_hp": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "jabatan": forms.TextInput(attrs={"class": "form-control", "placeholder": "mis. Staf Tata Usaha"}),
-            "tgl_mulai_kerja": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "tgl_mulai_kerja": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
             "nama_bank": forms.TextInput(attrs={"class": "form-control"}),
             "no_rekening": forms.TextInput(attrs={"class": "form-control"}),
             "atas_nama_rekening": forms.TextInput(attrs={"class": "form-control"}),
@@ -89,7 +101,7 @@ class DataTendikForm(forms.ModelForm):
             "kode_pos": forms.TextInput(attrs={"class": "form-control"}),
             "bidang_keahlian": forms.TextInput(attrs={"class": "form-control"}),
             "no_sk_pengangkatan": forms.TextInput(attrs={"class": "form-control"}),
-            "tgl_sk_pengangkatan": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "tgl_sk_pengangkatan": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
             "npwp": forms.TextInput(attrs={"class": "form-control"}),
         }
 
@@ -159,8 +171,8 @@ class RiwayatPelatihanTendikForm(forms.ModelForm):
             "tingkat": forms.Select(attrs={"class": "form-select"}),
             "jumlah_jam": forms.NumberInput(attrs={"class": "form-control"}),
             "no_sertifikat": forms.TextInput(attrs={"class": "form-control"}),
-            "tanggal_mulai": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
-            "tanggal_selesai": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "tanggal_mulai": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
+            "tanggal_selesai": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
             "file_sertifikat": forms.ClearableFileInput(attrs={"class": "form-control"}),
             "keterangan": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
@@ -210,7 +222,8 @@ class ProfilSayaTendikForm(forms.ModelForm):
             "nama_lengkap": forms.TextInput(attrs={"class": "form-control"}),
             "jenis_kelamin": forms.Select(attrs={"class": "form-select"}),
             "tempat_lahir": forms.TextInput(attrs={"class": "form-control"}),
-            "tgl_lahir": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            # format="%Y-%m-%d" wajib -- lihat catatan bug fix di Meta DataTendikForm di atas.
+            "tgl_lahir": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
             "no_hp": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "status_pernikahan": forms.TextInput(attrs={"class": "form-control", "placeholder": "mis. Menikah"}),
