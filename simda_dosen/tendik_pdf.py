@@ -34,16 +34,17 @@ def render_pdf_daftar_tendik(daftar, *, kata_kunci=""):
         elements.append(Paragraph(f'Kata kunci pencarian: "{kata_kunci}"', sub_style))
     elements.append(Spacer(1, 0.4 * cm))
 
-    headers = ["No", "Nama", "NIP Yayasan", "Jabatan", "Unit Kerja", "Status Kepegawaian", "Status"]
+    headers = ["No", "Nama", "NITK", "NIP Yayasan", "Unit Kerja", "Status Kepegawaian", "Pendidikan Terakhir", "Status"]
     table_data = [headers]
     for idx, t in enumerate(daftar, start=1):
         table_data.append([
-            str(idx), t.nama_lengkap, t.nip_yayasan or "-", t.jabatan or "-",
+            str(idx), t.nama_lengkap, t.nip or "-", t.nip_yayasan or "-",
             t.unit_kerja_nama or "-", t.status_kepegawaian_nama or "-",
+            t.get_pendidikan_terakhir_display() if t.pendidikan_terakhir else "-",
             "Aktif" if t.is_active else "Nonaktif",
         ])
 
-    col_widths = [1 * cm, 4 * cm, 2.5 * cm, 2.8 * cm, 2.8 * cm, 3 * cm, 1.5 * cm]
+    col_widths = [1 * cm, 3.2 * cm, 2.1 * cm, 2.1 * cm, 2.4 * cm, 2.5 * cm, 2.5 * cm, 1.3 * cm]
     table = Table(table_data, colWidths=col_widths, repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), WARNA_HEADER),

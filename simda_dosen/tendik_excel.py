@@ -23,25 +23,25 @@ def render_excel_daftar_tendik(daftar, *, kata_kunci=""):
         top=Side(style="thin"), bottom=Side(style="thin"),
     )
 
-    ws.merge_cells("A1:G1")
+    ws.merge_cells("A1:H1")
     ws["A1"] = "DAFTAR DATA TENDIK"
     ws["A1"].font = Font(bold=True, size=14)
     ws["A1"].alignment = center
 
-    ws.merge_cells("A2:G2")
+    ws.merge_cells("A2:H2")
     ws["A2"] = "Universitas Ichsan Gorontalo"
     ws["A2"].font = Font(bold=True, size=12)
     ws["A2"].alignment = center
 
     row_header = 4
     if kata_kunci:
-        ws.merge_cells("A3:G3")
+        ws.merge_cells("A3:H3")
         ws["A3"] = f'Kata kunci pencarian: "{kata_kunci}"'
         ws["A3"].font = Font(size=9, italic=True)
         ws["A3"].alignment = center
         row_header = 5
 
-    headers = ["No", "Nama", "NIP Yayasan", "Jabatan", "Unit Kerja", "Status Kepegawaian", "Status"]
+    headers = ["No", "Nama", "NITK", "NIP Yayasan", "Unit Kerja", "Status Kepegawaian", "Pendidikan Terakhir", "Status"]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=row_header, column=col, value=header)
         cell.font = header_font
@@ -52,8 +52,9 @@ def render_excel_daftar_tendik(daftar, *, kata_kunci=""):
 
     for idx, t in enumerate(daftar, 1):
         row_data = [
-            idx, t.nama_lengkap, t.nip_yayasan or "-", t.jabatan or "-",
+            idx, t.nama_lengkap, t.nip or "-", t.nip_yayasan or "-",
             t.unit_kerja_nama or "-", t.status_kepegawaian_nama or "-",
+            t.get_pendidikan_terakhir_display() if t.pendidikan_terakhir else "-",
             "Aktif" if t.is_active else "Nonaktif",
         ]
         row_num = row_header + idx
@@ -62,7 +63,7 @@ def render_excel_daftar_tendik(daftar, *, kata_kunci=""):
             cell.border = thin
             cell.alignment = center if col != 2 else left
 
-    col_widths = [5, 30, 16, 20, 20, 22, 12]
+    col_widths = [5, 28, 14, 16, 20, 22, 18, 12]
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
