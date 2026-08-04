@@ -170,3 +170,40 @@ class ResetPasswordTendikCommandTest(TestCase):
         self.assertTrue(self.tendik2.check_password("0120990002"))
         # Role lain (dosen dkk) sama sekali tidak disentuh.
         self.assertTrue(self.dosen.check_password("passwordlamadosen"))
+
+
+class BackfillNipYayasanTendikCommandTest(TestCase):
+    """manage.py backfill_nip_yayasan_tendik -- isi nip_yayasan yang masih
+    kosong untuk akun tendik yang dibuat sebelum kolom NIP Yayasan ada di
+    form Import Excel (lihat bug import_user di CLAUDE.md), pakai username
+    sebagai sumber nilai (sudah berupa angka NIP Yayasan dalam praktiknya).
+    Default dry-run, --yes untuk benar-benar menyimpan; tidak menimpa yang
+    sudah terisi maupun role lain."""
+
+    def setUp(self):
+        self.tendik_kosong = User.objects.create_user(
+            username="0120990003", password="testpass123", role="tendik", nip_yayasan="",
+        )
+        self.tendik_sudah_terisi = User.objects.create_user(
+            username="0120990004", password="testpass123", role="tendik", nip_yayasan="beda000",
+        )
+        self.dosen_kosong = User.objects.create_user(
+            username="dosenkosongnip", password="testpass123", role="dosen", nip_yayasan="",
+        )
+
+    def test_dry_run_tidak_mengubah_apa_pun(self):
+        call_command("backfill_nip_yayasan_tendik", stdout=io.StringIO())
+        self.tendik_kosong.refresh_from_db()
+        self.assertEqual(self.tendik_kosong.nip_yayasan, "")
+
+    def test_yes_mengisi_nip_yayasan_kosong_dengan_username(self):
+        call_command("backfill_nip_yayasan_tendik", "--yes", stdout=io.StringIO())
+        self.tendik_kosong.refresh_from_db()
+        self.tendik_sudah_terisi.refresh_from_db()
+        self.dosen_kosong.refresh_from_db()
+
+        self.assertEqual(self.tendik_kosong.nip_yayasan, "0120990003")
+        # Yang sudah terisi TIDAK ditimpa.
+        self.assertEqual(self.tendik_sudah_terisi.nip_yayasan, "beda000")
+        # Role lain (dosen dkk) sama sekali tidak disentuh, walau nip_yayasan-nya kosong juga.
+        self.assertEqual(self.dosen_kosong.nip_yayasan, "")
