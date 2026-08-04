@@ -25,6 +25,7 @@
           <option value="sekprodi" {% if role_filter == 'sekprodi' %}selected{% endif %}>Sekprodi</option>
           <option value="operator" {% if role_filter == 'operator' %}selected{% endif %}>Operator</option>
           <option value="dosen" {% if role_filter == 'dosen' %}selected{% endif %}>Dosen</option>
+          <option value="tendik" {% if role_filter == 'tendik' %}selected{% endif %}>Tendik</option>
         </select>
         {% else %}
         <input type="text" class="form-control" value="Dosen" readonly>
@@ -134,7 +135,7 @@
             {% endif %}
           </td>
           <td>
-            {% if u.role != 'dosen' %}
+            {% if u.role != 'dosen' and u.role != 'tendik' %}
             <span class="text-muted">-</span>
             {% elif u.status_kepegawaian_nama == 'Aktif' or not u.status_kepegawaian_nama %}
             <span class="badge bg-success-lt text-success">Aktif</span>

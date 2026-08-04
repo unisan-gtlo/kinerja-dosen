@@ -15,7 +15,9 @@ from rest_framework.test import APITestCase
 from accounts.models import User
 from master.models import Fakultas, Prodi
 from profil.models import Sertifikasi
-from simda_dosen.utils import attach_nama_resmi, get_pejabat_aktif, get_simda_tendik_or_none
+from simda_dosen.utils import (
+    attach_kepegawaian_labels, attach_nama_resmi, get_pejabat_aktif, get_simda_tendik_or_none,
+)
 from .decision import (
     HasilCekWajah, hitung_ketepatan_masuk, hitung_ketepatan_pulang, resolve_kelompok, tentukan_status_waktu,
     verifikasi_wajah,
@@ -1857,6 +1859,62 @@ class AttachNamaResmiTest(TestCase):
         hasil = attach_nama_resmi([dosen_user])
 
         self.assertEqual(hasil[0].nama_resmi, "Nama Lokal")
+
+
+class AttachKepegawaianLabelsTendikTest(TestCase):
+    """simda_dosen.utils.attach_kepegawaian_labels -- bug fix 2026-08-05:
+    dulu cuma resolve dosen (lewat nidn ke DataDosen), tendik selalu dapat
+    status_kepegawaian_nama/jenis_kepegawaian_nama kosong (tampil "-" di
+    Kelola User) karena tidak pernah dicocokkan ke DataTendik lewat
+    nip_yayasan. Sekarang tendik ikut di-resolve, pakai tabel referensi
+    kepegawaian yang sama (jenis_map/status_map dipakai bareng dosen &
+    tendik)."""
+
+    @patch("simda_dosen.utils.StatusKepegawaianPublik")
+    @patch("simda_dosen.utils.JenisKepegawaianPublik")
+    @patch("simda_dosen.utils.DataTendik")
+    @patch("simda_dosen.utils.DataDosen")
+    def test_tendik_dapat_status_kepegawaian_dari_simda(
+        self, mock_dosen_cls, mock_tendik_cls, mock_jenis_cls, mock_status_cls,
+    ):
+        tendik_user = User.objects.create_user(
+            username="kepegtendik", password="testpass123", role="tendik", nip_yayasan="9900000002",
+        )
+        mock_dosen_cls.objects.using.return_value.filter.return_value = []
+        mock_tendik = MagicMock(
+            nip_yayasan="9900000002", jenis_kepegawaian_id=1, status_kepegawaian_id=2,
+            nama_lengkap="Contoh Tendik", foto=None,
+        )
+        mock_tendik_cls.objects.using.return_value.filter.return_value = [mock_tendik]
+        mock_jenis_cls.objects.using.return_value.all.return_value = [MagicMock(id=1, nama="Tetap Yayasan")]
+        mock_status_cls.objects.using.return_value.all.return_value = [MagicMock(id=2, nama="Aktif")]
+
+        hasil = attach_kepegawaian_labels([tendik_user])
+
+        self.assertEqual(hasil[0].jenis_kepegawaian_nama, "Tetap Yayasan")
+        self.assertEqual(hasil[0].status_kepegawaian_nama, "Aktif")
+        # ID riset (SINTA/Scopus/dst) tetap dosen-only, tendik tidak punya konsep itu.
+        self.assertEqual(hasil[0].id_sinta, "")
+
+    @patch("simda_dosen.utils.StatusKepegawaianPublik")
+    @patch("simda_dosen.utils.JenisKepegawaianPublik")
+    @patch("simda_dosen.utils.DataTendik")
+    @patch("simda_dosen.utils.DataDosen")
+    def test_tendik_tanpa_nip_yayasan_tetap_kosong_bukan_crash(
+        self, mock_dosen_cls, mock_tendik_cls, mock_jenis_cls, mock_status_cls,
+    ):
+        tendik_user = User.objects.create_user(
+            username="kepegtendikkosong", password="testpass123", role="tendik",
+        )
+        mock_dosen_cls.objects.using.return_value.filter.return_value = []
+        mock_tendik_cls.objects.using.return_value.filter.return_value = []
+        mock_jenis_cls.objects.using.return_value.all.return_value = []
+        mock_status_cls.objects.using.return_value.all.return_value = []
+
+        hasil = attach_kepegawaian_labels([tendik_user])
+
+        self.assertEqual(hasil[0].status_kepegawaian_nama, "")
+        self.assertEqual(hasil[0].jenis_kepegawaian_nama, "")
 
 
 class PengaturanUrutanSerdosViewTest(TestCase):

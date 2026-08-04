@@ -1,3 +1,8 @@
+import io
+
+import openpyxl
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.test import TestCase
 
 from .models import User
@@ -97,3 +102,71 @@ class KelolaUserAksesTest(TestCase):
         self.client.force_login(self.admin)
         resp = self.client.get("/accounts/kelola-user/")
         self.assertEqual(resp.status_code, 200)
+
+
+class ImportUserTendikTest(TestCase):
+    """Bug fix 2026-08-05: import_user (Kelola User -> Import Excel) punya
+    valid_roles yang belum menyertakan 'tendik' -- baris role=tendik selalu
+    diturunkan diam-diam jadi 'dosen', dan kolom NIP Yayasan belum pernah
+    dibaca sama sekali dari Excel (akun tendik hasil import tidak pernah
+    tertaut ke DataTendik SIMDA). Template & parsing-nya sekarang menambah
+    kolom ke-11 (NIP Yayasan)."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="importuseradmin", password="testpass123", role="admin")
+
+    def _buat_file_excel(self, rows):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["baris header 1 (diabaikan)"])
+        ws.append(["baris header 2 (diabaikan)"])
+        for row in rows:
+            ws.append(row)
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        return SimpleUploadedFile(
+            "import.xlsx", buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    def test_import_role_tendik_dan_nip_yayasan_tersimpan(self):
+        file_excel = self._buat_file_excel([[
+            "tendikimport1", "", "Budi", "Import", "budi@unichsan.ac.id",
+            "081234567890", "tendik", "", "", "rahasia123", "0120990099",
+        ]])
+        self.client.force_login(self.admin)
+        resp = self.client.post("/accounts/import-user/", {"file_excel": file_excel})
+        self.assertEqual(resp.status_code, 302)
+
+        user = User.objects.get(username="tendikimport1")
+        self.assertEqual(user.role, "tendik")
+        self.assertEqual(user.nip_yayasan, "0120990099")
+
+
+class ResetPasswordTendikCommandTest(TestCase):
+    """manage.py reset_password_tendik -- bulk reset password semua
+    User(role=tendik) supaya sama dengan username (permintaan admin untuk
+    mempermudah onboarding tendik, lihat CLAUDE.md). Default dry-run,
+    --yes untuk benar-benar menyimpan; hanya menyasar role=tendik."""
+
+    def setUp(self):
+        self.tendik1 = User.objects.create_user(username="0120990001", password="passwordlama1", role="tendik")
+        self.tendik2 = User.objects.create_user(username="0120990002", password="passwordlama2", role="tendik")
+        self.dosen = User.objects.create_user(username="dosentakikut", password="passwordlamadosen", role="dosen")
+
+    def test_dry_run_tidak_mengubah_password(self):
+        call_command("reset_password_tendik", stdout=io.StringIO())
+        self.tendik1.refresh_from_db()
+        self.assertTrue(self.tendik1.check_password("passwordlama1"))
+
+    def test_yes_mengubah_password_tendik_jadi_sama_dengan_username(self):
+        call_command("reset_password_tendik", "--yes", stdout=io.StringIO())
+        self.tendik1.refresh_from_db()
+        self.tendik2.refresh_from_db()
+        self.dosen.refresh_from_db()
+
+        self.assertTrue(self.tendik1.check_password("0120990001"))
+        self.assertTrue(self.tendik2.check_password("0120990002"))
+        # Role lain (dosen dkk) sama sekali tidak disentuh.
+        self.assertTrue(self.dosen.check_password("passwordlamadosen"))

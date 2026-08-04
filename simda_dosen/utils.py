@@ -92,13 +92,18 @@ def attach_nama_resmi(users):
 def attach_kepegawaian_labels(users):
     """Tempel atribut .jenis_kepegawaian_nama, .status_kepegawaian_nama, ID
     identitas riset (.id_sinta, .id_scopus, .id_google_scholar, .orcid,
-    .id_garuda), .nama_lengkap_gelar, dan .foto_url ke tiap User (role=dosen),
-    dicocokkan lewat nidn ke DataDosen SIMDA. Dipakai di Kelola User/Rekap/
-    Dashboard/Laporan supaya badge status, link riset, nama+gelar, dan foto
-    bisa ditampilkan di daftar tanpa N+1 query per baris ke SIMDA.
+    .id_garuda), .nama_lengkap_gelar, dan .foto_url ke tiap User.
+    Dosen dicocokkan lewat nidn ke DataDosen SIMDA, tendik dicocokkan lewat
+    nip_yayasan ke DataTendik SIMDA (jenis_kepegawaian_id/status_kepegawaian_id
+    keduanya merujuk tabel referensi SIMDA yang sama, kepegawaian_ref, jadi
+    jenis_map/status_map dipakai bareng). ID riset (SINTA/Scopus/dst) TETAP
+    dosen-only -- tendik tidak punya konsep itu. Dipakai di Kelola User/
+    Rekap/Dashboard/Laporan supaya badge status, link riset, nama+gelar, dan
+    foto bisa ditampilkan di daftar tanpa N+1 query per baris ke SIMDA.
     Return list (bukan queryset)."""
     users = list(users)
     nidn_set = {u.nidn for u in users if u.nidn}
+    nip_yayasan_set = {u.nip_yayasan for u in users if getattr(u, 'nip_yayasan', None)}
 
     jenis_map = {j.id: j.nama for j in JenisKepegawaianPublik.objects.using('simda').all()}
     status_map = {s.id: s.nama for s in StatusKepegawaianPublik.objects.using('simda').all()}
@@ -107,18 +112,25 @@ def attach_kepegawaian_labels(users):
         dosen_by_nidn = {
             d.nidn: d for d in DataDosen.objects.using('simda').filter(nidn__in=nidn_set)
         }
+    tendik_by_nip_yayasan = {}
+    if nip_yayasan_set:
+        tendik_by_nip_yayasan = {
+            t.nip_yayasan: t for t in DataTendik.objects.using('simda').filter(nip_yayasan__in=nip_yayasan_set)
+        }
 
     for u in users:
         d = dosen_by_nidn.get(u.nidn)
-        u.jenis_kepegawaian_nama = jenis_map.get(d.jenis_kepegawaian_id, '') if d else ''
-        u.status_kepegawaian_nama = status_map.get(d.status_kepegawaian_id, '') if d else ''
+        t = None if d else tendik_by_nip_yayasan.get(u.nip_yayasan)
+        sumber = d or t
+        u.jenis_kepegawaian_nama = jenis_map.get(sumber.jenis_kepegawaian_id, '') if sumber else ''
+        u.status_kepegawaian_nama = status_map.get(sumber.status_kepegawaian_id, '') if sumber else ''
         u.id_sinta = d.id_sinta if d else ''
         u.id_scopus = d.id_scopus if d else ''
         u.id_google_scholar = d.id_google_scholar if d else ''
         u.orcid = d.orcid if d else ''
         u.id_garuda = d.id_garuda if d else ''
-        u.nama_dosen = d.nama_lengkap_gelar if d else (u.get_full_name() or u.username)
-        u.foto_url = d.foto.url if d and d.foto else ''
+        u.nama_dosen = d.nama_lengkap_gelar if d else (t.nama_lengkap if t else (u.get_full_name() or u.username))
+        u.foto_url = (d.foto.url if d and d.foto else (t.foto.url if t and t.foto else ''))
     return users
 
 
