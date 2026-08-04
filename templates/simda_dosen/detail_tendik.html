@@ -75,6 +75,11 @@
               <label class="form-label">Jenis Kelamin</label>
               {{ form_biodata.jenis_kelamin }}
             </div>
+            <div class="col-md-6">
+              <label class="form-label">Unit Kerja</label>
+              <input type="text" class="form-control" value="{{ tendik.unit_kerja_nama|default:'—' }}" disabled>
+              <div class="form-text">Penempatan unit kerja diatur admin, hubungi admin/HR kalau perlu diubah.</div>
+            </div>
             <div class="col-md-4">
               <label class="form-label">Tempat Lahir</label>
               {{ form_biodata.tempat_lahir }}
