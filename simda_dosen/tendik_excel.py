@@ -13,6 +13,10 @@ def render_excel_daftar_tendik(daftar, *, kata_kunci=""):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Data Tendik"
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
 
     header_font = Font(bold=True, color="FFFFFF", size=11)
     header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
@@ -63,7 +67,7 @@ def render_excel_daftar_tendik(daftar, *, kata_kunci=""):
             cell.border = thin
             cell.alignment = center if col != 2 else left
 
-    col_widths = [5, 28, 14, 16, 20, 22, 18, 12]
+    col_widths = [5, 32, 16, 18, 28, 24, 20, 12]
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
