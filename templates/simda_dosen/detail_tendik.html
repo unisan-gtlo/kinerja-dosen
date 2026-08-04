@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Profil Tendik: {{ tendik.nama_lengkap }} — SIKD{% endblock %}
-{% block page_title %}Profil Tendik{% endblock %}
+{% block page_title %}{% if mode_diri_sendiri %}Riwayat Saya{% else %}Profil Tendik{% endif %}{% endblock %}
 
 {% block content %}
 <div class="card mb-3">
@@ -12,10 +12,17 @@
         {% if tendik.unit_kerja_nama %} &middot; {{ tendik.unit_kerja_nama }}{% endif %}
         {% if tendik.nip_yayasan %} &middot; NIP Yayasan: {{ tendik.nip_yayasan }}{% endif %}
       </div>
+      {% if mode_diri_sendiri %}
+      <div class="text-muted small mt-1">
+        Biodata di atas cuma bisa diubah admin. Isi Riwayat Pendidikan/Pelatihan/Prestasi Anda di bawah.
+      </div>
+      {% endif %}
     </div>
+    {% if not mode_diri_sendiri %}
     <a class="btn btn-sm btn-outline-primary" href="{% url 'simda_dosen:ubah_tendik' tendik.id %}">
       <span class="ti ti-edit me-1"></span>Ubah Biodata
     </a>
+    {% endif %}
   </div>
 </div>
 

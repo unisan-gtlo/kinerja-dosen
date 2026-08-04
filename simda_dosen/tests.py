@@ -9,7 +9,7 @@ from django.test import TestCase, Client
 from accounts.models import User
 
 from .forms import DataTendikForm
-from .models import DataTendik
+from .models import DataTendik, RiwayatPendidikanTendik
 from .utils import bisa_tambah_tridarma, get_or_create_unit_kerja
 
 
@@ -301,3 +301,80 @@ class TambahTendikUnitKerjaBaruTest(TestCase):
         })
 
         mock_get_or_create.assert_called_once_with("Unit Baru Ketikan Admin")
+
+
+class ProfilRiwayatSayaAksesTest(TestCase):
+    """profil_riwayat_saya -- self-service Tendik (2026-08-04): tendik
+    boleh isi Riwayat Pendidikan/Pelatihan/Prestasi milik SENDIRI
+    (dicocokkan lewat nip_yayasan, lihat get_simda_tendik_or_none),
+    TIDAK boleh kelola riwayat tendik lain lewat manipulasi tendik_id/
+    riwayat_id di URL. Biodata TETAP admin-only (tidak disentuh)."""
+
+    def setUp(self):
+        self.tendik_user = User.objects.create_user(
+            username="tendiksendiri", password="testpass123", role="tendik", nip_yayasan="1111",
+        )
+        self.dosen = User.objects.create_user(username="tendikdosen2", password="testpass123", role="dosen")
+
+    def test_dosen_tidak_bisa_akses(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/simda-dosen/profil-riwayat-saya/")
+        self.assertEqual(resp.status_code, 403)
+
+    @patch("simda_dosen.views.get_simda_tendik_or_none")
+    def test_nip_yayasan_tidak_cocok_redirect_dengan_pesan(self, mock_get):
+        mock_get.return_value = None
+        self.client.force_login(self.tendik_user)
+        resp = self.client.get("/simda-dosen/profil-riwayat-saya/")
+        self.assertEqual(resp.status_code, 302)
+
+    @patch("simda_dosen.views.get_simda_tendik_or_none")
+    def test_tendik_dengan_data_cocok_bisa_akses(self, mock_get):
+        mock_tendik = MagicMock(
+            id=5, nama_lengkap="Contoh Tendik", jabatan="Staf",
+            unit_kerja_nama="TU", nip_yayasan="1111",
+        )
+        mock_tendik.riwayat_pendidikan.all.return_value = []
+        mock_tendik.riwayat_pelatihan.all.return_value = []
+        mock_tendik.riwayat_prestasi.all.return_value = []
+        mock_get.return_value = mock_tendik
+
+        self.client.force_login(self.tendik_user)
+        resp = self.client.get("/simda-dosen/profil-riwayat-saya/")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.context["mode_diri_sendiri"])
+
+    @patch("simda_dosen.views.get_simda_tendik_or_none")
+    @patch("simda_dosen.views.DataTendik")
+    def test_tendik_tidak_bisa_tambah_riwayat_tendik_lain(self, mock_datatendik_cls, mock_get):
+        # Tendik login dengan DataTendik id=5, coba tambah riwayat untuk
+        # tendik id=99 (bukan miliknya) lewat manipulasi URL.
+        mock_qs = MagicMock(spec=["get", "filter", "all", "order_by"])
+        mock_datatendik_cls.objects.using.return_value = mock_qs
+        mock_qs.get.return_value = MagicMock(id=99)
+        mock_get.return_value = MagicMock(id=5)
+
+        self.client.force_login(self.tendik_user)
+        resp = self.client.post("/simda-dosen/tendik/99/riwayat-pendidikan/tambah/", {
+            "jenjang": "S1", "institusi": "Contoh Univ",
+        })
+
+        self.assertEqual(resp.status_code, 403)
+
+    @patch.object(RiwayatPendidikanTendik, "save", new=MagicMock())
+    @patch("simda_dosen.views.get_simda_tendik_or_none")
+    @patch("simda_dosen.views.DataTendik")
+    def test_tendik_bisa_tambah_riwayat_milik_sendiri(self, mock_datatendik_cls, mock_get):
+        mock_qs = MagicMock(spec=["get", "filter", "all", "order_by"])
+        mock_datatendik_cls.objects.using.return_value = mock_qs
+        mock_qs.get.return_value = MagicMock(id=5)
+        mock_get.return_value = MagicMock(id=5)
+
+        self.client.force_login(self.tendik_user)
+        resp = self.client.post("/simda-dosen/tendik/5/riwayat-pendidikan/tambah/", {
+            "jenjang": "S1", "institusi": "Contoh Univ",
+        })
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertNotEqual(resp.status_code, 403)

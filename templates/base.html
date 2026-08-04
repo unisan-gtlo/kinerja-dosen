@@ -322,6 +322,15 @@
             </a>
           </li>
           {% endif %}
+          {% if user.role == 'tendik' %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.app_name == 'simda_dosen' and request.resolver_match.url_name == 'profil_riwayat_saya' %}active{% endif %}"
+               href="{% url 'simda_dosen:profil_riwayat_saya' %}">
+              <span class="nav-link-icon"><span class="ti ti-certificate"></span></span>
+              <span class="nav-link-title">Riwayat Saya</span>
+            </a>
+          </li>
+          {% endif %}
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'presensi_web' and request.resolver_match.url_name == 'izin' %}active{% endif %}"
                href="{% url 'presensi_web:izin' %}">

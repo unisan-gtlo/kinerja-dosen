@@ -11,7 +11,7 @@ from .models import (
     DataDosen, DataTendik, MahasiswaPublik, MataKuliahPublik,
     RiwayatPendidikanTendik, RiwayatPelatihanTendik, RiwayatPrestasiTendik,
 )
-from .utils import get_or_create_unit_kerja
+from .utils import get_or_create_unit_kerja, get_simda_tendik_or_none
 
 
 @login_required
@@ -113,6 +113,36 @@ def _bisa_kelola_data_tendik(user):
     return user.role == 'admin'
 
 
+def _bisa_kelola_riwayat_tendik(user, tendik):
+    """Riwayat Pendidikan/Pelatihan/Prestasi Tendik boleh dikelola admin
+    (siapa pun, lewat Kelola Data Tendik) ATAU tendik yang bersangkutan
+    sendiri (self-service per 2026-08-04, dicocokkan lewat nip_yayasan --
+    lihat get_simda_tendik_or_none) -- TIDAK tendik lain. Biodata TETAP
+    admin-only (keputusan user) -- ini cuma untuk 3 riwayat."""
+    if user.role == 'admin':
+        return True
+    if user.role == 'tendik':
+        milik_sendiri = get_simda_tendik_or_none(user)
+        return bool(milik_sendiri) and milik_sendiri.id == tendik.id
+    return False
+
+
+def _role_bisa_riwayat_tendik(role):
+    """Pre-check MURNI role (tanpa fetch DataTendik/query 'simda') --
+    dipanggil di awal tiap view riwayat SEBELUM get_object_or_404,
+    supaya role yang jelas tidak berhak (mis. dosen/kaprodi) langsung
+    ditolak tanpa perlu query ke database SIMDA sama sekali."""
+    return role in ('admin', 'tendik')
+
+
+def _redirect_setelah_riwayat_tendik(request, tendik_id):
+    """Admin kembali ke halaman Profil Tendik (Kelola Data Tendik),
+    tendik self-service kembali ke halaman Riwayat Saya sendiri."""
+    if request.user.role == 'admin':
+        return redirect('simda_dosen:detail_tendik', tendik_id=tendik_id)
+    return redirect('simda_dosen:profil_riwayat_saya')
+
+
 @login_required
 def daftar_tendik(request):
     if not _bisa_kelola_data_tendik(request.user):
@@ -208,6 +238,35 @@ def detail_tendik(request, tendik_id):
         'form_pendidikan': RiwayatPendidikanTendikForm(),
         'form_pelatihan': RiwayatPelatihanTendikForm(),
         'form_prestasi': RiwayatPrestasiTendikForm(),
+        'mode_diri_sendiri': False,
+    }
+    return render(request, 'simda_dosen/detail_tendik.html', context)
+
+
+@login_required
+def profil_riwayat_saya(request):
+    """Self-service Riwayat Pendidikan/Pelatihan/Prestasi milik sendiri
+    untuk role tendik (2026-08-04) -- biodata TETAP admin-only lewat
+    Kelola Data Tendik (keputusan user), yang dibuka cuma 3 riwayat ini.
+    Dicocokkan ke DataTendik lewat nip_yayasan, sama pola dengan
+    get_simda_dosen_or_none untuk dosen."""
+    if request.user.role != 'tendik':
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    tendik = get_simda_tendik_or_none(request.user)
+    if not tendik:
+        messages.error(request, 'NIP Yayasan Anda belum cocok dengan data di SIMDA. Hubungi admin.')
+        return redirect('dashboard:index')
+
+    context = {
+        'tendik': tendik,
+        'riwayat_pendidikan_list': tendik.riwayat_pendidikan.all(),
+        'riwayat_pelatihan_list': tendik.riwayat_pelatihan.all(),
+        'riwayat_prestasi_list': tendik.riwayat_prestasi.all(),
+        'form_pendidikan': RiwayatPendidikanTendikForm(),
+        'form_pelatihan': RiwayatPelatihanTendikForm(),
+        'form_prestasi': RiwayatPrestasiTendikForm(),
+        'mode_diri_sendiri': True,
     }
     return render(request, 'simda_dosen/detail_tendik.html', context)
 
@@ -216,12 +275,14 @@ def detail_tendik(request, tendik_id):
 
 @login_required
 def tambah_riwayat_pendidikan_tendik(request, tendik_id):
-    if not _bisa_kelola_data_tendik(request.user):
+    if not _role_bisa_riwayat_tendik(request.user.role):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    tendik = get_object_or_404(DataTendik.objects.using('simda'), id=tendik_id)
+    if not _bisa_kelola_riwayat_tendik(request.user, tendik):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     if request.method != 'POST':
-        return redirect('simda_dosen:detail_tendik', tendik_id=tendik_id)
+        return _redirect_setelah_riwayat_tendik(request, tendik_id)
 
-    tendik = get_object_or_404(DataTendik.objects.using('simda'), id=tendik_id)
     form = RiwayatPendidikanTendikForm(request.POST, request.FILES)
     if form.is_valid():
         riwayat = form.save(commit=False)
@@ -230,20 +291,22 @@ def tambah_riwayat_pendidikan_tendik(request, tendik_id):
         messages.success(request, 'Riwayat pendidikan berhasil ditambahkan.')
     else:
         messages.error(request, 'Data riwayat pendidikan tidak valid, periksa kembali.')
-    return redirect('simda_dosen:detail_tendik', tendik_id=tendik_id)
+    return _redirect_setelah_riwayat_tendik(request, tendik_id)
 
 
 @login_required
 def edit_riwayat_pendidikan_tendik(request, riwayat_id):
-    if not _bisa_kelola_data_tendik(request.user):
+    if not _role_bisa_riwayat_tendik(request.user.role):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     riwayat = get_object_or_404(RiwayatPendidikanTendik.objects.using('simda'), id=riwayat_id)
+    if not _bisa_kelola_riwayat_tendik(request.user, riwayat.tendik):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     if request.method == 'POST':
         form = RiwayatPendidikanTendikForm(request.POST, request.FILES, instance=riwayat)
         if form.is_valid():
             form.save()
             messages.success(request, 'Riwayat pendidikan berhasil diperbarui.')
-            return redirect('simda_dosen:detail_tendik', tendik_id=riwayat.tendik_id)
+            return _redirect_setelah_riwayat_tendik(request, riwayat.tendik_id)
     else:
         form = RiwayatPendidikanTendikForm(instance=riwayat)
     return render(request, 'simda_dosen/edit_riwayat_pendidikan_tendik.html', {
@@ -253,28 +316,32 @@ def edit_riwayat_pendidikan_tendik(request, riwayat_id):
 
 @login_required
 def hapus_riwayat_pendidikan_tendik(request, riwayat_id):
-    if not _bisa_kelola_data_tendik(request.user):
+    if not _role_bisa_riwayat_tendik(request.user.role):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    riwayat = get_object_or_404(RiwayatPendidikanTendik.objects.using('simda'), id=riwayat_id)
+    if not _bisa_kelola_riwayat_tendik(request.user, riwayat.tendik):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     if request.method != 'POST':
-        return redirect('simda_dosen:daftar_tendik')
+        return _redirect_setelah_riwayat_tendik(request, riwayat.tendik_id)
 
-    riwayat = get_object_or_404(RiwayatPendidikanTendik.objects.using('simda'), id=riwayat_id)
     tendik_id = riwayat.tendik_id
     riwayat.delete()
     messages.success(request, 'Riwayat pendidikan berhasil dihapus.')
-    return redirect('simda_dosen:detail_tendik', tendik_id=tendik_id)
+    return _redirect_setelah_riwayat_tendik(request, tendik_id)
 
 
 # ---- Riwayat Pelatihan ----
 
 @login_required
 def tambah_riwayat_pelatihan_tendik(request, tendik_id):
-    if not _bisa_kelola_data_tendik(request.user):
+    if not _role_bisa_riwayat_tendik(request.user.role):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    tendik = get_object_or_404(DataTendik.objects.using('simda'), id=tendik_id)
+    if not _bisa_kelola_riwayat_tendik(request.user, tendik):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     if request.method != 'POST':
-        return redirect('simda_dosen:detail_tendik', tendik_id=tendik_id)
+        return _redirect_setelah_riwayat_tendik(request, tendik_id)
 
-    tendik = get_object_or_404(DataTendik.objects.using('simda'), id=tendik_id)
     form = RiwayatPelatihanTendikForm(request.POST, request.FILES)
     if form.is_valid():
         riwayat = form.save(commit=False)
@@ -283,20 +350,22 @@ def tambah_riwayat_pelatihan_tendik(request, tendik_id):
         messages.success(request, 'Riwayat pelatihan berhasil ditambahkan.')
     else:
         messages.error(request, 'Data riwayat pelatihan tidak valid, periksa kembali.')
-    return redirect('simda_dosen:detail_tendik', tendik_id=tendik_id)
+    return _redirect_setelah_riwayat_tendik(request, tendik_id)
 
 
 @login_required
 def edit_riwayat_pelatihan_tendik(request, riwayat_id):
-    if not _bisa_kelola_data_tendik(request.user):
+    if not _role_bisa_riwayat_tendik(request.user.role):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     riwayat = get_object_or_404(RiwayatPelatihanTendik.objects.using('simda'), id=riwayat_id)
+    if not _bisa_kelola_riwayat_tendik(request.user, riwayat.tendik):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     if request.method == 'POST':
         form = RiwayatPelatihanTendikForm(request.POST, request.FILES, instance=riwayat)
         if form.is_valid():
             form.save()
             messages.success(request, 'Riwayat pelatihan berhasil diperbarui.')
-            return redirect('simda_dosen:detail_tendik', tendik_id=riwayat.tendik_id)
+            return _redirect_setelah_riwayat_tendik(request, riwayat.tendik_id)
     else:
         form = RiwayatPelatihanTendikForm(instance=riwayat)
     return render(request, 'simda_dosen/edit_riwayat_pelatihan_tendik.html', {
@@ -306,28 +375,32 @@ def edit_riwayat_pelatihan_tendik(request, riwayat_id):
 
 @login_required
 def hapus_riwayat_pelatihan_tendik(request, riwayat_id):
-    if not _bisa_kelola_data_tendik(request.user):
+    if not _role_bisa_riwayat_tendik(request.user.role):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    riwayat = get_object_or_404(RiwayatPelatihanTendik.objects.using('simda'), id=riwayat_id)
+    if not _bisa_kelola_riwayat_tendik(request.user, riwayat.tendik):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     if request.method != 'POST':
-        return redirect('simda_dosen:daftar_tendik')
+        return _redirect_setelah_riwayat_tendik(request, riwayat.tendik_id)
 
-    riwayat = get_object_or_404(RiwayatPelatihanTendik.objects.using('simda'), id=riwayat_id)
     tendik_id = riwayat.tendik_id
     riwayat.delete()
     messages.success(request, 'Riwayat pelatihan berhasil dihapus.')
-    return redirect('simda_dosen:detail_tendik', tendik_id=tendik_id)
+    return _redirect_setelah_riwayat_tendik(request, tendik_id)
 
 
 # ---- Riwayat Prestasi ----
 
 @login_required
 def tambah_riwayat_prestasi_tendik(request, tendik_id):
-    if not _bisa_kelola_data_tendik(request.user):
+    if not _role_bisa_riwayat_tendik(request.user.role):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    tendik = get_object_or_404(DataTendik.objects.using('simda'), id=tendik_id)
+    if not _bisa_kelola_riwayat_tendik(request.user, tendik):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     if request.method != 'POST':
-        return redirect('simda_dosen:detail_tendik', tendik_id=tendik_id)
+        return _redirect_setelah_riwayat_tendik(request, tendik_id)
 
-    tendik = get_object_or_404(DataTendik.objects.using('simda'), id=tendik_id)
     form = RiwayatPrestasiTendikForm(request.POST, request.FILES)
     if form.is_valid():
         riwayat = form.save(commit=False)
@@ -336,20 +409,22 @@ def tambah_riwayat_prestasi_tendik(request, tendik_id):
         messages.success(request, 'Riwayat prestasi berhasil ditambahkan.')
     else:
         messages.error(request, 'Data riwayat prestasi tidak valid, periksa kembali.')
-    return redirect('simda_dosen:detail_tendik', tendik_id=tendik_id)
+    return _redirect_setelah_riwayat_tendik(request, tendik_id)
 
 
 @login_required
 def edit_riwayat_prestasi_tendik(request, riwayat_id):
-    if not _bisa_kelola_data_tendik(request.user):
+    if not _role_bisa_riwayat_tendik(request.user.role):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     riwayat = get_object_or_404(RiwayatPrestasiTendik.objects.using('simda'), id=riwayat_id)
+    if not _bisa_kelola_riwayat_tendik(request.user, riwayat.tendik):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     if request.method == 'POST':
         form = RiwayatPrestasiTendikForm(request.POST, request.FILES, instance=riwayat)
         if form.is_valid():
             form.save()
             messages.success(request, 'Riwayat prestasi berhasil diperbarui.')
-            return redirect('simda_dosen:detail_tendik', tendik_id=riwayat.tendik_id)
+            return _redirect_setelah_riwayat_tendik(request, riwayat.tendik_id)
     else:
         form = RiwayatPrestasiTendikForm(instance=riwayat)
     return render(request, 'simda_dosen/edit_riwayat_prestasi_tendik.html', {
@@ -359,13 +434,15 @@ def edit_riwayat_prestasi_tendik(request, riwayat_id):
 
 @login_required
 def hapus_riwayat_prestasi_tendik(request, riwayat_id):
-    if not _bisa_kelola_data_tendik(request.user):
+    if not _role_bisa_riwayat_tendik(request.user.role):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    riwayat = get_object_or_404(RiwayatPrestasiTendik.objects.using('simda'), id=riwayat_id)
+    if not _bisa_kelola_riwayat_tendik(request.user, riwayat.tendik):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
     if request.method != 'POST':
-        return redirect('simda_dosen:daftar_tendik')
+        return _redirect_setelah_riwayat_tendik(request, riwayat.tendik_id)
 
-    riwayat = get_object_or_404(RiwayatPrestasiTendik.objects.using('simda'), id=riwayat_id)
     tendik_id = riwayat.tendik_id
     riwayat.delete()
     messages.success(request, 'Riwayat prestasi berhasil dihapus.')
-    return redirect('simda_dosen:detail_tendik', tendik_id=tendik_id)
+    return _redirect_setelah_riwayat_tendik(request, tendik_id)
