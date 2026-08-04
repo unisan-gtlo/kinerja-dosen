@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -12,6 +12,8 @@ from .models import (
     DataDosen, DataTendik, MahasiswaPublik, MataKuliahPublik,
     RiwayatPendidikanTendik, RiwayatPelatihanTendik, RiwayatPrestasiTendik,
 )
+from .tendik_excel import render_excel_daftar_tendik
+from .tendik_pdf import render_pdf_daftar_tendik
 from .utils import get_or_create_unit_kerja, get_simda_tendik_or_none
 
 
@@ -144,18 +146,50 @@ def _redirect_setelah_riwayat_tendik(request, tendik_id):
     return redirect('simda_dosen:profil_riwayat_saya')
 
 
+def _daftar_tendik_qs(request):
+    """Query + filter cari yang sama dipakai halaman & kedua ekspor
+    (PDF/Excel) Kelola Data Tendik, supaya hasil ekspor selalu konsisten
+    dengan yang sedang ditampilkan di layar (termasuk saat sedang cari)."""
+    q = request.GET.get('q', '').strip()
+    daftar = DataTendik.objects.using('simda').all()
+    if q:
+        daftar = daftar.filter(Q(nama_lengkap__icontains=q) | Q(nip__icontains=q) | Q(nip_yayasan__icontains=q))
+    return daftar.order_by('nama_lengkap'), q
+
+
 @login_required
 def daftar_tendik(request):
     if not _bisa_kelola_data_tendik(request.user):
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
 
-    q = request.GET.get('q', '').strip()
-    daftar = DataTendik.objects.using('simda').all()
-    if q:
-        daftar = daftar.filter(Q(nama_lengkap__icontains=q) | Q(nip__icontains=q) | Q(nip_yayasan__icontains=q))
-    daftar = daftar.order_by('nama_lengkap')
-
+    daftar, q = _daftar_tendik_qs(request)
     return render(request, 'simda_dosen/daftar_tendik.html', {'daftar': daftar, 'kata_kunci': q})
+
+
+@login_required
+def export_pdf_daftar_tendik(request):
+    if not _bisa_kelola_data_tendik(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    daftar, q = _daftar_tendik_qs(request)
+    pdf_bytes = render_pdf_daftar_tendik(daftar, kata_kunci=q)
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="Daftar_Data_Tendik.pdf"'
+    return response
+
+
+@login_required
+def export_excel_daftar_tendik(request):
+    if not _bisa_kelola_data_tendik(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    daftar, q = _daftar_tendik_qs(request)
+    buffer = render_excel_daftar_tendik(daftar, kata_kunci=q)
+    response = HttpResponse(
+        buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = 'attachment; filename="Daftar_Data_Tendik.xlsx"'
+    return response
 
 
 @login_required

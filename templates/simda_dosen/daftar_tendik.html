@@ -13,9 +13,17 @@
           Pembuatan akun login (untuk presensi) tetap langkah terpisah lewat menu Kelola User.
         </p>
       </div>
-      <a class="btn btn-primary btn-sm" href="{% url 'simda_dosen:tambah_tendik' %}">
-        <span class="ti ti-plus me-1"></span> Tambah Tendik
-      </a>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-danger btn-sm" href="{% url 'simda_dosen:export_pdf_daftar_tendik' %}?q={{ kata_kunci }}">
+          <span class="ti ti-file-type-pdf me-1"></span> Cetak PDF
+        </a>
+        <a class="btn btn-outline-success btn-sm" href="{% url 'simda_dosen:export_excel_daftar_tendik' %}?q={{ kata_kunci }}">
+          <span class="ti ti-file-spreadsheet me-1"></span> Cetak Excel
+        </a>
+        <a class="btn btn-primary btn-sm" href="{% url 'simda_dosen:tambah_tendik' %}">
+          <span class="ti ti-plus me-1"></span> Tambah Tendik
+        </a>
+      </div>
     </div>
 
     <form method="get" class="row g-2 mb-3">

@@ -106,6 +106,45 @@ class KelolaDataTendikViewTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         mock_qs.filter.assert_called_once()
 
+    def test_dosen_biasa_tidak_bisa_ekspor_pdf(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/simda-dosen/tendik/ekspor/pdf/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_dosen_biasa_tidak_bisa_ekspor_excel(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/simda-dosen/tendik/ekspor/excel/")
+        self.assertEqual(resp.status_code, 403)
+
+    @patch("simda_dosen.views.DataTendik")
+    def test_admin_bisa_ekspor_pdf(self, mock_cls):
+        mock_qs = MagicMock()
+        mock_cls.objects.using.return_value = mock_qs
+        mock_qs.all.return_value = mock_qs
+        mock_qs.order_by.return_value = []
+
+        self.client.force_login(self.admin)
+        resp = self.client.get("/simda-dosen/tendik/ekspor/pdf/")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+
+    @patch("simda_dosen.views.DataTendik")
+    def test_admin_bisa_ekspor_excel(self, mock_cls):
+        mock_qs = MagicMock()
+        mock_cls.objects.using.return_value = mock_qs
+        mock_qs.all.return_value = mock_qs
+        mock_qs.order_by.return_value = []
+
+        self.client.force_login(self.admin)
+        resp = self.client.get("/simda-dosen/tendik/ekspor/excel/")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
     @patch("simda_dosen.forms.AgamaPublik")
     @patch("simda_dosen.forms.GolonganPublik")
     @patch("simda_dosen.forms.StatusKepegawaianPublik")
