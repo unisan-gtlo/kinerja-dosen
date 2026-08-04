@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 
 from accounts.models import User
 from laporan.views import get_dosen_queryset
+from simda_dosen.file_compress import compress_uploaded_file
 from simda_dosen.utils import attach_nama_resmi, get_pejabat_aktif
 from .decision import (
     cek_lokasi, hitung_ketepatan_masuk, hitung_ketepatan_pulang, resolve_kelompok, tentukan_status_waktu,
@@ -737,6 +738,8 @@ def halaman_izin(request):
     if request.method == "POST":
         form = IzinCutiForm(request.POST, request.FILES)
         if form.is_valid():
+            if 'lampiran' in request.FILES:
+                form.instance.lampiran = compress_uploaded_file(request.FILES['lampiran'])
             izin = form.save(commit=False)
             izin.user = request.user
             izin.save()

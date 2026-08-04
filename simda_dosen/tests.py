@@ -4,6 +4,7 @@ GetPejabatAktifTest/GetDosenByNidnTest di presensi/tests.py)."""
 import datetime
 from unittest.mock import MagicMock, patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
 from django.test import TestCase, Client
 
@@ -341,6 +342,86 @@ class TambahTendikUnitKerjaBaruTest(TestCase):
         })
 
         mock_get_or_create.assert_called_once_with("Unit Baru Ketikan Admin")
+
+
+class CompressUploadedFileWiringTest(TestCase):
+    """Semua field upload di Kelola Tendik (foto biodata + file_ijazah/
+    file_sertifikat/file_bukti Riwayat) sekarang dikompres otomatis
+    lewat compress_uploaded_file() sebelum disimpan -- pola yang sama
+    dengan upload dokumen di role dosen (profil/views.py, kinerja/
+    views.py). Test ini murni memverifikasi WIRING-nya (compress_
+    uploaded_file benar-benar dipanggil dengan file yang diupload),
+    bukan logika kompresinya sendiri (sudah jadi tanggung jawab
+    simda_dosen/file_compress.py, dipakai bareng lintas app)."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="kompresadmin", password="testpass123", role="admin")
+        self.tendik_user = User.objects.create_user(
+            username="komprestendik", password="testpass123", role="tendik", nip_yayasan="5555",
+        )
+
+    def _file_gambar(self, name="foto.jpg"):
+        return SimpleUploadedFile(name, b"isi-file-palsu", content_type="image/jpeg")
+
+    @patch("simda_dosen.views.compress_uploaded_file")
+    @patch("simda_dosen.forms.UnitKerja")
+    @patch("simda_dosen.forms.AgamaPublik")
+    @patch("simda_dosen.forms.GolonganPublik")
+    @patch("simda_dosen.forms.StatusKepegawaianPublik")
+    @patch("simda_dosen.forms.JenisKepegawaianPublik")
+    @patch.object(DataTendik, "save", new=MagicMock())
+    def test_tambah_tendik_kompres_foto(
+        self, mock_jenis, mock_status, mock_golongan, mock_agama, mock_unit, mock_compress,
+    ):
+        for m in (mock_unit, mock_jenis, mock_status, mock_golongan, mock_agama):
+            m.objects.using.return_value.all.return_value = []
+            m.objects.using.return_value.filter.return_value.order_by.return_value = []
+        mock_compress.return_value = "hasil-kompres"
+
+        self.client.force_login(self.admin)
+        file_foto = self._file_gambar()
+        self.client.post("/simda-dosen/tendik/tambah/", {
+            "nama_lengkap": "Tendik Foto", "jenis_kelamin": "L", "foto": file_foto,
+        })
+
+        mock_compress.assert_called_once()
+        self.assertEqual(mock_compress.call_args[0][0].name, "foto.jpg")
+
+    @patch("simda_dosen.views.compress_uploaded_file")
+    @patch("simda_dosen.forms.AgamaPublik")
+    @patch("simda_dosen.views.get_simda_tendik_or_none")
+    @patch.object(DataTendik, "save", new=MagicMock())
+    def test_simpan_profil_saya_tendik_kompres_foto(self, mock_get, mock_agama, mock_compress):
+        mock_agama.objects.using.return_value.order_by.return_value = []
+        mock_get.return_value = DataTendik(id=8, nama_lengkap="Nama Lama")
+        mock_compress.return_value = "hasil-kompres"
+
+        self.client.force_login(self.tendik_user)
+        self.client.post("/simda-dosen/profil-riwayat-saya/simpan/", {
+            "nama_lengkap": "Nama Baru", "foto": self._file_gambar(),
+        })
+
+        mock_compress.assert_called_once()
+
+    @patch("simda_dosen.views.compress_uploaded_file")
+    @patch("simda_dosen.views.get_simda_tendik_or_none")
+    @patch("simda_dosen.views.DataTendik")
+    @patch.object(RiwayatPendidikanTendik, "save", new=MagicMock())
+    def test_tambah_riwayat_pendidikan_kompres_file_ijazah(self, mock_datatendik_cls, mock_get, mock_compress):
+        mock_qs = MagicMock(spec=["get", "filter", "all", "order_by"])
+        mock_datatendik_cls.objects.using.return_value = mock_qs
+        mock_qs.get.return_value = MagicMock(id=5)
+        mock_get.return_value = MagicMock(id=5)
+        mock_compress.return_value = "hasil-kompres"
+
+        self.client.force_login(self.tendik_user)
+        self.client.post("/simda-dosen/tendik/5/riwayat-pendidikan/tambah/", {
+            "jenjang": "S1", "institusi": "Contoh Univ",
+            "file_ijazah": SimpleUploadedFile("ijazah.pdf", b"isi-pdf-palsu", content_type="application/pdf"),
+        })
+
+        mock_compress.assert_called_once()
+        self.assertEqual(mock_compress.call_args[0][0].name, "ijazah.pdf")
 
 
 class ProfilRiwayatSayaAksesTest(TestCase):

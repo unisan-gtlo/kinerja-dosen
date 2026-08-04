@@ -1517,6 +1517,27 @@ class HalamanIzinTest(TestCase):
         self.assertEqual(izin.status, IzinCuti.StatusApproval.MENUNGGU)
         self.assertEqual(izin.alasan, "Demam tinggi")
 
+    @patch("presensi.views.compress_uploaded_file")
+    def test_lampiran_dikompres_sebelum_disimpan(self, mock_compress):
+        # Lampiran Izin/Cuti (scan surat sakit dkk) sekarang dikompres
+        # otomatis, sama pola dengan upload dokumen di role dosen
+        # (profil/kinerja) -- verifikasi murni wiring-nya, bukan logika
+        # kompresi compress_uploaded_file sendiri (sudah ada di
+        # simda_dosen/file_compress.py).
+        mock_compress.return_value = "hasil-kompres"
+        lampiran = SimpleUploadedFile("surat_sakit.pdf", b"isi-pdf-palsu", content_type="application/pdf")
+
+        self.client.post("/presensi/izin/", {
+            "tipe": "sakit",
+            "tanggal_mulai": "2026-07-28",
+            "tanggal_selesai": "2026-07-28",
+            "alasan": "Demam tinggi",
+            "lampiran": lampiran,
+        })
+
+        mock_compress.assert_called_once()
+        self.assertEqual(mock_compress.call_args[0][0].name, "surat_sakit.pdf")
+
     def test_tanggal_selesai_sebelum_mulai_ditolak(self):
         resp = self.client.post("/presensi/izin/", {
             "tipe": "cuti",

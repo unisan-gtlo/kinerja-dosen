@@ -12,6 +12,7 @@ from .models import (
     DataDosen, DataTendik, MahasiswaPublik, MataKuliahPublik,
     RiwayatPendidikanTendik, RiwayatPelatihanTendik, RiwayatPrestasiTendik,
 )
+from .file_compress import compress_uploaded_file
 from .tendik_excel import render_excel_daftar_tendik
 from .tendik_pdf import render_pdf_daftar_tendik
 from .utils import get_or_create_unit_kerja, get_simda_tendik_or_none
@@ -203,6 +204,8 @@ def tambah_tendik(request):
             unit_kerja_baru = form.cleaned_data.get('unit_kerja_baru', '').strip()
             if unit_kerja_baru:
                 form.instance.unit_kerja_id = get_or_create_unit_kerja(unit_kerja_baru)
+            if 'foto' in request.FILES:
+                form.instance.foto = compress_uploaded_file(request.FILES['foto'])
             form.save()
             messages.success(request, 'Data tendik berhasil ditambahkan.')
             return redirect('simda_dosen:daftar_tendik')
@@ -223,6 +226,8 @@ def ubah_tendik(request, tendik_id):
             unit_kerja_baru = form.cleaned_data.get('unit_kerja_baru', '').strip()
             if unit_kerja_baru:
                 form.instance.unit_kerja_id = get_or_create_unit_kerja(unit_kerja_baru)
+            if 'foto' in request.FILES:
+                form.instance.foto = compress_uploaded_file(request.FILES['foto'])
             form.save()
             messages.success(request, 'Data tendik berhasil diperbarui.')
             return redirect('simda_dosen:daftar_tendik')
@@ -326,6 +331,8 @@ def simpan_profil_saya_tendik(request):
 
     form = ProfilSayaTendikForm(request.POST, request.FILES, instance=tendik)
     if form.is_valid():
+        if 'foto' in request.FILES:
+            form.instance.foto = compress_uploaded_file(request.FILES['foto'])
         form.save()
         messages.success(request, 'Biodata Anda berhasil diperbarui.')
     else:
@@ -347,6 +354,8 @@ def tambah_riwayat_pendidikan_tendik(request, tendik_id):
 
     form = RiwayatPendidikanTendikForm(request.POST, request.FILES)
     if form.is_valid():
+        if 'file_ijazah' in request.FILES:
+            form.instance.file_ijazah = compress_uploaded_file(request.FILES['file_ijazah'])
         riwayat = form.save(commit=False)
         riwayat.tendik = tendik
         riwayat.save()
@@ -366,6 +375,8 @@ def edit_riwayat_pendidikan_tendik(request, riwayat_id):
     if request.method == 'POST':
         form = RiwayatPendidikanTendikForm(request.POST, request.FILES, instance=riwayat)
         if form.is_valid():
+            if 'file_ijazah' in request.FILES:
+                form.instance.file_ijazah = compress_uploaded_file(request.FILES['file_ijazah'])
             form.save()
             messages.success(request, 'Riwayat pendidikan berhasil diperbarui.')
             return _redirect_setelah_riwayat_tendik(request, riwayat.tendik_id)
@@ -406,6 +417,8 @@ def tambah_riwayat_pelatihan_tendik(request, tendik_id):
 
     form = RiwayatPelatihanTendikForm(request.POST, request.FILES)
     if form.is_valid():
+        if 'file_sertifikat' in request.FILES:
+            form.instance.file_sertifikat = compress_uploaded_file(request.FILES['file_sertifikat'])
         riwayat = form.save(commit=False)
         riwayat.tendik = tendik
         riwayat.save()
@@ -425,6 +438,8 @@ def edit_riwayat_pelatihan_tendik(request, riwayat_id):
     if request.method == 'POST':
         form = RiwayatPelatihanTendikForm(request.POST, request.FILES, instance=riwayat)
         if form.is_valid():
+            if 'file_sertifikat' in request.FILES:
+                form.instance.file_sertifikat = compress_uploaded_file(request.FILES['file_sertifikat'])
             form.save()
             messages.success(request, 'Riwayat pelatihan berhasil diperbarui.')
             return _redirect_setelah_riwayat_tendik(request, riwayat.tendik_id)
@@ -465,6 +480,8 @@ def tambah_riwayat_prestasi_tendik(request, tendik_id):
 
     form = RiwayatPrestasiTendikForm(request.POST, request.FILES)
     if form.is_valid():
+        if 'file_bukti' in request.FILES:
+            form.instance.file_bukti = compress_uploaded_file(request.FILES['file_bukti'])
         riwayat = form.save(commit=False)
         riwayat.tendik = tendik
         riwayat.save()
@@ -484,6 +501,8 @@ def edit_riwayat_prestasi_tendik(request, riwayat_id):
     if request.method == 'POST':
         form = RiwayatPrestasiTendikForm(request.POST, request.FILES, instance=riwayat)
         if form.is_valid():
+            if 'file_bukti' in request.FILES:
+                form.instance.file_bukti = compress_uploaded_file(request.FILES['file_bukti'])
             form.save()
             messages.success(request, 'Riwayat prestasi berhasil diperbarui.')
             return _redirect_setelah_riwayat_tendik(request, riwayat.tendik_id)
