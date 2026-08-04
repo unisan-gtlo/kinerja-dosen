@@ -24,8 +24,15 @@ class DataTendikForm(forms.ModelForm):
     Dibungkus try/except DatabaseError supaya form tetap bisa dibuka
     (dropdown kosong) kalau akses ke salah satu tabel referensi belum
     lengkap, bukan 500 total -- pola sama dengan get_pejabat_aktif."""
+    # empty_value=None WAJIB di semua TypedChoiceField ini -- default
+    # bawaan Django (`empty_value=''`) bikin _coerce() mengembalikan
+    # string kosong saat field dikosongkan, padahal field model-nya
+    # IntegerField(null=True) -- akibatnya ValueError saat disimpan
+    # ("invalid literal for int() with base 10: ''"), lihat bug fix
+    # ProfilSayaTendikForm.agama_id di bawah untuk kejadian nyatanya.
     unit_kerja_id = forms.TypedChoiceField(
-        coerce=int, required=False, label="Unit Kerja", widget=forms.Select(attrs={"class": "form-select"}),
+        coerce=int, required=False, empty_value=None,
+        label="Unit Kerja", widget=forms.Select(attrs={"class": "form-select"}),
     )
     unit_kerja_baru = forms.CharField(
         required=False, label="Atau Ketik Unit Kerja Baru",
@@ -35,16 +42,20 @@ class DataTendikForm(forms.ModelForm):
         help_text="Kalau diisi, dipakai (bukan pilihan dropdown di atas) -- otomatis tersimpan sebagai opsi baru.",
     )
     jenis_kepegawaian_id = forms.TypedChoiceField(
-        coerce=int, required=False, label="Jenis Kepegawaian", widget=forms.Select(attrs={"class": "form-select"}),
+        coerce=int, required=False, empty_value=None,
+        label="Jenis Kepegawaian", widget=forms.Select(attrs={"class": "form-select"}),
     )
     status_kepegawaian_id = forms.TypedChoiceField(
-        coerce=int, required=False, label="Status Kepegawaian", widget=forms.Select(attrs={"class": "form-select"}),
+        coerce=int, required=False, empty_value=None,
+        label="Status Kepegawaian", widget=forms.Select(attrs={"class": "form-select"}),
     )
     golongan_id = forms.TypedChoiceField(
-        coerce=int, required=False, label="Golongan", widget=forms.Select(attrs={"class": "form-select"}),
+        coerce=int, required=False, empty_value=None,
+        label="Golongan", widget=forms.Select(attrs={"class": "form-select"}),
     )
     agama_id = forms.TypedChoiceField(
-        coerce=int, required=False, label="Agama", widget=forms.Select(attrs={"class": "form-select"}),
+        coerce=int, required=False, empty_value=None,
+        label="Agama", widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     class Meta:
@@ -183,8 +194,12 @@ class ProfilSayaTendikForm(forms.ModelForm):
     field di luar daftar ini, jadi field kepegawaian/struktural/bank
     (admin-only) otomatis aman terlepas dari apa yang dikirim di POST."""
 
+    # empty_value=None -- lihat catatan bug fix di DataTendikForm di atas
+    # (field model agama_id IntegerField(null=True), default empty_value=''
+    # bawaan TypedChoiceField bikin ValueError saat disimpan kosong).
     agama_id = forms.TypedChoiceField(
-        coerce=int, required=False, label="Agama", widget=forms.Select(attrs={"class": "form-select"}),
+        coerce=int, required=False, empty_value=None,
+        label="Agama", widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     class Meta:

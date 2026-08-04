@@ -8,7 +8,7 @@ from django.test import TestCase, Client
 
 from accounts.models import User
 
-from .forms import DataTendikForm
+from .forms import DataTendikForm, ProfilSayaTendikForm
 from .models import DataTendik, RiwayatPendidikanTendik
 from .utils import bisa_tambah_tridarma, get_or_create_unit_kerja
 
@@ -462,3 +462,54 @@ class SimpanProfilSayaTendikTest(TestCase):
         self.assertEqual(real_tendik.nama_lengkap, "Nama Baru")
         self.assertIsNone(real_tendik.unit_kerja_id)
         self.assertEqual(real_tendik.nip, "")
+
+
+class ProfilSayaTendikFormAgamaKosongTest(TestCase):
+    """Bug fix 2026-08-05: Server Error 500 nyata di produksi saat tendik
+    simpan Biodata Saya dengan Agama dikosongkan --
+    'ValueError: Field agama_id expected a number but got ''.'.
+    Penyebabnya forms.TypedChoiceField(coerce=int, ...) TANPA
+    empty_value=None -- default bawaan Django (empty_value='') bikin
+    _coerce() mengembalikan STRING KOSONG (bukan None) saat field
+    dikosongkan, padahal model field-nya IntegerField(null=True). Test
+    lama (test_tendik_bisa_ubah_biodata_sendiri_field_admin_tidak_ikut_
+    berubah) tidak menangkap ini karena DataTendik.save() di-mock total
+    -- write ke DB yang sesungguhnya (tempat ValueError-nya muncul) tidak
+    pernah benar-benar dijalankan di situ. Test ini murni level Form,
+    tanpa panggil .save(), supaya cepat & tidak butuh mock DB tapi tetap
+    menangkap kelas bug ini kalau terulang."""
+
+    @patch("simda_dosen.forms.AgamaPublik")
+    def test_agama_dikosongkan_menghasilkan_none_bukan_string_kosong(self, mock_agama):
+        mock_agama.objects.using.return_value.order_by.return_value = []
+        form = ProfilSayaTendikForm(data={"nama_lengkap": "Contoh Tendik", "agama_id": ""})
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertIsNone(form.cleaned_data["agama_id"])
+
+    @patch("simda_dosen.forms.AgamaPublik")
+    @patch("simda_dosen.forms.UnitKerja")
+    @patch("simda_dosen.forms.JenisKepegawaianPublik")
+    @patch("simda_dosen.forms.StatusKepegawaianPublik")
+    @patch("simda_dosen.forms.GolonganPublik")
+    def test_dropdown_admin_dikosongkan_juga_menghasilkan_none(
+        self, mock_golongan, mock_status, mock_jenis, mock_unit, mock_agama,
+    ):
+        # Bug pattern yang sama ada di 5 TypedChoiceField DataTendikForm
+        # (dipakai admin lewat Tambah/Ubah Tendik), bukan cuma agama_id
+        # di ProfilSayaTendikForm -- ikut diverifikasi supaya tidak
+        # terulang lagi kalau ada TypedChoiceField baru ditambahkan.
+        for mock_ref in (mock_unit, mock_jenis, mock_status, mock_golongan, mock_agama):
+            mock_ref.objects.using.return_value.filter.return_value.order_by.return_value = []
+            mock_ref.objects.using.return_value.all.return_value = []
+            mock_ref.objects.using.return_value.order_by.return_value = []
+
+        form = DataTendikForm(data={
+            "nama_lengkap": "Contoh Tendik", "jenis_kelamin": "L",
+            "unit_kerja_id": "", "jenis_kepegawaian_id": "", "status_kepegawaian_id": "",
+            "golongan_id": "", "agama_id": "",
+        })
+
+        self.assertTrue(form.is_valid(), form.errors)
+        for field in ("unit_kerja_id", "jenis_kepegawaian_id", "status_kepegawaian_id", "golongan_id", "agama_id"):
+            self.assertIsNone(form.cleaned_data[field], f"{field} seharusnya None, bukan string kosong")
