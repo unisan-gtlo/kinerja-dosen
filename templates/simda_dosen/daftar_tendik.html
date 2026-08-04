@@ -55,6 +55,9 @@
               </span>
             </td>
             <td class="text-nowrap">
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'simda_dosen:detail_tendik' t.id %}" title="Profil & Riwayat">
+                <span class="ti ti-file-description"></span>
+              </a>
               <a class="btn btn-sm btn-outline-primary" href="{% url 'simda_dosen:ubah_tendik' t.id %}">Ubah</a>
               <form method="post" action="{% url 'simda_dosen:toggle_aktif_tendik' t.id %}" class="d-inline">
                 {% csrf_token %}

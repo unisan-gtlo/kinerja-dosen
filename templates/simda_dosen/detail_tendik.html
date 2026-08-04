@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+{% block title %}Profil Tendik: {{ tendik.nama_lengkap }} — SIKD{% endblock %}
+{% block page_title %}Profil Tendik{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h3 class="card-title mb-0">{{ tendik.nama_lengkap }}</h3>
+      <div class="text-muted small">
+        {{ tendik.jabatan|default:"—" }}
+        {% if tendik.unit_kerja_nama %} &middot; {{ tendik.unit_kerja_nama }}{% endif %}
+        {% if tendik.nip_yayasan %} &middot; NIP Yayasan: {{ tendik.nip_yayasan }}{% endif %}
+      </div>
+    </div>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'simda_dosen:ubah_tendik' tendik.id %}">
+      <span class="ti ti-edit me-1"></span>Ubah Biodata
+    </a>
+  </div>
+</div>
+
+<ul class="nav nav-tabs mb-0 flex-nowrap overflow-auto" id="riwayatTendikTab">
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-pendidikan">
+    <span class="ti ti-school me-1"></span>Riwayat Pendidikan <span class="badge bg-blue-lt ms-1">{{ riwayat_pendidikan_list|length }}</span></a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-pelatihan">
+    <span class="ti ti-certificate me-1"></span>Riwayat Pelatihan <span class="badge bg-blue-lt ms-1">{{ riwayat_pelatihan_list|length }}</span></a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-prestasi">
+    <span class="ti ti-award me-1"></span>Riwayat Prestasi <span class="badge bg-blue-lt ms-1">{{ riwayat_prestasi_list|length }}</span></a></li>
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
+
+  <!-- ============================================================ -->
+  <!-- TAB RIWAYAT PENDIDIKAN -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade show active" id="tab-pendidikan">
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Riwayat Pendidikan</h6>
+        <form method="post" action="{% url 'simda_dosen:tambah_riwayat_pendidikan_tendik' tendik.id %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-2">
+              <label class="form-label">Jenjang</label>
+              {{ form_pendidikan.jenjang }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Institusi</label>
+              {{ form_pendidikan.institusi }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Jurusan</label>
+              {{ form_pendidikan.jurusan }}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Masuk</label>
+              {{ form_pendidikan.tahun_masuk }}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun Lulus</label>
+              {{ form_pendidikan.tahun_lulus }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">No. Ijazah</label>
+              {{ form_pendidikan.no_ijazah }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">File Ijazah</label>
+              {{ form_pendidikan.file_ijazah }}
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Keterangan</label>
+              {{ form_pendidikan.keterangan }}
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Jenjang</th><th>Institusi</th><th>Jurusan</th><th>Tahun</th><th>No. Ijazah</th><th>Dokumen</th><th class="w-1">Aksi</th></tr>
+        </thead>
+        <tbody>
+          {% for r in riwayat_pendidikan_list %}
+          <tr>
+            <td>{{ r.jenjang }}</td>
+            <td>{{ r.institusi }}</td>
+            <td>{{ r.jurusan|default:"-" }}</td>
+            <td>{{ r.tahun_masuk|default:"-" }} - {{ r.tahun_lulus|default:"-" }}</td>
+            <td>{{ r.no_ijazah|default:"-" }}</td>
+            <td>
+              {% if r.file_ijazah %}
+              <a href="{{ r.file_ijazah.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-file-text"></span>
+              </a>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-nowrap">
+              <div class="d-flex gap-1">
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'simda_dosen:edit_riwayat_pendidikan_tendik' r.id %}">
+                  <span class="ti ti-edit"></span>
+                </a>
+                <form method="post" action="{% url 'simda_dosen:hapus_riwayat_pendidikan_tendik' r.id %}"
+                      onsubmit="return confirm('Hapus riwayat pendidikan ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-muted text-center">Belum ada riwayat pendidikan.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB RIWAYAT PELATIHAN -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade" id="tab-pelatihan">
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Riwayat Pelatihan</h6>
+        <form method="post" action="{% url 'simda_dosen:tambah_riwayat_pelatihan_tendik' tendik.id %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Nama Pelatihan</label>
+              {{ form_pelatihan.nama_pelatihan }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Penyelenggara</label>
+              {{ form_pelatihan.penyelenggara }}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tingkat</label>
+              {{ form_pelatihan.tingkat }}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Jumlah Jam</label>
+              {{ form_pelatihan.jumlah_jam }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">No. Sertifikat</label>
+              {{ form_pelatihan.no_sertifikat }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Mulai</label>
+              {{ form_pelatihan.tanggal_mulai }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Selesai</label>
+              {{ form_pelatihan.tanggal_selesai }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">File Sertifikat</label>
+              {{ form_pelatihan.file_sertifikat }}
+            </div>
+            <div class="col-12">
+              <label class="form-label">Keterangan</label>
+              {{ form_pelatihan.keterangan }}
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Nama Pelatihan</th><th>Penyelenggara</th><th>Tingkat</th><th>Periode</th><th>Dokumen</th><th class="w-1">Aksi</th></tr>
+        </thead>
+        <tbody>
+          {% for r in riwayat_pelatihan_list %}
+          <tr>
+            <td>{{ r.nama_pelatihan }}</td>
+            <td>{{ r.penyelenggara }}</td>
+            <td>{{ r.tingkat }}</td>
+            <td>{{ r.tanggal_mulai|date:"d-m-Y"|default:"-" }} s/d {{ r.tanggal_selesai|date:"d-m-Y"|default:"-" }}</td>
+            <td>
+              {% if r.file_sertifikat %}
+              <a href="{{ r.file_sertifikat.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-file-text"></span>
+              </a>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-nowrap">
+              <div class="d-flex gap-1">
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'simda_dosen:edit_riwayat_pelatihan_tendik' r.id %}">
+                  <span class="ti ti-edit"></span>
+                </a>
+                <form method="post" action="{% url 'simda_dosen:hapus_riwayat_pelatihan_tendik' r.id %}"
+                      onsubmit="return confirm('Hapus riwayat pelatihan ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-muted text-center">Belum ada riwayat pelatihan.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB RIWAYAT PRESTASI -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade" id="tab-prestasi">
+    <div class="card border-0 bg-light mb-4">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-3">Tambah Riwayat Prestasi</h6>
+        <form method="post" action="{% url 'simda_dosen:tambah_riwayat_prestasi_tendik' tendik.id %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Nama Prestasi</label>
+              {{ form_prestasi.nama_prestasi }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Pemberi Penghargaan</label>
+              {{ form_prestasi.pemberi_penghargaan }}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tingkat</label>
+              {{ form_prestasi.tingkat }}
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun</label>
+              {{ form_prestasi.tahun }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">No. Sertifikat</label>
+              {{ form_prestasi.no_sertifikat }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">File Bukti</label>
+              {{ form_prestasi.file_bukti }}
+            </div>
+            <div class="col-12">
+              <label class="form-label">Keterangan</label>
+              {{ form_prestasi.keterangan }}
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><span class="ti ti-plus me-1"></span>Tambah</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr><th>Nama Prestasi</th><th>Pemberi</th><th>Tingkat</th><th>Tahun</th><th>Dokumen</th><th class="w-1">Aksi</th></tr>
+        </thead>
+        <tbody>
+          {% for r in riwayat_prestasi_list %}
+          <tr>
+            <td>{{ r.nama_prestasi }}</td>
+            <td>{{ r.pemberi_penghargaan|default:"-" }}</td>
+            <td>{{ r.tingkat }}</td>
+            <td>{{ r.tahun|default:"-" }}</td>
+            <td>
+              {% if r.file_bukti %}
+              <a href="{{ r.file_bukti.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">
+                <span class="ti ti-file-text"></span>
+              </a>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-nowrap">
+              <div class="d-flex gap-1">
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'simda_dosen:edit_riwayat_prestasi_tendik' r.id %}">
+                  <span class="ti ti-edit"></span>
+                </a>
+                <form method="post" action="{% url 'simda_dosen:hapus_riwayat_prestasi_tendik' r.id %}"
+                      onsubmit="return confirm('Hapus riwayat prestasi ini?')">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><span class="ti ti-trash"></span></button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-muted text-center">Belum ada riwayat prestasi.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

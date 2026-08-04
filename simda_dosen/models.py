@@ -601,13 +601,16 @@ class MahasiswaPublik(models.Model):
 
 
 class UnitKerja(models.Model):
-    """Read-only, sumbernya master.unit_kerja (tabel katalog organisasi --
-    BUKAN data pribadi/sensitif, sama seperti master.mata_kuliah, jadi
-    aman diakses langsung tanpa lewat view tersaring). Dipakai sebagai
-    dropdown unit kerja di form Kelola Data Tendik. `induk_id` disimpan
-    sebagai id mentah (bukan FK self-referencing) -- form Kelola Data
-    Tendik cuma butuh daftar datar (flat), tidak perlu render struktur
-    pohon unit/sub-unit."""
+    """Sumbernya master.unit_kerja (tabel katalog organisasi -- BUKAN data
+    pribadi/sensitif, sama seperti master.mata_kuliah, jadi aman diakses
+    langsung tanpa lewat view tersaring). Dipakai sebagai dropdown unit
+    kerja di form Kelola Data Tendik. Awalnya read-only, sekarang JUGA
+    bisa ditulis (lihat get_or_create_unit_kerja di utils.py) untuk fitur
+    "ketik langsung Unit Kerja yang belum ada di dropdown, otomatis
+    tersimpan sebagai opsi baru" -- pola sama dengan Bidang Keahlian/
+    Keilmuan di Profil Dosen. `induk_id` disimpan sebagai id mentah
+    (bukan FK self-referencing) -- form Kelola Data Tendik cuma butuh
+    daftar datar (flat), tidak perlu render struktur pohon unit/sub-unit."""
     JENIS = [
         ('akademik', 'Akademik'), ('administrasi', 'Administrasi'),
         ('penunjang', 'Penunjang'), ('layanan', 'Layanan'), ('penelitian', 'Penelitian'),
@@ -731,6 +734,108 @@ class DataTendik(models.Model):
             return ''
         g = GolonganPublik.objects.using('simda').filter(id=self.golongan_id).first()
         return f'{g.kode} ({g.pangkat})' if g else ''
+
+
+class RiwayatPendidikanTendik(models.Model):
+    """Riwayat pendidikan Tendik -- mirror pola RiwayatPendidikanDosen,
+    FK ke DataTendik (bukan ke accounts.User) supaya bisa diisi admin
+    lewat "Kelola Data Tendik" independen dari status akun login, lihat
+    tambah_tabel_riwayat_tendik.sql (repo SIMDA) untuk skema tabelnya."""
+    JENJANG = [('SMA', 'SMA/Sederajat'), ('D3', 'D3'), ('S1', 'S1'), ('S2', 'S2')]
+
+    tendik = models.ForeignKey(DataTendik, on_delete=models.DO_NOTHING,
+                                related_name='riwayat_pendidikan', db_column='tendik_id')
+    jenjang = models.CharField(max_length=5, choices=JENJANG)
+    institusi = models.CharField(max_length=200)
+    jurusan = models.CharField(max_length=150, blank=True)
+    tahun_masuk = models.IntegerField(null=True, blank=True)
+    tahun_lulus = models.IntegerField(null=True, blank=True)
+    no_ijazah = models.CharField(max_length=50, blank=True)
+    file_ijazah = models.FileField(upload_to='tendik/ijazah/', null=True, blank=True,
+                                    validators=[validate_file_size], storage=simda_media_storage)
+    keterangan = models.TextField(blank=True)
+    tgl_dibuat = models.DateTimeField(auto_now_add=True)
+    tgl_diperbarui = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'master"."riwayat_pendidikan_tendik'
+        verbose_name = 'Riwayat Pendidikan Tendik (SIMDA)'
+        verbose_name_plural = 'Riwayat Pendidikan Tendik (SIMDA)'
+        ordering = ['-tahun_lulus']
+
+    def __str__(self):
+        return f'{self.jenjang} - {self.institusi}'
+
+
+class RiwayatPelatihanTendik(models.Model):
+    """Riwayat pelatihan/diklat Tendik -- mirror profil.Diklat (dosen),
+    disederhanakan (tanpa field periode akademik yang tidak relevan
+    untuk tendik), tapi FK ke DataTendik (SIMDA) bukan ke accounts.User,
+    sama alasannya dengan RiwayatPendidikanTendik."""
+    TINGKAT = [
+        ('Lokal', 'Lokal'), ('Regional', 'Regional'),
+        ('Nasional', 'Nasional'), ('Internasional', 'Internasional'),
+    ]
+
+    tendik = models.ForeignKey(DataTendik, on_delete=models.DO_NOTHING,
+                                related_name='riwayat_pelatihan', db_column='tendik_id')
+    nama_pelatihan = models.CharField(max_length=200)
+    penyelenggara = models.CharField(max_length=200)
+    tingkat = models.CharField(max_length=15, choices=TINGKAT)
+    jumlah_jam = models.IntegerField(null=True, blank=True)
+    no_sertifikat = models.CharField(max_length=100, blank=True)
+    tanggal_mulai = models.DateField(null=True, blank=True)
+    tanggal_selesai = models.DateField(null=True, blank=True)
+    file_sertifikat = models.FileField(upload_to='tendik/pelatihan/', null=True, blank=True,
+                                        validators=[validate_file_size], storage=simda_media_storage)
+    keterangan = models.TextField(blank=True)
+    tgl_dibuat = models.DateTimeField(auto_now_add=True)
+    tgl_diperbarui = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'master"."riwayat_pelatihan_tendik'
+        verbose_name = 'Riwayat Pelatihan Tendik (SIMDA)'
+        verbose_name_plural = 'Riwayat Pelatihan Tendik (SIMDA)'
+        ordering = ['-tanggal_mulai']
+
+    def __str__(self):
+        return self.nama_pelatihan
+
+
+class RiwayatPrestasiTendik(models.Model):
+    """Riwayat prestasi/penghargaan Tendik -- mirip semangat
+    penunjang.Penghargaan (dosen), disederhanakan, FK ke DataTendik
+    (SIMDA) bukan ke accounts.User, sama alasannya dengan 2 model
+    riwayat tendik lainnya."""
+    TINGKAT = [
+        ('Lokal', 'Lokal'), ('Regional', 'Regional'),
+        ('Nasional', 'Nasional'), ('Internasional', 'Internasional'),
+    ]
+
+    tendik = models.ForeignKey(DataTendik, on_delete=models.DO_NOTHING,
+                                related_name='riwayat_prestasi', db_column='tendik_id')
+    nama_prestasi = models.CharField(max_length=200)
+    pemberi_penghargaan = models.CharField(max_length=200, blank=True)
+    tingkat = models.CharField(max_length=15, choices=TINGKAT)
+    tahun = models.IntegerField(null=True, blank=True)
+    no_sertifikat = models.CharField(max_length=100, blank=True)
+    file_bukti = models.FileField(upload_to='tendik/prestasi/', null=True, blank=True,
+                                   validators=[validate_file_size], storage=simda_media_storage)
+    keterangan = models.TextField(blank=True)
+    tgl_dibuat = models.DateTimeField(auto_now_add=True)
+    tgl_diperbarui = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'master"."riwayat_prestasi_tendik'
+        verbose_name = 'Riwayat Prestasi Tendik (SIMDA)'
+        verbose_name_plural = 'Riwayat Prestasi Tendik (SIMDA)'
+        ordering = ['-tahun']
+
+    def __str__(self):
+        return self.nama_prestasi
 
 
 class JabatanStruktural(models.Model):

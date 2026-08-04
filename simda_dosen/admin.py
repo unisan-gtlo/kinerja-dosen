@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     DataDosen, DataTendik, UnitKerja, RiwayatJabatanFungsional, RiwayatPendidikanDosen, RiwayatBKD,
+    RiwayatPendidikanTendik, RiwayatPelatihanTendik, RiwayatPrestasiTendik,
     FakultasPublik, ProdiPublik, TahunAkademikPublik,
     AgamaPublik, JabatanFungsionalPublik,
 )
@@ -42,6 +43,21 @@ class RiwayatPendidikanDosenAdmin(admin.ModelAdmin):
 class RiwayatBKDAdmin(admin.ModelAdmin):
     list_display = ['dosen', 'periode_id', 'status_pengesahan', 'total_sks']
     list_filter = ['status_pengesahan']
+
+
+@admin.register(RiwayatPendidikanTendik)
+class RiwayatPendidikanTendikAdmin(admin.ModelAdmin):
+    list_display = ['tendik', 'jenjang', 'institusi', 'tahun_lulus']
+
+
+@admin.register(RiwayatPelatihanTendik)
+class RiwayatPelatihanTendikAdmin(admin.ModelAdmin):
+    list_display = ['tendik', 'nama_pelatihan', 'penyelenggara', 'tingkat']
+
+
+@admin.register(RiwayatPrestasiTendik)
+class RiwayatPrestasiTendikAdmin(admin.ModelAdmin):
+    list_display = ['tendik', 'nama_prestasi', 'tingkat', 'tahun']
 
 
 @admin.register(FakultasPublik)

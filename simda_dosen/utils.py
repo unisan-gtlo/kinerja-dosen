@@ -7,7 +7,7 @@ from django.test.testcases import DatabaseOperationForbidden
 
 from .models import (
     DataDosen, DataTendik, BidangKeahlian, BidangKeahlianPublik, GolonganPublik,
-    JenisKepegawaianPublik, PejabatStruktural, StatusKepegawaianPublik,
+    JenisKepegawaianPublik, PejabatStruktural, StatusKepegawaianPublik, UnitKerja,
 )
 
 
@@ -162,6 +162,35 @@ def get_or_create_bidang_keahlian(nama):
 
     baru = BidangKeahlian.objects.using('simda').create(
         kode=kode, nama=nama, rumpun_ilmu='', status=True
+    )
+    return baru.id
+
+
+def get_or_create_unit_kerja(nama):
+    """Cari UnitKerja di SIMDA berdasarkan nama (case-insensitive) --
+    kalau belum ada, buat baru otomatis (dipicu admin mengetik nilai
+    yang belum ada di dropdown Unit Kerja di form Kelola Data Tendik).
+    Return id (int), atau None kalau nama kosong. `jenis` default
+    'administrasi' (paling umum untuk unit kerja baru yang diketik
+    manual di form ini) -- bisa diubah lewat Django Admin SIMDA kalau
+    perlu jenis lain."""
+    nama = (nama or '').strip()
+    if not nama:
+        return None
+
+    existing = UnitKerja.objects.using('simda').filter(nama__iexact=nama).first()
+    if existing:
+        return existing.id
+
+    base_kode = re.sub(r'[^A-Z0-9]', '', nama.upper())[:16] or 'UK'
+    kode = base_kode
+    suffix = 1
+    while UnitKerja.objects.using('simda').filter(kode=kode).exists():
+        suffix += 1
+        kode = f'{base_kode}{suffix}'[:20]
+
+    baru = UnitKerja.objects.using('simda').create(
+        kode=kode, nama=nama, jenis='administrasi', status=True
     )
     return baru.id
 

@@ -1,7 +1,10 @@
 from django.db import DatabaseError
 from django import forms
 
-from .models import AgamaPublik, DataTendik, GolonganPublik, JenisKepegawaianPublik, StatusKepegawaianPublik, UnitKerja
+from .models import (
+    AgamaPublik, DataTendik, GolonganPublik, JenisKepegawaianPublik, StatusKepegawaianPublik, UnitKerja,
+    RiwayatPendidikanTendik, RiwayatPelatihanTendik, RiwayatPrestasiTendik,
+)
 
 
 class DataTendikForm(forms.ModelForm):
@@ -23,6 +26,13 @@ class DataTendikForm(forms.ModelForm):
     lengkap, bukan 500 total -- pola sama dengan get_pejabat_aktif."""
     unit_kerja_id = forms.TypedChoiceField(
         coerce=int, required=False, label="Unit Kerja", widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    unit_kerja_baru = forms.CharField(
+        required=False, label="Atau Ketik Unit Kerja Baru",
+        widget=forms.TextInput(attrs={
+            "class": "form-control", "placeholder": "Isi kalau unit kerjanya belum ada di dropdown",
+        }),
+        help_text="Kalau diisi, dipakai (bukan pilihan dropdown di atas) -- otomatis tersimpan sebagai opsi baru.",
     )
     jenis_kepegawaian_id = forms.TypedChoiceField(
         coerce=int, required=False, label="Jenis Kepegawaian", widget=forms.Select(attrs={"class": "form-select"}),
@@ -96,3 +106,71 @@ class DataTendikForm(forms.ModelForm):
                 "unit_kerja_id", "jenis_kepegawaian_id", "status_kepegawaian_id", "golongan_id", "agama_id",
             ):
                 self.fields[nama_field].choices = kosong
+
+
+class RiwayatPendidikanTendikForm(forms.ModelForm):
+    """Tambah/ubah Riwayat Pendidikan Tendik -- bagian dari halaman
+    Profil Tendik (simda_dosen/views.py::tambah_riwayat_pendidikan_tendik).
+    `tendik` di-set di view (bukan lewat form), tidak dimasukkan ke
+    Meta.fields."""
+
+    class Meta:
+        model = RiwayatPendidikanTendik
+        fields = [
+            "jenjang", "institusi", "jurusan", "tahun_masuk", "tahun_lulus",
+            "no_ijazah", "file_ijazah", "keterangan",
+        ]
+        widgets = {
+            "jenjang": forms.Select(attrs={"class": "form-select"}),
+            "institusi": forms.TextInput(attrs={"class": "form-control"}),
+            "jurusan": forms.TextInput(attrs={"class": "form-control"}),
+            "tahun_masuk": forms.NumberInput(attrs={"class": "form-control"}),
+            "tahun_lulus": forms.NumberInput(attrs={"class": "form-control"}),
+            "no_ijazah": forms.TextInput(attrs={"class": "form-control"}),
+            "file_ijazah": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "keterangan": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+
+class RiwayatPelatihanTendikForm(forms.ModelForm):
+    """Tambah/ubah Riwayat Pelatihan Tendik -- bagian dari halaman
+    Profil Tendik."""
+
+    class Meta:
+        model = RiwayatPelatihanTendik
+        fields = [
+            "nama_pelatihan", "penyelenggara", "tingkat", "jumlah_jam", "no_sertifikat",
+            "tanggal_mulai", "tanggal_selesai", "file_sertifikat", "keterangan",
+        ]
+        widgets = {
+            "nama_pelatihan": forms.TextInput(attrs={"class": "form-control"}),
+            "penyelenggara": forms.TextInput(attrs={"class": "form-control"}),
+            "tingkat": forms.Select(attrs={"class": "form-select"}),
+            "jumlah_jam": forms.NumberInput(attrs={"class": "form-control"}),
+            "no_sertifikat": forms.TextInput(attrs={"class": "form-control"}),
+            "tanggal_mulai": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "tanggal_selesai": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "file_sertifikat": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "keterangan": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }
+
+
+class RiwayatPrestasiTendikForm(forms.ModelForm):
+    """Tambah/ubah Riwayat Prestasi Tendik -- bagian dari halaman
+    Profil Tendik."""
+
+    class Meta:
+        model = RiwayatPrestasiTendik
+        fields = [
+            "nama_prestasi", "pemberi_penghargaan", "tingkat", "tahun",
+            "no_sertifikat", "file_bukti", "keterangan",
+        ]
+        widgets = {
+            "nama_prestasi": forms.TextInput(attrs={"class": "form-control"}),
+            "pemberi_penghargaan": forms.TextInput(attrs={"class": "form-control"}),
+            "tingkat": forms.Select(attrs={"class": "form-select"}),
+            "tahun": forms.NumberInput(attrs={"class": "form-control"}),
+            "no_sertifikat": forms.TextInput(attrs={"class": "form-control"}),
+            "file_bukti": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "keterangan": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        }

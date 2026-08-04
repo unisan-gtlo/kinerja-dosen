@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Ubah Riwayat Prestasi — SIKD{% endblock %}
+{% block page_title %}Ubah Riwayat Prestasi{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">Ubah Riwayat Prestasi: {{ riwayat.tendik.nama_lengkap }}</h3>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Nama Prestasi</label>
+          {{ form.nama_prestasi }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Pemberi Penghargaan</label>
+          {{ form.pemberi_penghargaan }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Tingkat</label>
+          {{ form.tingkat }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Tahun</label>
+          {{ form.tahun }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">No. Sertifikat</label>
+          {{ form.no_sertifikat }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">File Bukti</label>
+          {% if riwayat.file_bukti %}
+          <div class="mb-1"><a href="{{ riwayat.file_bukti.url }}" target="_blank" rel="noopener">Lihat file saat ini</a></div>
+          {% endif %}
+          {{ form.file_bukti }}
+        </div>
+        <div class="col-12">
+          <label class="form-label">Keterangan</label>
+          {{ form.keterangan }}
+        </div>
+      </div>
+      <div class="mt-4">
+        <button type="submit" class="btn btn-primary">
+          <span class="ti ti-device-floppy me-1"></span>Simpan
+        </button>
+        <a href="{% url 'simda_dosen:detail_tendik' riwayat.tendik.id %}" class="btn btn-outline-secondary">Batal</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

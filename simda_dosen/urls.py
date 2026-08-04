@@ -12,4 +12,26 @@ urlpatterns = [
     path('tendik/tambah/', views.tambah_tendik, name='tambah_tendik'),
     path('tendik/<int:tendik_id>/ubah/', views.ubah_tendik, name='ubah_tendik'),
     path('tendik/<int:tendik_id>/toggle-aktif/', views.toggle_aktif_tendik, name='toggle_aktif_tendik'),
+    path('tendik/<int:tendik_id>/detail/', views.detail_tendik, name='detail_tendik'),
+
+    path('tendik/<int:tendik_id>/riwayat-pendidikan/tambah/',
+         views.tambah_riwayat_pendidikan_tendik, name='tambah_riwayat_pendidikan_tendik'),
+    path('tendik/riwayat-pendidikan/<int:riwayat_id>/ubah/',
+         views.edit_riwayat_pendidikan_tendik, name='edit_riwayat_pendidikan_tendik'),
+    path('tendik/riwayat-pendidikan/<int:riwayat_id>/hapus/',
+         views.hapus_riwayat_pendidikan_tendik, name='hapus_riwayat_pendidikan_tendik'),
+
+    path('tendik/<int:tendik_id>/riwayat-pelatihan/tambah/',
+         views.tambah_riwayat_pelatihan_tendik, name='tambah_riwayat_pelatihan_tendik'),
+    path('tendik/riwayat-pelatihan/<int:riwayat_id>/ubah/',
+         views.edit_riwayat_pelatihan_tendik, name='edit_riwayat_pelatihan_tendik'),
+    path('tendik/riwayat-pelatihan/<int:riwayat_id>/hapus/',
+         views.hapus_riwayat_pelatihan_tendik, name='hapus_riwayat_pelatihan_tendik'),
+
+    path('tendik/<int:tendik_id>/riwayat-prestasi/tambah/',
+         views.tambah_riwayat_prestasi_tendik, name='tambah_riwayat_prestasi_tendik'),
+    path('tendik/riwayat-prestasi/<int:riwayat_id>/ubah/',
+         views.edit_riwayat_prestasi_tendik, name='edit_riwayat_prestasi_tendik'),
+    path('tendik/riwayat-prestasi/<int:riwayat_id>/hapus/',
+         views.hapus_riwayat_prestasi_tendik, name='hapus_riwayat_prestasi_tendik'),
 ]

@@ -4,12 +4,13 @@ GetPejabatAktifTest/GetDosenByNidnTest di presensi/tests.py)."""
 from unittest.mock import MagicMock, patch
 
 from django.db import DatabaseError
-from django.test import TestCase
+from django.test import TestCase, Client
 
 from accounts.models import User
 
 from .forms import DataTendikForm
-from .utils import bisa_tambah_tridarma
+from .models import DataTendik
+from .utils import bisa_tambah_tridarma, get_or_create_unit_kerja
 
 
 class DataTendikFormTest(TestCase):
@@ -176,3 +177,127 @@ class BisaTambahTridarmaTest(TestCase):
 
     def test_rektorat_tidak_boleh_untuk_dosen_lain(self):
         self.assertFalse(bisa_tambah_tridarma(self.rektorat, self.dosen_ft))
+
+
+class GetOrCreateUnitKerjaTest(TestCase):
+    """get_or_create_unit_kerja() -- fitur "ketik langsung Unit Kerja yang
+    belum ada di dropdown, otomatis tersimpan sebagai opsi baru" di form
+    Kelola Data Tendik, mirror pola get_or_create_bidang_keahlian (Profil
+    Dosen). SIMDA di-mock (koneksi 'simda' tidak selalu tersedia)."""
+
+    def test_nama_kosong_return_none(self):
+        self.assertIsNone(get_or_create_unit_kerja(''))
+        self.assertIsNone(get_or_create_unit_kerja('   '))
+
+    @patch("simda_dosen.utils.UnitKerja")
+    def test_unit_kerja_sudah_ada_pakai_id_existing(self, mock_unit):
+        existing = MagicMock(id=42)
+        mock_unit.objects.using.return_value.filter.return_value.first.return_value = existing
+
+        hasil = get_or_create_unit_kerja("Tata Usaha")
+
+        self.assertEqual(hasil, 42)
+        mock_unit.objects.using.return_value.create.assert_not_called()
+
+    @patch("simda_dosen.utils.UnitKerja")
+    def test_unit_kerja_belum_ada_dibuat_baru(self, mock_unit):
+        mock_unit.objects.using.return_value.filter.return_value.first.return_value = None
+        mock_unit.objects.using.return_value.filter.return_value.exists.return_value = False
+        baru = MagicMock(id=99)
+        mock_unit.objects.using.return_value.create.return_value = baru
+
+        hasil = get_or_create_unit_kerja("Unit Kerja Baru")
+
+        self.assertEqual(hasil, 99)
+        mock_unit.objects.using.return_value.create.assert_called_once()
+        kwargs = mock_unit.objects.using.return_value.create.call_args.kwargs
+        self.assertEqual(kwargs["nama"], "Unit Kerja Baru")
+        self.assertEqual(kwargs["jenis"], "administrasi")
+
+
+class ProfilTendikAksesTest(TestCase):
+    """Halaman Profil Tendik (detail_tendik + CRUD 3 riwayat) -- admin-
+    only, gerbang sama dengan Kelola Data Tendik (_bisa_kelola_data_tendik).
+    Satu view representatif per aksi (pola gerbangnya identik di
+    ketiganya: Pendidikan/Pelatihan/Prestasi)."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="profiltendikadmin", password="testpass123", role="admin")
+        self.dosen = User.objects.create_user(username="profiltendikdosen", password="testpass123", role="dosen")
+
+    def test_dosen_biasa_tidak_bisa_akses_detail(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/simda-dosen/tendik/1/detail/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_dosen_biasa_tidak_bisa_tambah_riwayat_pendidikan(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.post("/simda-dosen/tendik/1/riwayat-pendidikan/tambah/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_dosen_biasa_tidak_bisa_hapus_riwayat_pelatihan(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.post("/simda-dosen/tendik/riwayat-pelatihan/1/hapus/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_dosen_biasa_tidak_bisa_ubah_riwayat_prestasi(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/simda-dosen/tendik/riwayat-prestasi/1/ubah/")
+        self.assertEqual(resp.status_code, 403)
+
+    @patch("simda_dosen.views.DataTendik")
+    def test_admin_bisa_buka_detail_tendik(self, mock_cls):
+        mock_qs = MagicMock(spec=["get", "filter", "all", "order_by"])
+        mock_cls.objects.using.return_value = mock_qs
+        mock_tendik = MagicMock(
+            id=1, nama_lengkap="Contoh Tendik", jabatan="Staf TU",
+            unit_kerja_nama="Tata Usaha", nip_yayasan="12345",
+        )
+        mock_tendik.riwayat_pendidikan.all.return_value = []
+        mock_tendik.riwayat_pelatihan.all.return_value = []
+        mock_tendik.riwayat_prestasi.all.return_value = []
+        mock_qs.get.return_value = mock_tendik
+
+        self.client.force_login(self.admin)
+        resp = self.client.get("/simda-dosen/tendik/1/detail/")
+
+        self.assertEqual(resp.status_code, 200)
+
+
+class TambahTendikUnitKerjaBaruTest(TestCase):
+    """tambah_tendik -- kalau field "Atau Ketik Unit Kerja Baru" diisi,
+    dipakai (lewat get_or_create_unit_kerja) untuk override unit_kerja_id
+    sebelum disimpan, bukan pilihan dropdown. DataTendik.save() di-patch
+    langsung di kelasnya (bukan mock nama modul) -- Meta.model pada
+    DataTendikForm sudah mengikat ke kelas asli saat class body
+    dieksekusi, jadi patch nama di modul forms/views TIDAK memengaruhi
+    instance yang dibuat form.save(); patch.object(DataTendik, 'save')
+    mencegat method-nya langsung di kelas manapun instance-nya dibuat,
+    supaya tidak benar-benar coba nulis ke koneksi 'simda' saat test."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="unitkerjabaruadmin", password="testpass123", role="admin")
+        self.client = Client()
+        self.client.login(username="unitkerjabaruadmin", password="testpass123")
+
+    @patch("simda_dosen.views.get_or_create_unit_kerja")
+    @patch("simda_dosen.forms.UnitKerja")
+    @patch("simda_dosen.forms.AgamaPublik")
+    @patch("simda_dosen.forms.GolonganPublik")
+    @patch("simda_dosen.forms.StatusKepegawaianPublik")
+    @patch("simda_dosen.forms.JenisKepegawaianPublik")
+    @patch.object(DataTendik, "save", new=MagicMock())
+    def test_unit_kerja_baru_dipakai_lewat_get_or_create(
+        self, mock_jenis, mock_status, mock_golongan, mock_agama, mock_unit_form, mock_get_or_create,
+    ):
+        for m in (mock_unit_form, mock_jenis, mock_status, mock_golongan, mock_agama):
+            m.objects.using.return_value.all.return_value = []
+            m.objects.using.return_value.filter.return_value.order_by.return_value = []
+        mock_get_or_create.return_value = 777
+
+        self.client.post("/simda-dosen/tendik/tambah/", {
+            "nama_lengkap": "Tendik Baru", "jenis_kelamin": "L",
+            "unit_kerja_id": "", "unit_kerja_baru": "Unit Baru Ketikan Admin",
+        })
+
+        mock_get_or_create.assert_called_once_with("Unit Baru Ketikan Admin")

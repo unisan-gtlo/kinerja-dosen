@@ -84,6 +84,11 @@
           <label class="form-label">Unit Kerja</label>
           {{ form.unit_kerja_id }}
         </div>
+        <div class="col-md-4">
+          <label class="form-label">{{ form.unit_kerja_baru.label }}</label>
+          {{ form.unit_kerja_baru }}
+          <div class="form-text">{{ form.unit_kerja_baru.help_text }}</div>
+        </div>
         <div class="col-md-4 mt-2">
           <label class="form-label">Jabatan</label>
           {{ form.jabatan }}
