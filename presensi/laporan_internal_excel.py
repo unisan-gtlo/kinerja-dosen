@@ -36,6 +36,7 @@ def render_excel_laporan_internal(
     arsir_fill = PatternFill(start_color=WARNA_ARSIR, end_color=WARNA_ARSIR, fill_type="solid")
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
     left = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    jam_font = Font(size=8)
     thin = Border(
         left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"),
     )
@@ -63,7 +64,8 @@ def render_excel_laporan_internal(
         baris_berikut = 4
 
     row_header = baris_berikut + 1
-    headers = ["No", "Nama", "Program Studi"] + [str(tanggal.day) for tanggal, _ in jenis_list]
+    label_kolom_instansi = {"dosen": "Program Studi", "tendik": "Unit Kerja"}.get(kategori, "Prodi / Unit Kerja")
+    headers = ["No", "Nama", label_kolom_instansi] + [str(tanggal.day) for tanggal, _ in jenis_list]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=row_header, column=col, value=header)
         cell.font = header_font
@@ -84,7 +86,9 @@ def render_excel_laporan_internal(
         for i, hari in enumerate(baris["hari_grid"]):
             col = 4 + i
             teks = f"{hari.jam_masuk}\n{hari.jam_pulang}" if (hari.jam_masuk or hari.jam_pulang) else ""
-            ws.cell(row=row_num, column=col, value=teks).alignment = center
+            jam_cell = ws.cell(row=row_num, column=col, value=teks)
+            jam_cell.alignment = center
+            jam_cell.font = jam_font
 
         for col in range(1, jumlah_kolom + 1):
             ws.cell(row=row_num, column=col).border = thin
@@ -96,7 +100,7 @@ def render_excel_laporan_internal(
             for row_num in range(row_header + 1, baris_terakhir + 1):
                 ws.cell(row=row_num, column=col).fill = arsir_fill
 
-    col_widths = [5, 24, 14] + [5] * jumlah_hari
+    col_widths = [5, 24, 16] + [5] * jumlah_hari
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 

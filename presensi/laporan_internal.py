@@ -11,9 +11,11 @@ serdos), bukan agregat total jam kerja bulanan.
 from dataclasses import dataclass
 from datetime import date
 
+from django.db import DatabaseError
 from django.utils import timezone
 
 from master.models import Prodi
+from simda_dosen.models import DataTendik
 from simda_dosen.utils import attach_nama_resmi
 from .laporan_serdos import jenis_tanggal_bulan
 from .models import Presensi
@@ -67,11 +69,29 @@ def data_laporan_internal(user_qs, bulan, tahun):
     seperti laporan serdos). `user.nama_resmi` (dari attach_nama_resmi)
     dipakai sebagai nama tampilan -- resolve dari SIMDA (DataDosen/
     DataTendik) supaya akun jabatan/administratif generik (mis. "Dekan
-    Fikom") tidak nongol dengan nama jabatan, bukan nama orang."""
+    Fikom") tidak nongol dengan nama jabatan, bukan nama orang.
+
+    `nama_prodi` dobel fungsi tergantung role: Program Studi untuk dosen
+    (termasuk pejabat struktural, prodi kosong kalau memang tidak
+    tercatat), Unit Kerja untuk tendik (tendik tidak punya kode_prodi
+    sama sekali, jadi kolom yang sama dipakai bareng di laporan supaya
+    tidak perlu kolom terpisah -- lihat _label_kolom_instansi di
+    laporan_internal_pdf.py untuk logika pilih label header)."""
     users = attach_nama_resmi(user_qs.order_by("first_name", "username"))
     jenis_per_tanggal = jenis_tanggal_bulan(bulan, tahun)
 
     prodi_map = {p.kode_prodi: p.nama_prodi for p in Prodi.objects.all()}
+
+    nip_yayasan_set = {u.nip_yayasan for u in users if u.role == "tendik" and u.nip_yayasan}
+    unit_kerja_by_nip = {}
+    if nip_yayasan_set:
+        try:
+            unit_kerja_by_nip = {
+                t.nip_yayasan: t.unit_kerja_nama
+                for t in DataTendik.objects.using("simda").filter(nip_yayasan__in=nip_yayasan_set)
+            }
+        except DatabaseError:
+            pass
 
     presensi_by_user = {}
     for p in Presensi.objects.filter(user__in=users, tanggal__year=tahun, tanggal__month=bulan):
@@ -88,9 +108,13 @@ def data_laporan_internal(user_qs, bulan, tahun):
                 jam_masuk=_format_jam(p.waktu_masuk) if p else "",
                 jam_pulang=_format_jam(p.waktu_pulang) if p else "",
             ))
+        if u.role == "tendik":
+            instansi = unit_kerja_by_nip.get(u.nip_yayasan, "") or ""
+        else:
+            instansi = prodi_map.get(u.kode_prodi, u.kode_prodi or "")
         hasil.append({
             "user": u,
-            "nama_prodi": prodi_map.get(u.kode_prodi, u.kode_prodi or ""),
+            "nama_prodi": instansi,
             "hari_grid": hari_grid,
         })
     return hasil

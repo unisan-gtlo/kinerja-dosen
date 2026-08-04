@@ -26,6 +26,7 @@ from .face import dekripsi_embedding, ekstrak_satu_wajah, enkripsi_embedding, ke
 from .geo import dalam_radius, jarak_meter
 from .laporan_detail import cari_pegawai, detail_presensi_bulanan
 from .laporan_internal import data_laporan_internal, get_user_qs_laporan_internal
+from .laporan_internal_pdf import _label_filter
 from .laporan_serdos import data_laporan_serdos, jenis_tanggal_bulan
 from .models import (
     BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN, EnrolmentWajah, HariLibur, IzinCuti, KelompokPresensi, LogKecurangan,
@@ -2116,6 +2117,72 @@ class DataLaporanInternalTest(TestCase):
         hari_1 = next(h for h in hasil[0]["hari_grid"] if h.tanggal == date(2026, 7, 1))
         self.assertEqual(hari_1.jam_masuk, "")
         self.assertEqual(hari_1.jam_pulang, "")
+
+    @patch("simda_dosen.utils.DataDosen")
+    @patch("simda_dosen.utils.DataTendik")
+    @patch("presensi.laporan_internal.DataTendik")
+    def test_tendik_pakai_unit_kerja_bukan_prodi(self, mock_datatendik_cls, mock_utils_tendik, mock_utils_dosen):
+        # Bug fix 2026-08-05: tendik tidak punya kode_prodi, kolom
+        # "nama_prodi" sebelumnya selalu kosong untuk baris tendik --
+        # sekarang dobel fungsi jadi Unit Kerja (dari SIMDA lewat
+        # nip_yayasan) khusus utk role=tendik. simda_dosen.utils.DataTendik/
+        # DataDosen ikut di-mock (return kosong) karena data_laporan_
+        # internal juga memanggil attach_nama_resmi, yang punya query SIMDA
+        # SENDIRI (referensi modul terpisah dari DataTendik di sini).
+        mock_utils_tendik.objects.using.return_value.filter.return_value = []
+        mock_utils_dosen.objects.using.return_value.filter.return_value = []
+        tendik = User.objects.create_user(
+            username="internaltendik", password="testpass123", role="tendik", nip_yayasan="9900000010",
+        )
+        mock_datatendik_cls.objects.using.return_value.filter.return_value = [
+            MagicMock(nip_yayasan="9900000010", unit_kerja_nama="Administrasi Fakultas Hukum"),
+        ]
+
+        hasil = data_laporan_internal(User.objects.filter(id=tendik.id), self.bulan, self.tahun)
+
+        self.assertEqual(hasil[0]["nama_prodi"], "Administrasi Fakultas Hukum")
+
+    @patch("simda_dosen.utils.DataDosen")
+    @patch("simda_dosen.utils.DataTendik")
+    @patch("presensi.laporan_internal.DataTendik")
+    def test_tendik_database_error_fallback_kosong_bukan_crash(
+        self, mock_datatendik_cls, mock_utils_tendik, mock_utils_dosen,
+    ):
+        # Sama prinsip dengan get_pejabat_aktif/attach_nama_resmi -- kalau
+        # akses SIMDA belum di-grant, laporan tetap render (kolom kosong),
+        # bukan 500.
+        mock_utils_tendik.objects.using.return_value.filter.return_value = []
+        mock_utils_dosen.objects.using.return_value.filter.return_value = []
+        tendik = User.objects.create_user(
+            username="internaltendikerr", password="testpass123", role="tendik", nip_yayasan="9900000011",
+        )
+        mock_datatendik_cls.objects.using.return_value.filter.side_effect = DatabaseError("permission denied")
+
+        hasil = data_laporan_internal(User.objects.filter(id=tendik.id), self.bulan, self.tahun)
+
+        self.assertEqual(hasil[0]["nama_prodi"], "")
+
+
+class LabelFilterTest(TestCase):
+    """_label_filter (laporan_internal_pdf.py, dipakai bareng Laporan
+    Internal & Laporan Bulanan Jam Kerja PDF+Excel) -- bug fix 2026-08-05:
+    dulu langsung menampilkan KODE fakultas/prodi ("Fakultas: FK") alih-
+    alih nama lengkapnya, karena cleaned_data form filter memang berisi
+    kode (nilai dropdown), bukan label."""
+
+    def setUp(self):
+        self.fakultas = Fakultas.objects.create(kode_fakultas="FK", nama_fakultas="Fakultas Kedokteran")
+        self.prodi = Prodi.objects.create(kode_prodi="PSPD", nama_prodi="Pendidikan Dokter", fakultas=self.fakultas)
+
+    def test_fakultas_dan_prodi_pakai_nama_lengkap(self):
+        label = _label_filter("dosen", "FK", "PSPD")
+        self.assertIn("Fakultas: Fakultas Kedokteran", label)
+        self.assertIn("Prodi: Pendidikan Dokter", label)
+        self.assertNotIn("Fakultas: FK", label)
+
+    def test_kode_tidak_ketemu_fallback_ke_kode(self):
+        label = _label_filter("", "XX", "")
+        self.assertIn("Fakultas: XX", label)
 
 
 class LaporanInternalViewTest(TestCase):
