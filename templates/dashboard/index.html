@@ -325,24 +325,44 @@
   }
   .stat-card-tendik .number { font-size: 28px; font-weight: 700; }
   .stat-card-tendik .label { font-size: 13px; font-weight: 600; }
+  .avatar-tendik {
+    width: 70px; height: 70px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.3);
+    object-fit: cover; flex-shrink: 0;
+  }
+  .avatar-placeholder-tendik {
+    width: 70px; height: 70px; border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; color: white; flex-shrink: 0;
+  }
 </style>
 
 <div class="row g-3 mb-3">
   <div class="col-12">
-    <div class="welcome-card-tendik">
-      <div class="mb-2" style="font-size:13px; opacity:0.8">
-        <span class="ti ti-calendar me-1"></span> {% now "j F Y" %}
+    <div class="welcome-card-tendik d-flex align-items-center gap-3">
+      {% if tendik_profil and tendik_profil.foto %}
+      <img src="{{ tendik_profil.foto.url }}" class="avatar-tendik" alt="Foto">
+      {% else %}
+      <div class="avatar-placeholder-tendik">
+        <span class="ti ti-user"></span>
       </div>
-      <h2 style="color:#ffffff !important; font-size:24px; font-weight:700; margin-bottom:4px;">
-        Selamat Datang, {{ tendik_profil.nama_lengkap|default:request.user.get_full_name|default:request.user.username }}!
-      </h2>
-      <p style="color:rgba(255,255,255,0.8); font-size:13px; margin-bottom:0">
-        {% if tendik_profil %}
-          {{ tendik_profil.jabatan|default:"" }}{% if tendik_profil.jabatan and tendik_profil.unit_kerja_nama %} &middot; {% endif %}{{ tendik_profil.unit_kerja_nama }}
-        {% else %}
-          Data belum tertaut ke SIMDA -- hubungi admin untuk memastikan NIP Yayasan sudah sesuai.
-        {% endif %}
-      </p>
+      {% endif %}
+      <div>
+        <div class="mb-2" style="font-size:13px; opacity:0.8">
+          <span class="ti ti-calendar me-1"></span> {% now "j F Y" %}
+        </div>
+        <h2 style="color:#ffffff !important; font-size:24px; font-weight:700; margin-bottom:4px;">
+          Selamat Datang, {{ tendik_profil.nama_lengkap|default:request.user.get_full_name|default:request.user.username }}!
+        </h2>
+        <p style="color:rgba(255,255,255,0.8); font-size:13px; margin-bottom:0">
+          {% if tendik_profil %}
+            {{ tendik_profil.jabatan|default:"" }}{% if tendik_profil.jabatan and tendik_profil.unit_kerja_nama %} &middot; {% endif %}{{ tendik_profil.unit_kerja_nama }}
+          {% else %}
+            Data belum tertaut ke SIMDA -- hubungi admin untuk memastikan NIP Yayasan sudah sesuai.
+          {% endif %}
+        </p>
+      </div>
     </div>
   </div>
 </div>

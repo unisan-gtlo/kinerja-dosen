@@ -1,3 +1,5 @@
+from unittest.mock import Mock, patch
+
 from django.test import TestCase
 from django.utils import timezone
 
@@ -26,6 +28,32 @@ class DashboardTendikTest(TestCase):
         self.assertIn("rekap_bulan_ini", resp.context)
         self.assertIn("tendik_profil", resp.context)
         self.assertIsNone(resp.context["tendik_profil"])
+
+    def test_tanpa_tendik_profil_tampil_placeholder_avatar(self):
+        # tendik_profil None (belum tertaut SIMDA) -- avatar jatuh ke
+        # ikon placeholder, bukan <img> kosong/error.
+        self.client.force_login(self.tendik)
+        resp = self.client.get("/")
+        self.assertContains(resp, "avatar-placeholder-tendik")
+
+    @patch("dashboard.views.get_simda_tendik_or_none")
+    def test_tendik_dengan_foto_tampil_avatar(self, mock_get):
+        # Foto profil di dashboard tendik -- meniru pola avatar Profil
+        # Saya di dashboard dosen (.avatar/.avatar-placeholder). Mock
+        # BIASA (bukan MagicMock) -- MagicMock auto-implementasi
+        # __getitem__ di level class, bikin resolusi variabel Django
+        # ({{ tendik_profil.foto }}) salah ambil dictionary-lookup
+        # duluan dan tidak pernah sampai ke attribute yang di-set manual
+        # (lihat catatan sama di simda_dosen/tests.py::
+        # test_avatar_foto_tampil_di_daftar).
+        tendik_profil = Mock(nama_lengkap="Contoh Tendik", jabatan="Staf", unit_kerja_nama="LP3M")
+        tendik_profil.foto.url = "/media/tendik/foto/contoh.jpg"
+        mock_get.return_value = tendik_profil
+
+        self.client.force_login(self.tendik)
+        resp = self.client.get("/")
+
+        self.assertContains(resp, '<img src="/media/tendik/foto/contoh.jpg" class="avatar-tendik"')
 
     def test_tendik_tidak_lihat_data_tri_dharma(self):
         # Dashboard tendik sengaja tidak set context Tri Dharma sama
