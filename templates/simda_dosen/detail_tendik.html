@@ -14,7 +14,8 @@
       </div>
       {% if mode_diri_sendiri %}
       <div class="text-muted small mt-1">
-        Biodata di atas cuma bisa diubah admin. Isi Riwayat Pendidikan/Pelatihan/Prestasi Anda di bawah.
+        Ubah data pokok Anda di tab "Biodata Saya", dan isi Riwayat Pendidikan/Pelatihan/Prestasi Anda di tab lainnya.
+        Data kepegawaian/jabatan/rekening tetap cuma bisa diubah admin.
       </div>
       {% endif %}
     </div>
@@ -27,7 +28,11 @@
 </div>
 
 <ul class="nav nav-tabs mb-0 flex-nowrap overflow-auto" id="riwayatTendikTab">
-  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-pendidikan">
+  {% if mode_diri_sendiri %}
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-biodata">
+    <span class="ti ti-user me-1"></span>Biodata Saya</a></li>
+  {% endif %}
+  <li class="nav-item"><a class="nav-link {% if not mode_diri_sendiri %}active{% endif %}" data-bs-toggle="tab" href="#tab-pendidikan">
     <span class="ti ti-school me-1"></span>Riwayat Pendidikan <span class="badge bg-blue-lt ms-1">{{ riwayat_pendidikan_list|length }}</span></a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-pelatihan">
     <span class="ti ti-certificate me-1"></span>Riwayat Pelatihan <span class="badge bg-blue-lt ms-1">{{ riwayat_pelatihan_list|length }}</span></a></li>
@@ -37,10 +42,95 @@
 
 <div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
 
+  {% if mode_diri_sendiri %}
+  <!-- ============================================================ -->
+  <!-- TAB BIODATA SAYA (self-service, tidak tampil di view admin) -->
+  <!-- ============================================================ -->
+  <div class="tab-pane fade show active" id="tab-biodata">
+    <form method="post" action="{% url 'simda_dosen:simpan_profil_saya_tendik' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="row g-3">
+        <div class="col-md-3 text-center">
+          <label class="form-label d-block">Foto</label>
+          {% if tendik.foto %}
+          <img src="{{ tendik.foto.url }}" alt="Foto" class="rounded mb-2" style="width:120px; height:120px; object-fit:cover;">
+          {% else %}
+          <div class="rounded mb-2 bg-light d-flex align-items-center justify-content-center mx-auto" style="width:120px; height:120px;">
+            <span class="ti ti-user fs-1 text-muted"></span>
+          </div>
+          {% endif %}
+          {{ form_biodata.foto }}
+        </div>
+        <div class="col-md-9">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Nama Lengkap</label>
+              {{ form_biodata.nama_lengkap }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">NIK</label>
+              {{ form_biodata.nik }}
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Jenis Kelamin</label>
+              {{ form_biodata.jenis_kelamin }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tempat Lahir</label>
+              {{ form_biodata.tempat_lahir }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tanggal Lahir</label>
+              {{ form_biodata.tgl_lahir }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Agama</label>
+              {{ form_biodata.agama_id }}
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">No. HP</label>
+          {{ form_biodata.no_hp }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Email</label>
+          {{ form_biodata.email }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Status Pernikahan</label>
+          {{ form_biodata.status_pernikahan }}
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Alamat Domisili</label>
+          {{ form_biodata.alamat_domisili }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Kode Pos</label>
+          {{ form_biodata.kode_pos }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Bidang Keahlian</label>
+          {{ form_biodata.bidang_keahlian }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">NPWP</label>
+          {{ form_biodata.npwp }}
+        </div>
+      </div>
+      <div class="mt-4">
+        <button type="submit" class="btn btn-primary">
+          <span class="ti ti-device-floppy me-1"></span>Simpan Biodata
+        </button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
   <!-- ============================================================ -->
   <!-- TAB RIWAYAT PENDIDIKAN -->
   <!-- ============================================================ -->
-  <div class="tab-pane fade show active" id="tab-pendidikan">
+  <div class="tab-pane fade {% if not mode_diri_sendiri %}show active{% endif %}" id="tab-pendidikan">
     <div class="card border-0 bg-light mb-4">
       <div class="card-body">
         <h6 class="fw-semibold mb-3">Tambah Riwayat Pendidikan</h6>

@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import (
     DataTendikForm, RiwayatPendidikanTendikForm, RiwayatPelatihanTendikForm, RiwayatPrestasiTendikForm,
+    ProfilSayaTendikForm,
 )
 from .models import (
     DataDosen, DataTendik, MahasiswaPublik, MataKuliahPublik,
@@ -245,11 +246,12 @@ def detail_tendik(request, tendik_id):
 
 @login_required
 def profil_riwayat_saya(request):
-    """Self-service Riwayat Pendidikan/Pelatihan/Prestasi milik sendiri
-    untuk role tendik (2026-08-04) -- biodata TETAP admin-only lewat
-    Kelola Data Tendik (keputusan user), yang dibuka cuma 3 riwayat ini.
-    Dicocokkan ke DataTendik lewat nip_yayasan, sama pola dengan
-    get_simda_dosen_or_none untuk dosen."""
+    """Self-service Biodata Pokok + Riwayat Pendidikan/Pelatihan/Prestasi
+    milik sendiri untuk role tendik (2026-08-04, biodata ditambah
+    2026-08-04 lanjutan) -- field kepegawaian/struktural/bank TETAP
+    admin-only lewat Kelola Data Tendik (lihat DataTendik.SELF_SERVICE_
+    FIELDS untuk batasnya). Dicocokkan ke DataTendik lewat nip_yayasan,
+    sama pola dengan get_simda_dosen_or_none untuk dosen."""
     if request.user.role != 'tendik':
         return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
 
@@ -260,6 +262,7 @@ def profil_riwayat_saya(request):
 
     context = {
         'tendik': tendik,
+        'form_biodata': ProfilSayaTendikForm(instance=tendik),
         'riwayat_pendidikan_list': tendik.riwayat_pendidikan.all(),
         'riwayat_pelatihan_list': tendik.riwayat_pelatihan.all(),
         'riwayat_prestasi_list': tendik.riwayat_prestasi.all(),
@@ -269,6 +272,31 @@ def profil_riwayat_saya(request):
         'mode_diri_sendiri': True,
     }
     return render(request, 'simda_dosen/detail_tendik.html', context)
+
+
+@login_required
+def simpan_profil_saya_tendik(request):
+    """Simpan Biodata Pokok Tendik oleh diri sendiri -- lihat
+    ProfilSayaTendikForm & DataTendik.SELF_SERVICE_FIELDS untuk batas
+    field yang boleh diubah (kepegawaian/struktural/bank TETAP admin-only,
+    ModelForm tidak bisa menyentuhnya apa pun yang dikirim di POST)."""
+    if request.user.role != 'tendik':
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method != 'POST':
+        return redirect('simda_dosen:profil_riwayat_saya')
+
+    tendik = get_simda_tendik_or_none(request.user)
+    if not tendik:
+        messages.error(request, 'NIP Yayasan Anda belum cocok dengan data di SIMDA. Hubungi admin.')
+        return redirect('dashboard:index')
+
+    form = ProfilSayaTendikForm(request.POST, request.FILES, instance=tendik)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'Biodata Anda berhasil diperbarui.')
+    else:
+        messages.error(request, 'Data tidak valid, periksa kembali.')
+    return redirect('simda_dosen:profil_riwayat_saya')
 
 
 # ---- Riwayat Pendidikan ----

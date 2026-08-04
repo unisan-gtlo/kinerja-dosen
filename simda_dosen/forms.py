@@ -174,3 +174,44 @@ class RiwayatPrestasiTendikForm(forms.ModelForm):
             "file_bukti": forms.ClearableFileInput(attrs={"class": "form-control"}),
             "keterangan": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
+
+
+class ProfilSayaTendikForm(forms.ModelForm):
+    """Ubah data pokok Tendik oleh diri sendiri -- halaman "Riwayat Saya"
+    (2026-08-04). Meta.fields SENGAJA persis sama dengan
+    DataTendik.SELF_SERVICE_FIELDS -- ModelForm tidak bisa menyentuh
+    field di luar daftar ini, jadi field kepegawaian/struktural/bank
+    (admin-only) otomatis aman terlepas dari apa yang dikirim di POST."""
+
+    agama_id = forms.TypedChoiceField(
+        coerce=int, required=False, label="Agama", widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    class Meta:
+        model = DataTendik
+        fields = DataTendik.SELF_SERVICE_FIELDS
+        widgets = {
+            "nik": forms.TextInput(attrs={"class": "form-control"}),
+            "nama_lengkap": forms.TextInput(attrs={"class": "form-control"}),
+            "jenis_kelamin": forms.Select(attrs={"class": "form-select"}),
+            "tempat_lahir": forms.TextInput(attrs={"class": "form-control"}),
+            "tgl_lahir": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "no_hp": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "status_pernikahan": forms.TextInput(attrs={"class": "form-control", "placeholder": "mis. Menikah"}),
+            "alamat_domisili": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "kode_pos": forms.TextInput(attrs={"class": "form-control"}),
+            "bidang_keahlian": forms.TextInput(attrs={"class": "form-control"}),
+            "foto": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "npwp": forms.TextInput(attrs={"class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        kosong = [("", "---------")]
+        try:
+            self.fields["agama_id"].choices = kosong + [
+                (a.id, a.nama) for a in AgamaPublik.objects.using("simda").order_by("urutan")
+            ]
+        except DatabaseError:
+            self.fields["agama_id"].choices = kosong

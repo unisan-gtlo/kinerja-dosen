@@ -698,6 +698,21 @@ class DataTendik(models.Model):
     tgl_sk_pengangkatan = models.DateField(null=True, blank=True)
     npwp = models.CharField(max_length=20, blank=True)
 
+    # Field yang boleh diedit tendik sendiri lewat halaman "Riwayat Saya"
+    # (2026-08-04) -- mirror SELF_SERVICE_FIELDS milik DataDosen. Field
+    # kepegawaian/struktural (nip/nip_yayasan/unit_kerja_id/jabatan/
+    # jenis_kepegawaian_id/status_kepegawaian_id/golongan_id/
+    # tgl_mulai_kerja/nama_bank/no_rekening/atas_nama_rekening/
+    # no_sk_pengangkatan/tgl_sk_pengangkatan/is_active/pendidikan_terakhir)
+    # SENGAJA TIDAK diikutkan -- tetap admin-only lewat Kelola Data
+    # Tendik, sama seperti field ADMIN/HR milik DataDosen.
+    SELF_SERVICE_FIELDS = [
+        'nik', 'nama_lengkap', 'jenis_kelamin', 'tempat_lahir', 'tgl_lahir',
+        'no_hp', 'email', 'agama_id', 'status_pernikahan', 'alamat_domisili',
+        'provinsi_domisili_id', 'kabupaten_domisili_id', 'kode_pos',
+        'bidang_keahlian', 'foto', 'npwp',
+    ]
+
     class Meta:
         managed = False
         db_table = 'master"."data_tendik'

@@ -378,3 +378,48 @@ class ProfilRiwayatSayaAksesTest(TestCase):
 
         self.assertEqual(resp.status_code, 302)
         self.assertNotEqual(resp.status_code, 403)
+
+
+class SimpanProfilSayaTendikTest(TestCase):
+    """simpan_profil_saya_tendik -- tendik bisa ubah data pokok sendiri
+    termasuk foto (2026-08-04 lanjutan). Field kepegawaian/struktural/
+    bank TETAP admin-only: ProfilSayaTendikForm.Meta.fields = DataTendik.
+    SELF_SERVICE_FIELDS, jadi field di luar itu tidak pernah tersentuh
+    walau ikut dikirim di POST (bukan cuma diabaikan tampilannya)."""
+
+    def setUp(self):
+        self.tendik_user = User.objects.create_user(
+            username="biodatatendik", password="testpass123", role="tendik", nip_yayasan="2222",
+        )
+        self.dosen = User.objects.create_user(username="biodatadosen", password="testpass123", role="dosen")
+
+    def test_dosen_tidak_bisa_akses(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.post("/simda-dosen/profil-riwayat-saya/simpan/")
+        self.assertEqual(resp.status_code, 403)
+
+    @patch("simda_dosen.views.get_simda_tendik_or_none")
+    def test_nip_yayasan_tidak_cocok_redirect(self, mock_get):
+        mock_get.return_value = None
+        self.client.force_login(self.tendik_user)
+        resp = self.client.post("/simda-dosen/profil-riwayat-saya/simpan/", {"nama_lengkap": "Coba"})
+        self.assertEqual(resp.status_code, 302)
+
+    @patch.object(DataTendik, "save", new=MagicMock())
+    @patch("simda_dosen.forms.AgamaPublik")
+    @patch("simda_dosen.views.get_simda_tendik_or_none")
+    def test_tendik_bisa_ubah_biodata_sendiri_field_admin_tidak_ikut_berubah(self, mock_get, mock_agama):
+        mock_agama.objects.using.return_value.order_by.return_value = []
+        real_tendik = DataTendik(id=7, nama_lengkap="Nama Lama")
+        mock_get.return_value = real_tendik
+
+        self.client.force_login(self.tendik_user)
+        resp = self.client.post("/simda-dosen/profil-riwayat-saya/simpan/", {
+            "nama_lengkap": "Nama Baru", "jenis_kelamin": "L",
+            "unit_kerja_id": "999", "nip": "SIAPAPUN",
+        })
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(real_tendik.nama_lengkap, "Nama Baru")
+        self.assertIsNone(real_tendik.unit_kerja_id)
+        self.assertEqual(real_tendik.nip, "")
