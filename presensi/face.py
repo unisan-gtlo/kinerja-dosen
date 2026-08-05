@@ -13,10 +13,30 @@ skor risiko; kalau nanti dibutuhkan anti-spoof yang lebih kuat, tambahkan
 model anti-spoof ONNX terpisah dan panggil dari sini tanpa mengubah
 pemanggil (presensi/decision.py).
 
+Anti-spoof tahap awal (2026-08-05): `deteksi_spoofing()` di bawah menambah
+2 sinyal klasik berbasis OpenCV/NumPy (BUKAN model ML terpisah -- sengaja
+dipilih supaya tidak perlu mengunduh file model dari luar, dan berjalan
+sama di semua jenis HP karena murni pemrosesan gambar di server):
+- Variansi Laplacian (ketajaman) -- foto hasil re-capture (dicetak atau
+  difoto ulang dari layar HP lain) biasanya kehilangan detail halus
+  dibanding wajah asli langsung di depan kamera.
+- Energi frekuensi tinggi (indikasi pola moire) -- muncul kalau wajah
+  difoto dari LAYAR HP/monitor lain (replay), akibat interferensi grid
+  piksel layar dengan grid sensor kamera.
+Kedua ambang batasnya (`SKOR_KETAJAMAN_*`/`SKOR_MOIRE_*`) BELUM
+dikalibrasi dengan data foto sungguhan -- sama seperti catatan kalibrasi
+SKOR_KEMIRIPAN_MINIMUM di bawah, perlu ditinjau ulang setelah dipakai
+beberapa waktu. Karena belum teruji, ambang "curiga" (bukan "tolak")
+sengaja dibuat jauh lebih longgar -- lihat presensi/decision.py untuk
+bagaimana ini masuk ke skor_risiko (tingkat sedang, ditinjau HR) alih-alih
+langsung menolak presensi yang jujur.
+
 Embedding disimpan TERENKRIPSI (Fernet, kunci di env FIELD_ENCRYPTION_KEY)
 sesuai UU PDP -- lihat presensi/models.py::EnrolmentWajah &
 docs/presensi/kebijakanprivasiconsentbiometrik.md.
 """
+from dataclasses import dataclass
+
 import numpy as np
 from cryptography.fernet import Fernet
 from django.conf import settings
@@ -35,6 +55,22 @@ RASIO_TINGGI_WAJAH_MINIMUM = 0.15
 # saat ini supaya dianggap "wajah yang sama". Nilai awal, perlu dikalibrasi
 # ulang dengan data nyata setelah dipakai beberapa waktu.
 SKOR_KEMIRIPAN_MINIMUM = 0.38
+
+# Ambang anti-spoof tahap awal -- BELUM dikalibrasi dengan data sungguhan
+# (lihat catatan di docstring modul). SENGAJA tidak ada tingkat "tolak
+# langsung" -- foto asli dalam kondisi wajar (cahaya redup, wajah dekat
+# kamera dengan kulit halus, dsb.) bisa saja punya skor ketajaman/moire
+# yang mirip dengan foto rekayasa selama belum dikalibrasi dengan data
+# sungguhan, jadi kalau langsung menolak berisiko salah tolak dosen yang
+# jujur. Presensi yang lewat ambang "CURIGA" ini TETAP DITERIMA, cuma
+# ditandai untuk tinjauan HR (tingkat risiko sedang) -- lihat
+# presensi/decision.py::verifikasi_wajah & presensi/views.py.
+SKOR_KETAJAMAN_CURIGA = 60.0
+# skor_moire = rasio puncak/rata-rata energi frekuensi tinggi -- tekstur
+# kulit/noise wajar diuji berkisar ~3-5, pola periodik (moire sungguhan)
+# diuji berkisar ribuan -- 20 memberi margin aman jauh di atas tekstur
+# wajar, jauh di bawah pola moire nyata.
+SKOR_MOIRE_CURIGA = 20.0
 
 _face_app = None
 
@@ -87,6 +123,84 @@ def ekstrak_satu_wajah(berkas_gambar):
         return None, "liveness_gagal"
 
     return wajah, None
+
+
+def _potong_wajah(gambar, wajah):
+    """Potong region kotak wajah (bbox) dari gambar penuh -- anti-spoof di
+    bawah dianalisis di area wajah saja, bukan seluruh foto (latar
+    belakang tidak relevan dan bisa mengaburkan sinyalnya)."""
+    x1, y1, x2, y2 = [int(v) for v in wajah.bbox]
+    x1, y1 = max(x1, 0), max(y1, 0)
+    x2, y2 = min(x2, gambar.shape[1]), min(y2, gambar.shape[0])
+    return gambar[y1:y2, x1:x2]
+
+
+def skor_ketajaman(potongan_wajah):
+    """Variansi Laplacian (ketajaman) -- foto hasil re-capture (dicetak
+    atau difoto ulang dari layar HP lain) biasanya kehilangan detail halus
+    (pori kulit, kerutan) dibanding wajah asli langsung di depan kamera,
+    variansinya cenderung lebih rendah."""
+    import cv2
+
+    abu = cv2.cvtColor(potongan_wajah, cv2.COLOR_BGR2GRAY)
+    return float(cv2.Laplacian(abu, cv2.CV_64F).var())
+
+
+def skor_moire(potongan_wajah):
+    """Rasio puncak terhadap rata-rata energi frekuensi tinggi (indikasi
+    pola moire) -- muncul kalau wajah difoto dari LAYAR HP/monitor lain
+    (replay), akibat interferensi grid piksel layar dengan grid sensor
+    kamera. Komponen frekuensi rendah (bentuk wajah wajar) dibuang dulu
+    supaya tidak ikut terhitung.
+
+    SENGAJA pakai rasio puncak/rata-rata, BUKAN rata-rata energi mentah --
+    tekstur kulit asli (noise berbutir halus, wajar) juga punya energi
+    frekuensi tinggi yang lumayan besar tapi TERSEBAR RATA di semua
+    frekuensi, sedangkan moire (pola berulang dari grid piksel layar)
+    membentuk beberapa PUNCAK TAJAM yang menonjol jauh di atas baseline-nya
+    -- rasio puncak/rata-rata inilah yang membedakan keduanya, bukan
+    besarnya energi itu sendiri."""
+    import cv2
+
+    abu = cv2.cvtColor(potongan_wajah, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    f = np.fft.fft2(abu)
+    magnitude = np.abs(np.fft.fftshift(f))
+
+    tinggi, lebar = magnitude.shape
+    tengah_y, tengah_x = tinggi // 2, lebar // 2
+    radius_buang = max(min(tinggi, lebar) // 8, 1)
+    magnitude[
+        max(tengah_y - radius_buang, 0):tengah_y + radius_buang,
+        max(tengah_x - radius_buang, 0):tengah_x + radius_buang,
+    ] = 0
+
+    rata_rata = magnitude.mean()
+    if rata_rata < 1e-6:
+        return 0.0
+    return float(magnitude.max() / rata_rata)
+
+
+@dataclass
+class HasilAntiSpoof:
+    dicurigai: bool
+    skor_ketajaman: float
+    skor_moire: float
+
+
+def deteksi_spoofing(gambar, wajah) -> HasilAntiSpoof:
+    """Anti-spoof tahap awal (lihat catatan kalibrasi di docstring modul)
+    -- TIDAK PERNAH menolak presensi, cuma menandai `dicurigai=True` kalau
+    salah satu sinyal (ketajaman atau moire) berada di zona mencurigakan.
+    Pemanggil (presensi/decision.py) yang memutuskan bagaimana `dicurigai`
+    dipakai (masuk skor_risiko tingkat sedang, bukan penolakan)."""
+    potongan = _potong_wajah(gambar, wajah)
+    if potongan.size == 0:
+        return HasilAntiSpoof(False, 0.0, 0.0)
+
+    ketajaman = skor_ketajaman(potongan)
+    moire = skor_moire(potongan)
+    dicurigai = ketajaman < SKOR_KETAJAMAN_CURIGA or moire > SKOR_MOIRE_CURIGA
+    return HasilAntiSpoof(dicurigai, ketajaman, moire)
 
 
 def rata_rata_embedding(daftar_embedding):

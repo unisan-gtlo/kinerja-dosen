@@ -13,7 +13,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
 
-from .face import SKOR_KEMIRIPAN_MINIMUM, dekripsi_embedding, ekstrak_satu_wajah, kemiripan_kosinus
+from .face import (
+    SKOR_KEMIRIPAN_MINIMUM, _baca_gambar, dekripsi_embedding, deteksi_spoofing, ekstrak_satu_wajah,
+    kemiripan_kosinus,
+)
 from .geo import jarak_meter
 from .models import EnrolmentWajah, HariLibur, KelompokPresensi, LokasiKantor, StatusPresensi
 
@@ -134,6 +137,11 @@ class HasilCekWajah:
     lolos: bool
     alasan: Optional[str]
     skor_kemiripan: Optional[float]
+    # Anti-spoof tahap awal (presensi/face.py::deteksi_spoofing) -- TIDAK
+    # PERNAH menggagalkan `lolos` (lihat catatan kalibrasi di face.py),
+    # cuma sinyal tambahan untuk pemanggil (presensi/views.py) menaikkan
+    # skor_risiko & menandai presensi untuk tinjauan HR, bukan menolaknya.
+    dicurigai_spoof: bool = False
 
 
 def verifikasi_wajah(user, berkas_selfie) -> HasilCekWajah:
@@ -147,10 +155,13 @@ def verifikasi_wajah(user, berkas_selfie) -> HasilCekWajah:
     if wajah is None:
         return HasilCekWajah(False, alasan, None)
 
+    gambar = _baca_gambar(berkas_selfie)
+    hasil_spoof = deteksi_spoofing(gambar, wajah)
+
     embedding_tersimpan = dekripsi_embedding(bytes(enrolment.embedding_terenkripsi))
     skor = kemiripan_kosinus(embedding_tersimpan, wajah.embedding)
 
     if skor < SKOR_KEMIRIPAN_MINIMUM:
-        return HasilCekWajah(False, "wajah_tidak_cocok", skor)
+        return HasilCekWajah(False, "wajah_tidak_cocok", skor, hasil_spoof.dicurigai)
 
-    return HasilCekWajah(True, None, skor)
+    return HasilCekWajah(True, None, skor, hasil_spoof.dicurigai)

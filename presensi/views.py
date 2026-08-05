@@ -804,6 +804,12 @@ def putuskan_izin(request, izin_id):
 # tapi tidak nol, sisakan ruang untuk sinyal tambahan (QR/Wi-Fi) nanti.
 SKOR_RISIKO_TERVERIFIKASI = 8
 
+# Skor risiko kalau anti-spoof (presensi/face.py::deteksi_spoofing) curiga
+# -- presensi TETAP DITERIMA (bukan ditolak, lihat catatan kalibrasi di
+# face.py), tapi masuk tingkat_risiko SEDANG & ditandai untuk tinjauan HR
+# alih-alih otomatis sah.
+SKOR_RISIKO_DICURIGAI_SPOOF = 45
+
 # Skor risiko dicatat ke LogKecurangan per jenis alasan gagal. Alasan yang
 # TIDAK ada di sini (mis. "belum_enrolment_wajah", "foto_tidak_valid") sengaja
 # tidak dicatat sebagai kecurangan -- itu soal kesiapan data, bukan indikasi
@@ -841,22 +847,33 @@ def _respon_ditolak(alasan):
 
 def _jalankan_gerbang(user, data, presensi=None):
     """Gerbang-DAN: cek_lokasi lalu (kalau lolos) verifikasi_wajah. Return
-    (hasil_lokasi, None) kalau dua-duanya lolos, atau (None, Response) kalau
-    salah satu gagal -- lihat presensi/decision.py."""
+    (hasil_lokasi, hasil_wajah, None) kalau dua-duanya lolos, atau
+    (None, None, Response) kalau salah satu gagal -- lihat presensi/decision.py.
+    `hasil_wajah` diteruskan ke pemanggil (bukan cuma dibuang) supaya
+    `hasil_wajah.dicurigai_spoof` bisa dipakai menentukan skor_risiko/
+    ditandai presensi (lihat SKOR_RISIKO_DICURIGAI_SPOOF)."""
     hasil_lokasi = cek_lokasi(data["lat"], data["lng"], data["akurasi_m"])
     if not hasil_lokasi.lolos:
         _catat_jika_anomali(
             user, presensi, hasil_lokasi.alasan,
             {"lat": data["lat"], "lng": data["lng"], "akurasi_m": data["akurasi_m"]},
         )
-        return None, _respon_ditolak(hasil_lokasi.alasan)
+        return None, None, _respon_ditolak(hasil_lokasi.alasan)
 
     hasil_wajah = verifikasi_wajah(user, data["selfie"])
     if not hasil_wajah.lolos:
         _catat_jika_anomali(user, presensi, hasil_wajah.alasan, {"skor_kemiripan": hasil_wajah.skor_kemiripan})
-        return None, _respon_ditolak(hasil_wajah.alasan)
+        return None, None, _respon_ditolak(hasil_wajah.alasan)
 
-    return hasil_lokasi, None
+    return hasil_lokasi, hasil_wajah, None
+
+
+def _skor_risiko_dari_wajah(hasil_wajah):
+    """Petakan hasil verifikasi_wajah (khususnya dicurigai_spoof) ke
+    (skor_risiko, tingkat_risiko, ditandai) presensi yang diterima."""
+    if hasil_wajah.dicurigai_spoof:
+        return SKOR_RISIKO_DICURIGAI_SPOOF, TingkatRisiko.SEDANG, True
+    return SKOR_RISIKO_TERVERIFIKASI, TingkatRisiko.RENDAH, False
 
 
 class AbsenMasukView(APIView):
@@ -880,7 +897,7 @@ class AbsenMasukView(APIView):
 
         _catat_perangkat(user, data["device_id"], waktu_server)
 
-        hasil_lokasi, response_gagal = _jalankan_gerbang(user, data)
+        hasil_lokasi, hasil_wajah, response_gagal = _jalankan_gerbang(user, data)
         if response_gagal is not None:
             return response_gagal
 
@@ -891,6 +908,7 @@ class AbsenMasukView(APIView):
         menit_lebih_awal, menit_terlambat = hitung_ketepatan_masuk(
             hasil_lokasi.lokasi, waktu_server.time(), kelompok=kelompok, tanggal=tanggal,
         )
+        skor_risiko, tingkat_risiko, ditandai = _skor_risiko_dari_wajah(hasil_wajah)
 
         presensi, _ = Presensi.objects.update_or_create(
             user=user, tanggal=tanggal,
@@ -906,9 +924,9 @@ class AbsenMasukView(APIView):
                 "status": status_kehadiran,
                 "menit_lebih_awal": menit_lebih_awal,
                 "menit_terlambat": menit_terlambat,
-                "skor_risiko": SKOR_RISIKO_TERVERIFIKASI,
-                "tingkat_risiko": TingkatRisiko.RENDAH,
-                "ditandai": False,
+                "skor_risiko": skor_risiko,
+                "tingkat_risiko": tingkat_risiko,
+                "ditandai": ditandai,
             },
         )
 
@@ -951,7 +969,7 @@ class AbsenPulangView(APIView):
 
         _catat_perangkat(user, data["device_id"], waktu_server)
 
-        hasil_lokasi, response_gagal = _jalankan_gerbang(user, data, presensi=presensi)
+        hasil_lokasi, hasil_wajah, response_gagal = _jalankan_gerbang(user, data, presensi=presensi)
         if response_gagal is not None:
             return response_gagal
 
@@ -978,6 +996,13 @@ class AbsenPulangView(APIView):
         if menit_lembur > BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN:
             presensi.keterangan_lembur = keterangan_lembur
             presensi.status_lembur = StatusApprovalLembur.MENUNGGU
+        if hasil_wajah.dicurigai_spoof:
+            # Selfie absen pulang JUGA dicek anti-spoof -- naikkan/pertahankan
+            # penandaan kalau mencurigakan, jangan turunkan penandaan yang
+            # sudah ada dari absen masuk paginya.
+            presensi.skor_risiko = max(presensi.skor_risiko, SKOR_RISIKO_DICURIGAI_SPOOF)
+            presensi.tingkat_risiko = TingkatRisiko.SEDANG
+            presensi.ditandai = True
         presensi.save()
 
         return Response({

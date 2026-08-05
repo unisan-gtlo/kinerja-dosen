@@ -22,7 +22,10 @@ from .decision import (
     HasilCekWajah, hitung_ketepatan_masuk, hitung_ketepatan_pulang, resolve_kelompok, tentukan_status_waktu,
     verifikasi_wajah,
 )
-from .face import dekripsi_embedding, ekstrak_satu_wajah, enkripsi_embedding, kemiripan_kosinus
+from .face import (
+    SKOR_MOIRE_CURIGA, dekripsi_embedding, deteksi_spoofing, ekstrak_satu_wajah, enkripsi_embedding,
+    kemiripan_kosinus, skor_moire,
+)
 from .geo import dalam_radius, jarak_meter
 from .laporan_detail import cari_pegawai, detail_presensi_bulanan
 from .laporan_internal import data_laporan_internal, get_user_qs_laporan_internal
@@ -38,6 +41,7 @@ from .rekap import (
     top_telat_hari_ini, tren_mingguan,
 )
 from .utils import get_dosen_by_nidn, get_dosen_serdos_qs
+from .views import SKOR_RISIKO_TERVERIFIKASI
 
 
 def _foto_palsu(nama="selfie.jpg"):
@@ -174,7 +178,13 @@ class VerifikasiWajahTest(TestCase):
 
     @patch("presensi.decision.ekstrak_satu_wajah")
     def test_wajah_cocok_lolos(self, mock_ekstrak):
-        mock_ekstrak.return_value = (SimpleNamespace(embedding=self.embedding_asli), None)
+        # bbox wajib -- verifikasi_wajah sekarang juga memanggil
+        # deteksi_spoofing(gambar, wajah) yang butuh wajah.bbox untuk
+        # memotong region wajah (lihat DeteksiSpoofingTest untuk test
+        # anti-spoof-nya sendiri; di sini yang diuji murni gerbang lolos).
+        mock_ekstrak.return_value = (
+            SimpleNamespace(embedding=self.embedding_asli, bbox=[10, 10, 90, 90]), None,
+        )
         hasil = verifikasi_wajah(self.user, _foto_palsu())
         self.assertTrue(hasil.lolos)
         self.assertGreater(hasil.skor_kemiripan, 0.9)
@@ -182,10 +192,54 @@ class VerifikasiWajahTest(TestCase):
     @patch("presensi.decision.ekstrak_satu_wajah")
     def test_wajah_tidak_cocok_gagal(self, mock_ekstrak):
         embedding_beda = np.array([0.0, 1.0, 0.0], dtype=np.float32)
-        mock_ekstrak.return_value = (SimpleNamespace(embedding=embedding_beda), None)
+        mock_ekstrak.return_value = (
+            SimpleNamespace(embedding=embedding_beda, bbox=[10, 10, 90, 90]), None,
+        )
         hasil = verifikasi_wajah(self.user, _foto_palsu())
         self.assertFalse(hasil.lolos)
         self.assertEqual(hasil.alasan, "wajah_tidak_cocok")
+
+
+class DeteksiSpoofingTest(TestCase):
+    """presensi.face.deteksi_spoofing -- anti-spoof tahap awal (2026-08-05).
+    TIDAK PERNAH menolak presensi (lihat catatan kalibrasi di face.py),
+    cuma menandai `dicurigai=True` untuk ditinjau HR. Diuji dengan gambar
+    sintetis (bukan foto sungguhan) supaya deterministik: gambar polos
+    (mensimulasikan foto rekayasa/replay ekstrem) HARUS dicurigai, gambar
+    bertekstur wajar (mensimulasikan kulit asli) TIDAK BOLEH dicurigai,
+    pola periodik (mensimulasikan moire dari layar HP) HARUS dicurigai."""
+
+    def setUp(self):
+        self.wajah = SimpleNamespace(bbox=[20, 20, 180, 180])
+
+    def test_gambar_polos_dicurigai(self):
+        gambar = np.full((200, 200, 3), 120, dtype=np.uint8)
+        hasil = deteksi_spoofing(gambar, self.wajah)
+        self.assertTrue(hasil.dicurigai)
+
+    def test_gambar_bertekstur_wajar_tidak_dicurigai(self):
+        rng = np.random.default_rng(42)
+        gambar = np.clip(120 + rng.normal(0, 8, (200, 200, 3)), 0, 255).astype(np.uint8)
+        hasil = deteksi_spoofing(gambar, self.wajah)
+        self.assertFalse(hasil.dicurigai)
+
+    def test_pola_periodik_moire_dicurigai(self):
+        x = np.arange(200)
+        garis = (np.sin(x * 3) * 127 + 128).astype(np.uint8)
+        gambar = np.stack([np.tile(garis, (200, 1))] * 3, axis=-1)
+        hasil = deteksi_spoofing(gambar, self.wajah)
+        self.assertTrue(hasil.dicurigai)
+        self.assertGreater(hasil.skor_moire, SKOR_MOIRE_CURIGA)
+
+    def test_skor_moire_noise_jauh_di_bawah_ambang(self):
+        """Noise acak (BUKAN pola periodik) juga punya energi frekuensi
+        tinggi yang besar -- pastikan skor_moire (rasio puncak/rata-rata)
+        tidak salah anggap noise kasar sebagai moire, beda dari bug awal
+        yang sempat pakai rata-rata energi mentah (selalu tinggi utk noise)."""
+        rng = np.random.default_rng(7)
+        gambar = rng.integers(0, 255, (200, 200, 3), dtype=np.uint8)
+        skor = skor_moire(gambar[20:180, 20:180])
+        self.assertLess(skor, SKOR_MOIRE_CURIGA)
 
 
 class PresensiUniqueTogetherTest(TestCase):
@@ -595,6 +649,21 @@ class AbsenMasukAPITest(APITestCase):
         self.assertFalse(presensi.ditandai)
         self.assertEqual(presensi.tingkat_risiko, TingkatRisiko.RENDAH)
 
+    @patch("presensi.views.verifikasi_wajah")
+    def test_wajah_dicurigai_spoof_tetap_diterima_tapi_ditandai_sedang(self, mock_verifikasi):
+        """Anti-spoof tahap awal (2026-08-05) -- kalau dicurigai_spoof=True,
+        presensi TETAP diterima (bukan ditolak, lihat catatan kalibrasi di
+        face.py), tapi ditandai untuk tinjauan HR dengan tingkat risiko
+        sedang, bukan otomatis sah seperti kasus normal."""
+        mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95, dicurigai_spoof=True)
+        resp = self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data["diterima"])
+        presensi = Presensi.objects.get(user=self.user)
+        self.assertTrue(presensi.ditandai)
+        self.assertEqual(presensi.tingkat_risiko, TingkatRisiko.SEDANG)
+        self.assertGreater(presensi.skor_risiko, SKOR_RISIKO_TERVERIFIKASI)
+
     def test_di_luar_radius_ditolak_dan_dicatat_kecurangan(self):
         # Gerbang berhenti di cek lokasi -- verifikasi_wajah tidak perlu di-mock.
         resp = self.client.post("/api/presensi/masuk", _payload_absen(lat=0.01), format="multipart")
@@ -707,6 +776,26 @@ class AbsenPulangAPITest(APITestCase):
         self.assertTrue(
             Presensi.objects.filter(user=self.user, waktu_pulang__isnull=False).exists()
         )
+
+    @patch("presensi.views.verifikasi_wajah")
+    @patch("presensi.views.timezone.now")
+    def test_pulang_dicurigai_spoof_menandai_presensi(self, mock_now, mock_verifikasi):
+        """Anti-spoof tahap awal (2026-08-05) -- selfie absen PULANG yang
+        dicurigai juga menandai presensi (bukan cuma absen masuk), tanpa
+        mengubah waktu_pulang yang sudah dicatat."""
+        mock_now.return_value = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 0)))
+        mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95)
+        self.client.post("/api/presensi/masuk", _payload_absen(), format="multipart")
+
+        mock_now.return_value = timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 30)))
+        mock_verifikasi.return_value = HasilCekWajah(True, None, 0.95, dicurigai_spoof=True)
+        resp = self.client.post("/api/presensi/pulang", _payload_absen(), format="multipart")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data["diterima"])
+        presensi = Presensi.objects.get(user=self.user)
+        self.assertTrue(presensi.ditandai)
+        self.assertEqual(presensi.tingkat_risiko, TingkatRisiko.SEDANG)
 
     @patch("presensi.views.verifikasi_wajah")
     @patch("presensi.views.timezone.now")
