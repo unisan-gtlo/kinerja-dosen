@@ -351,7 +351,7 @@ class TambahTendikUnitKerjaBaruTest(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(username="unitkerjabaruadmin", password="testpass123", role="admin")
         self.client = Client()
-        self.client.login(username="unitkerjabaruadmin", password="testpass123")
+        self.client.force_login(self.admin)
 
     @patch("simda_dosen.views.get_or_create_unit_kerja")
     @patch("simda_dosen.forms.UnitKerja")

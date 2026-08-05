@@ -45,7 +45,7 @@ class TambahOrasiIlmiahAksesTest(TestCase):
         self.client = Client()
 
     def _post(self, user, dosen_id=None):
-        self.client.login(username=user.username, password="testpass123")
+        self.client.force_login(user)
         data = {"judul_orasi": "Contoh Orasi"}
         if dosen_id is not None:
             data["dosen_id"] = dosen_id

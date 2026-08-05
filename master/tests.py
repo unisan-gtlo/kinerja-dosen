@@ -40,7 +40,7 @@ class SimpanPengaturanUrlTemplateTest(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(username="masteradmin", password="testpass123", role="admin")
         self.client = Client()
-        self.client.login(username="masteradmin", password="testpass123")
+        self.client.force_login(self.admin)
 
     def test_admin_bisa_ubah_template_sinta(self):
         self.client.post(reverse("master:simpan_pengaturan"), {

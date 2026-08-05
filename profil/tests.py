@@ -44,7 +44,7 @@ class TambahDokumenLainAksesTest(TestCase):
         self.client = Client()
 
     def _post(self, user, dosen_id=None):
-        self.client.login(username=user.username, password="testpass123")
+        self.client.force_login(user)
         data = {"jenis_dokumen": "lainnya", "nama_dokumen": "Contoh Dokumen"}
         if dosen_id is not None:
             data["dosen_id"] = dosen_id
@@ -74,7 +74,7 @@ class TambahDokumenLainAksesTest(TestCase):
         """Sebelum fix, dosen_id di GET query string dibaca oleh
         _dokumen_target_user() terlepas dari body POST -- pastikan
         exploit ini sudah tidak berfungsi."""
-        self.client.login(username=self.dekan_feb.username, password="testpass123")
+        self.client.force_login(self.dekan_feb)
         url = reverse("profil:tambah_dokumen_lain") + f"?dosen_id={self.dosen_ft.id}"
         self.client.post(url, {"jenis_dokumen": "lainnya", "nama_dokumen": "Exploit"})
         self.assertEqual(DokumenLain.objects.filter(user=self.dosen_ft).count(), 0)
@@ -106,7 +106,7 @@ class TambahJabfungAksesTest(TestCase):
         self.client = Client()
 
     def _post(self, user, dosen_id=None):
-        self.client.login(username=user.username, password="testpass123")
+        self.client.force_login(user)
         data = {"jabatan_fungsional_id": "1"}
         if dosen_id is not None:
             data["dosen_id"] = dosen_id

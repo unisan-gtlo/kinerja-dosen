@@ -30,7 +30,7 @@ class TambahBkdAksesTest(TestCase):
         self.client = Client()
 
     def _post(self, user, dosen_id=None):
-        self.client.login(username=user.username, password="testpass123")
+        self.client.force_login(user)
         data = {"periode_id": "1"}
         if dosen_id is not None:
             data["dosen_id"] = dosen_id

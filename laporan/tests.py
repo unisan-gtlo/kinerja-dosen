@@ -67,7 +67,7 @@ class ExportRekapNamaSimdaTest(TestCase):
             kode_fakultas="FT", kode_prodi="TI",
         )
         self.client = Client()
-        self.client.login(username="admin_rekap_export", password="testpass123")
+        self.client.force_login(self.admin)
 
     def _mock_profil(self):
         profil = MagicMock(
@@ -140,7 +140,7 @@ class ExportExcelStatistikProfilBucketingTest(TestCase):
             username="admin_statistik_profil", password="testpass123", role="admin",
         )
         self.client = Client()
-        self.client.login(username="admin_statistik_profil", password="testpass123")
+        self.client.force_login(self.admin)
         self.fakultas = Fakultas.objects.create(kode_fakultas="FT", nama_fakultas="Fakultas Teknik")
         Prodi.objects.create(kode_prodi="TI", nama_prodi="Teknik Informatika", fakultas=self.fakultas)
 
@@ -190,27 +190,27 @@ class StatistikExportAksesTest(TestCase):
         self.client = Client()
 
     def test_dosen_ditolak_statistik_kinerja(self):
-        self.client.login(username="dosen_statistik", password="testpass123")
+        self.client.force_login(self.dosen)
         response = self.client.get(reverse("laporan:excel_statistik_kinerja"))
         self.assertEqual(response.status_code, 403)
 
     def test_dekan_ditolak_statistik_kinerja(self):
-        self.client.login(username="dekan_statistik", password="testpass123")
+        self.client.force_login(self.dekan)
         response = self.client.get(reverse("laporan:excel_statistik_kinerja"))
         self.assertEqual(response.status_code, 403)
 
     def test_dosen_ditolak_statistik_profil(self):
-        self.client.login(username="dosen_statistik", password="testpass123")
+        self.client.force_login(self.dosen)
         response = self.client.get(reverse("laporan:excel_statistik_profil"))
         self.assertEqual(response.status_code, 403)
 
     def test_rektorat_diterima_statistik_kinerja(self):
-        self.client.login(username="rektorat_statistik", password="testpass123")
+        self.client.force_login(self.rektorat)
         response = self.client.get(reverse("laporan:excel_statistik_kinerja"))
         self.assertEqual(response.status_code, 200)
 
     def test_admin_diterima_statistik_profil(self):
-        self.client.login(username="admin_statistik", password="testpass123")
+        self.client.force_login(self.admin)
         response = self.client.get(reverse("laporan:excel_statistik_profil"))
         self.assertEqual(response.status_code, 200)
 
@@ -243,27 +243,27 @@ class ExportPdfDosenAksesTest(TestCase):
     @patch("laporan.views.get_simda_dosen_or_none")
     def test_dekan_beda_fakultas_ditolak(self, mock_profil_fn):
         mock_profil_fn.return_value = None
-        self.client.login(username="dekan_feb_pdfdosen", password="testpass123")
+        self.client.force_login(self.dekan_feb)
         response = self.client.get(reverse("laporan:pdf_dosen", args=[self.dosen_ft.id]))
         self.assertEqual(response.status_code, 403)
 
     @patch("laporan.views.get_simda_dosen_or_none")
     def test_tendik_ditolak(self, mock_profil_fn):
         mock_profil_fn.return_value = None
-        self.client.login(username="tendik_pdfdosen", password="testpass123")
+        self.client.force_login(self.tendik)
         response = self.client.get(reverse("laporan:pdf_dosen", args=[self.dosen_ft.id]))
         self.assertEqual(response.status_code, 403)
 
     @patch("laporan.views.get_simda_dosen_or_none")
     def test_dekan_fakultas_sama_diterima(self, mock_profil_fn):
         mock_profil_fn.return_value = None
-        self.client.login(username="dekan_ft_pdfdosen", password="testpass123")
+        self.client.force_login(self.dekan_ft)
         response = self.client.get(reverse("laporan:pdf_dosen", args=[self.dosen_ft.id]))
         self.assertEqual(response.status_code, 200)
 
     @patch("laporan.views.get_simda_dosen_or_none")
     def test_dosen_lihat_diri_sendiri_diterima(self, mock_profil_fn):
         mock_profil_fn.return_value = None
-        self.client.login(username="dosen_ft_pdfdosen", password="testpass123")
+        self.client.force_login(self.dosen_ft)
         response = self.client.get(reverse("laporan:pdf_dosen", args=[self.dosen_ft.id]))
         self.assertEqual(response.status_code, 200)
