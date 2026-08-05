@@ -46,7 +46,12 @@ class TambahOrasiIlmiahAksesTest(TestCase):
 
     def _post(self, user, dosen_id=None):
         self.client.force_login(user)
-        data = {"judul_orasi": "Contoh Orasi"}
+        # tanggal wajib diisi -- OrasiIlmiah.tanggal DateField() NOT NULL
+        # tanpa default. Sebelum fix force_login (lihat CLAUDE.md), test
+        # ini tidak pernah benar-benar mencapai OrasiIlmiah.objects.create()
+        # (client.login() sudah gagal duluan karena django-axes), jadi
+        # celah data test ini baru ketahuan sekarang.
+        data = {"judul_orasi": "Contoh Orasi", "tanggal": "2024-01-15"}
         if dosen_id is not None:
             data["dosen_id"] = dosen_id
         return self.client.post(reverse("pendidikan:tambah_orasi_ilmiah"), data)
