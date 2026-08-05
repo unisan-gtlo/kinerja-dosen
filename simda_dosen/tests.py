@@ -3,7 +3,7 @@ tersedia saat test, jadi query ke sana di-mock (pola sama dengan
 GetPejabatAktifTest/GetDosenByNidnTest di presensi/tests.py)."""
 import datetime
 import io
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, NonCallableMagicMock, patch
 
 from PIL import Image
 
@@ -457,10 +457,14 @@ class CompressUploadedFileWiringTest(TestCase):
     def test_tambah_riwayat_pendidikan_kompres_file_ijazah(self, mock_datatendik_cls, mock_get, mock_compress):
         mock_qs = MagicMock(spec=["get", "filter", "all", "order_by"])
         mock_datatendik_cls.objects.using.return_value = mock_qs
-        # spec=DataTendik wajib -- riwayat.tendik = tendik (views.py) divalidasi
-        # isinstance() oleh descriptor ForeignKey Django, MagicMock polos
-        # gagal isinstance-nya (ValueError "must be a DataTendik instance").
-        mock_qs.get.return_value = MagicMock(spec=DataTendik, id=5)
+        # Instance DataTendik SUNGGUHAN (bukan Mock/MagicMock) -- riwayat.tendik
+        # = tendik (views.py) divalidasi ForeignKey descriptor Django lewat
+        # isinstance() DAN value._state.db, keduanya cuma dipenuhi instance
+        # model asli (unsaved, tidak menyentuh DB -- managed=False lagipula).
+        # MagicMock(spec=DataTendik) SEMPAT dicoba: lolos isinstance() tapi
+        # spec membatasi akses ._state (bukan atribut level-class DataTendik,
+        # cuma di-set Model.__init__) jadi AttributeError.
+        mock_qs.get.return_value = DataTendik(id=5)
         mock_get.return_value = MagicMock(id=5)
         mock_compress.return_value = "hasil-kompres"
 
@@ -506,18 +510,26 @@ class ProfilRiwayatSayaAksesTest(TestCase):
         # view mengisi dropdown agama lewat query 'simda' sungguhan kalau
         # tidak di-mock (DatabaseOperationForbidden di test).
         mock_agama.objects.using.return_value.order_by.return_value = []
-        # MagicMock(spec=DataTendik), BUKAN Mock polos -- view ini juga
-        # membangun ProfilSayaTendikForm(instance=tendik), dan ModelForm
-        # internal (model_to_dict) butuh instance._meta.concrete_fields
-        # dkk bisa di-iterasi (Mock polos: "TypeError: 'Mock' object is
-        # not iterable"; MagicMock tanpa spec: __getitem__ ikut ter-emulasi
-        # otomatis, membuat template {% url ... tendik.id %} salah jalur
-        # ke dict-lookup). spec=DataTendik membatasi dunder method yang
-        # dimiliki MagicMock ke yang benar-benar ada di model (Django
-        # model TIDAK mendefinisikan __getitem__), jadi kedua masalah
-        # sekaligus teratasi -- lihat catatan bug MagicMock lain di
-        # test_admin_bisa_buka_detail_tendik/CLAUDE.md.
-        mock_tendik = MagicMock(
+        # NonCallableMagicMock(spec=DataTendik) -- 3 lapis masalah yang
+        # ditemukan berurutan saat verifikasi VPS:
+        # (1) Mock polos: ProfilSayaTendikForm(instance=tendik) crash
+        #     ("'Mock' object is not iterable") -- model_to_dict butuh
+        #     instance._meta.concrete_fields dkk bisa di-chain/iterasi.
+        # (2) MagicMock TANPA spec: __getitem__ ikut ter-emulasi otomatis,
+        #     membuat template {% url ... tendik.id %} salah jalur ke
+        #     dict-lookup (root cause sama dgn test_admin_bisa_buka_
+        #     detail_tendik).
+        # (3) MagicMock(spec=DataTendik) BIASA (masih CALLABLE): spec=
+        #     dengan CLASS (bukan instance) tidak menghilangkan __call__
+        #     bawaan Mock -- Django template engine memanggil "current()"
+        #     kalau hasil resolve suatu bit callable (asumsi method), jadi
+        #     `tendik.id` sempat resolve ke `tendik().id` alih-alih
+        #     `tendik.id` langsung, dan `tendik()` (return_value) TIDAK
+        #     ikut ter-spec (unspecced MagicMock, __getitem__ balik lagi).
+        # NonCallableMagicMock menghilangkan __call__ (poin 3) sekaligus
+        # tetap emulasi magic method sesuai spec (poin 1 & 2) -- solusi
+        # tunggal utk ketiganya, diverifikasi lokal sebelum push.
+        mock_tendik = NonCallableMagicMock(
             spec=DataTendik, id=5, nama_lengkap="Contoh Tendik", jabatan="Staf",
             unit_kerja_nama="TU", nip_yayasan="1111",
         )
@@ -555,10 +567,9 @@ class ProfilRiwayatSayaAksesTest(TestCase):
     def test_tendik_bisa_tambah_riwayat_milik_sendiri(self, mock_datatendik_cls, mock_get):
         mock_qs = MagicMock(spec=["get", "filter", "all", "order_by"])
         mock_datatendik_cls.objects.using.return_value = mock_qs
-        # spec=DataTendik wajib -- riwayat.tendik = tendik (views.py) divalidasi
-        # isinstance() oleh descriptor ForeignKey Django, MagicMock polos
-        # gagal isinstance-nya (ValueError "must be a DataTendik instance").
-        mock_qs.get.return_value = MagicMock(spec=DataTendik, id=5)
+        # Instance DataTendik SUNGGUHAN (bukan Mock/MagicMock) -- lihat
+        # catatan lengkap di test_tambah_riwayat_pendidikan_kompres_file_ijazah.
+        mock_qs.get.return_value = DataTendik(id=5)
         mock_get.return_value = MagicMock(id=5)
 
         self.client.force_login(self.tendik_user)
