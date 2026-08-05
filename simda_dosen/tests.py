@@ -506,11 +506,19 @@ class ProfilRiwayatSayaAksesTest(TestCase):
         # view mengisi dropdown agama lewat query 'simda' sungguhan kalau
         # tidak di-mock (DatabaseOperationForbidden di test).
         mock_agama.objects.using.return_value.order_by.return_value = []
-        # Mock biasa (bukan MagicMock) -- template merender {% url ...
-        # tendik.id %} di form Tambah Riwayat, lihat catatan bug MagicMock
-        # di test_admin_bisa_buka_detail_tendik/CLAUDE.md.
-        mock_tendik = Mock(
-            id=5, nama_lengkap="Contoh Tendik", jabatan="Staf",
+        # MagicMock(spec=DataTendik), BUKAN Mock polos -- view ini juga
+        # membangun ProfilSayaTendikForm(instance=tendik), dan ModelForm
+        # internal (model_to_dict) butuh instance._meta.concrete_fields
+        # dkk bisa di-iterasi (Mock polos: "TypeError: 'Mock' object is
+        # not iterable"; MagicMock tanpa spec: __getitem__ ikut ter-emulasi
+        # otomatis, membuat template {% url ... tendik.id %} salah jalur
+        # ke dict-lookup). spec=DataTendik membatasi dunder method yang
+        # dimiliki MagicMock ke yang benar-benar ada di model (Django
+        # model TIDAK mendefinisikan __getitem__), jadi kedua masalah
+        # sekaligus teratasi -- lihat catatan bug MagicMock lain di
+        # test_admin_bisa_buka_detail_tendik/CLAUDE.md.
+        mock_tendik = MagicMock(
+            spec=DataTendik, id=5, nama_lengkap="Contoh Tendik", jabatan="Staf",
             unit_kerja_nama="TU", nip_yayasan="1111",
         )
         mock_tendik.riwayat_pendidikan.all.return_value = []
