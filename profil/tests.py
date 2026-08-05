@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from django.test import TestCase, Client
 from django.urls import reverse
@@ -128,3 +128,84 @@ class TambahJabfungAksesTest(TestCase):
         mock_profil_fn.return_value = None
         self._post(self.dekan_ft)
         mock_profil_fn.assert_called_once_with(self.dekan_ft)
+
+
+class LinkGoogleDriveDokumenTest(TestCase):
+    """Fitur "Link Google Drive" (alternatif upload file) 2026-08-05 --
+    dosen yang dokumennya sudah ada di Drive cukup tempel link, tidak
+    wajib upload ulang. simpan_profil menulis 3 field BARU
+    (link_ktp/link_npwp/link_sk_pengangkatan) ke DataDosen; tambah_/
+    edit_pendidikan mereaktivasi 2 field yang SUDAH ADA di model tapi
+    belum pernah dibaca/ditulis view maupun template (url_ijazah/
+    url_transkrip). SIMDA di-mock penuh (tidak ada objek nyata yang
+    ditulis ke koneksi 'simda') -- yang diuji murni bahwa value dari
+    POST sampai ke instance yang benar sebelum .save() dipanggil."""
+
+    def setUp(self):
+        self.dosen = User.objects.create_user(
+            username="dosen_link_drive", password="testpass123", role="dosen",
+            nidn="8800000901",
+        )
+        self.client = Client()
+        self.client.login(username=self.dosen.username, password="testpass123")
+
+    @patch("profil.views.get_simda_dosen_or_none")
+    def test_simpan_profil_menyimpan_link_ktp_npwp_sk_pengangkatan(self, mock_dosen_fn):
+        profil_mock = Mock()
+        mock_dosen_fn.return_value = profil_mock
+        self.client.post(reverse("profil:simpan_profil"), {
+            "link_ktp": "https://drive.google.com/ktp",
+            "link_npwp": "https://drive.google.com/npwp",
+            "link_sk_pengangkatan": "https://drive.google.com/sk",
+        })
+        self.assertEqual(profil_mock.link_ktp, "https://drive.google.com/ktp")
+        self.assertEqual(profil_mock.link_npwp, "https://drive.google.com/npwp")
+        self.assertEqual(profil_mock.link_sk_pengangkatan, "https://drive.google.com/sk")
+        profil_mock.save.assert_called_once()
+
+    @patch("profil.views.get_simda_dosen_or_none")
+    def test_simpan_profil_link_kosong_disimpan_string_kosong(self, mock_dosen_fn):
+        """Field opsional -- kalau tidak diisi sama sekali harus jadi
+        string kosong (bukan crash / bukan None), konsisten dengan pola
+        field link_/url_ lain yang sudah ada (npwp, no_hp, dst)."""
+        profil_mock = Mock()
+        mock_dosen_fn.return_value = profil_mock
+        self.client.post(reverse("profil:simpan_profil"), {})
+        self.assertEqual(profil_mock.link_ktp, "")
+        self.assertEqual(profil_mock.link_npwp, "")
+        self.assertEqual(profil_mock.link_sk_pengangkatan, "")
+
+    @patch("profil.views.sync_pendidikan_terakhir")
+    @patch("profil.views.RiwayatPendidikanDosen")
+    @patch("profil.views.get_simda_dosen_or_none")
+    def test_tambah_pendidikan_menyimpan_url_ijazah_dan_transkrip(self, mock_dosen_fn, mock_model, mock_sync):
+        mock_dosen_fn.return_value = Mock(nidn=self.dosen.nidn)
+        mock_instance = Mock()
+        mock_model.return_value = mock_instance
+        self.client.post(reverse("profil:tambah_pendidikan"), {
+            "jenjang": "S1", "nama_pt": "Universitas Contoh", "bidang_ilmu": "Informatika",
+            "tahun_masuk": "2010", "tahun_lulus": "2014", "no_ijazah": "12345",
+            "url_ijazah": "https://drive.google.com/ijazah",
+            "url_transkrip": "https://drive.google.com/transkrip",
+        })
+        _, kwargs = mock_model.call_args
+        self.assertEqual(kwargs["url_ijazah"], "https://drive.google.com/ijazah")
+        self.assertEqual(kwargs["url_transkrip"], "https://drive.google.com/transkrip")
+        mock_instance.save.assert_called_once()
+
+    @patch("profil.views.sync_pendidikan_terakhir")
+    @patch("profil.views.dapat_kelola_nidn")
+    @patch("profil.views.get_object_or_404")
+    def test_edit_pendidikan_menyimpan_url_ijazah_dan_transkrip(self, mock_get_obj, mock_dapat_kelola, mock_sync):
+        pend = Mock()
+        pend.dosen.nidn = self.dosen.nidn
+        mock_get_obj.return_value = pend
+        mock_dapat_kelola.return_value = True
+        self.client.post(reverse("profil:edit_pendidikan", args=[1]), {
+            "jenjang": "S1", "nama_pt": "Universitas Contoh", "bidang_ilmu": "Informatika",
+            "url_ijazah": "https://drive.google.com/ijazah2",
+            "url_transkrip": "https://drive.google.com/transkrip2",
+        })
+        self.assertEqual(pend.url_ijazah, "https://drive.google.com/ijazah2")
+        self.assertEqual(pend.url_transkrip, "https://drive.google.com/transkrip2")
+        pend.save.assert_called_once()

@@ -10,8 +10,11 @@ from django.test import TestCase, Client
 
 from accounts.models import User
 
-from .forms import DataTendikForm, ProfilSayaTendikForm, RiwayatPelatihanTendikForm
-from .models import DataTendik, RiwayatPelatihanTendik, RiwayatPendidikanTendik
+from .forms import (
+    DataTendikForm, ProfilSayaTendikForm, RiwayatPelatihanTendikForm,
+    RiwayatPendidikanTendikForm, RiwayatPrestasiTendikForm,
+)
+from .models import DataTendik, RiwayatPelatihanTendik, RiwayatPendidikanTendik, RiwayatPrestasiTendik
 from .utils import bisa_tambah_tridarma, get_or_create_unit_kerja
 
 
@@ -686,3 +689,36 @@ class TendikDateInputFormatTest(TestCase):
 
         self.assertEqual(form["tanggal_mulai"].value(), "2020-06-01")
         self.assertEqual(form["tanggal_selesai"].value(), "2020-06-05")
+
+
+class RiwayatTendikLinkDriveFormTest(TestCase):
+    """Fitur "Link Google Drive" (alternatif upload file) 2026-08-05 --
+    field link_ijazah/link_sertifikat/link_bukti ditambahkan ke 3
+    ModelForm Riwayat Tendik (Meta.fields), berdampingan dengan file_*
+    yang sudah ada. Murni unit test level Form (is_valid/cleaned_data),
+    tidak butuh koneksi 'simda' sungguhan karena tidak memanggil .save()."""
+
+    def test_riwayat_pendidikan_tendik_form_terima_link_ijazah(self):
+        form = RiwayatPendidikanTendikForm(data={
+            "jenjang": "S1", "institusi": "Universitas Contoh", "jurusan": "Manajemen",
+            "tahun_masuk": "2010", "tahun_lulus": "2014", "no_ijazah": "12345",
+            "link_ijazah": "https://drive.google.com/ijazah",
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["link_ijazah"], "https://drive.google.com/ijazah")
+
+    def test_riwayat_pelatihan_tendik_form_terima_link_sertifikat(self):
+        form = RiwayatPelatihanTendikForm(data={
+            "nama_pelatihan": "Pelatihan Contoh", "penyelenggara": "Lembaga X", "tingkat": "Nasional",
+            "link_sertifikat": "https://drive.google.com/sertifikat",
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["link_sertifikat"], "https://drive.google.com/sertifikat")
+
+    def test_riwayat_prestasi_tendik_form_terima_link_bukti(self):
+        form = RiwayatPrestasiTendikForm(data={
+            "nama_prestasi": "Prestasi Contoh", "tingkat": "Nasional", "tahun": "2020",
+            "link_bukti": "https://drive.google.com/bukti",
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["link_bukti"], "https://drive.google.com/bukti")

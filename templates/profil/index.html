@@ -366,9 +366,17 @@
                 <span class="ti ti-eye me-1"></span>Lihat KTP
               </a>
             </div>
+            {% elif profil and profil.link_ktp %}
+            <div class="mb-1">
+              <a href="{{ profil.link_ktp }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link me-1"></span>Buka Link
+              </a>
+            </div>
             {% endif %}
             {% if bisa_edit %}
-            <input type="file" name="file_ktp" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            <input type="file" name="file_ktp" class="form-control mb-1" accept=".pdf,.jpg,.jpeg,.png">
+            <input type="url" name="link_ktp" class="form-control form-control-sm"
+                   value="{{ profil.link_ktp|default:'' }}" placeholder="Atau link Google Drive...">
             {% endif %}
           </div>
           <div class="col-md-4">
@@ -379,9 +387,17 @@
                 <span class="ti ti-eye me-1"></span>Lihat NPWP
               </a>
             </div>
+            {% elif profil and profil.link_npwp %}
+            <div class="mb-1">
+              <a href="{{ profil.link_npwp }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link me-1"></span>Buka Link
+              </a>
+            </div>
             {% endif %}
             {% if bisa_edit %}
-            <input type="file" name="file_npwp" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            <input type="file" name="file_npwp" class="form-control mb-1" accept=".pdf,.jpg,.jpeg,.png">
+            <input type="url" name="link_npwp" class="form-control form-control-sm"
+                   value="{{ profil.link_npwp|default:'' }}" placeholder="Atau link Google Drive...">
             {% endif %}
           </div>
         </div>
@@ -467,9 +483,17 @@
                 <span class="ti ti-eye me-1"></span>Lihat SK
               </a>
             </div>
+            {% elif profil and profil.link_sk_pengangkatan %}
+            <div class="mb-1">
+              <a href="{{ profil.link_sk_pengangkatan }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link me-1"></span>Buka Link
+              </a>
+            </div>
             {% endif %}
             {% if bisa_edit %}
-            <input type="file" name="file_sk_pengangkatan" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            <input type="file" name="file_sk_pengangkatan" class="form-control mb-1" accept=".pdf,.jpg,.jpeg,.png">
+            <input type="url" name="link_sk_pengangkatan" class="form-control form-control-sm"
+                   value="{{ profil.link_sk_pengangkatan|default:'' }}" placeholder="Atau link Google Drive...">
             {% endif %}
           </div>
         </div>
@@ -786,8 +810,16 @@
               <input type="file" name="file_ijazah" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
             </div>
             <div class="col-md-6">
+              <label class="form-label">Atau Link Ijazah Drive</label>
+              <input type="url" name="url_ijazah" class="form-control" placeholder="https://drive.google.com/...">
+            </div>
+            <div class="col-md-6">
               <label class="form-label">Upload Transkrip (PDF/JPG, otomatis dikompres jika >500KB)</label>
               <input type="file" name="file_transkrip" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Atau Link Transkrip Drive</label>
+              <input type="url" name="url_transkrip" class="form-control" placeholder="https://drive.google.com/...">
             </div>
             <div class="col-12">
               <button type="submit" class="btn btn-primary">
@@ -820,12 +852,20 @@
               <a href="{{ p.file_ijazah.url }}" target="_blank" class="btn btn-sm btn-outline-success">
                 <span class="ti ti-file"></span>
               </a>
+              {% elif p.url_ijazah %}
+              <a href="{{ p.url_ijazah }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
+              </a>
               {% else %}-{% endif %}
             </td>
             <td>
               {% if p.file_transkrip %}
               <a href="{{ p.file_transkrip.url }}" target="_blank" class="btn btn-sm btn-outline-success">
                 <span class="ti ti-file"></span>
+              </a>
+              {% elif p.url_transkrip %}
+              <a href="{{ p.url_transkrip }}" target="_blank" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
               </a>
               {% else %}-{% endif %}
             </td>
@@ -840,7 +880,9 @@
                     '{{ p.institusi }}',
                     '{{ p.tahun_masuk|default:'' }}',
                     '{{ p.tahun_lulus|default:'' }}',
-                    '{{ p.no_ijazah|default:'' }}'
+                    '{{ p.no_ijazah|default:'' }}',
+                    '{{ p.url_ijazah|default:''|escapejs }}',
+                    '{{ p.url_transkrip|default:''|escapejs }}'
                   )">
                   <span class="ti ti-edit"></span>
                 </button>
@@ -899,7 +941,7 @@ function editPangkat(id, golonganId, noSk, tglSk, tmt, angkaKredit, masaTahun, m
   new bootstrap.Modal(document.getElementById('modalEditPangkat')).show();
 }
 
-function editPendidikan(id, jenjang, bidang, pt, masuk, lulus, no_ij) {
+function editPendidikan(id, jenjang, bidang, pt, masuk, lulus, no_ij, urlIjazah, urlTranskrip) {
   document.getElementById('formEditPendidikan').action = `/profil/edit-pendidikan/${id}/`;
   document.getElementById('ep_jenjang').value = jenjang;
   document.getElementById('ep_bidang').value = bidang;
@@ -907,6 +949,8 @@ function editPendidikan(id, jenjang, bidang, pt, masuk, lulus, no_ij) {
   document.getElementById('ep_masuk').value = masuk;
   document.getElementById('ep_lulus').value = lulus;
   document.getElementById('ep_ijazah_no').value = no_ij;
+  document.getElementById('ep_url_ijazah').value = urlIjazah;
+  document.getElementById('ep_url_transkrip').value = urlTranskrip;
   new bootstrap.Modal(document.getElementById('modalEditPendidikan')).show();
 }
 </script>
@@ -1081,8 +1125,16 @@ function editPendidikan(id, jenjang, bidang, pt, masuk, lulus, no_ij) {
               <input type="file" name="file_ijazah" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
             </div>
             <div class="col-md-6">
+              <label class="form-label">Atau Link Ijazah Drive</label>
+              <input type="url" name="url_ijazah" id="ep_url_ijazah" class="form-control" placeholder="https://drive.google.com/...">
+            </div>
+            <div class="col-md-6">
               <label class="form-label">Upload Transkrip Baru</label>
               <input type="file" name="file_transkrip" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Atau Link Transkrip Drive</label>
+              <input type="url" name="url_transkrip" id="ep_url_transkrip" class="form-control" placeholder="https://drive.google.com/...">
             </div>
           </div>
         </div>

@@ -170,7 +170,11 @@
               <label class="form-label">File Ijazah</label>
               {{ form_pendidikan.file_ijazah }}
             </div>
-            <div class="col-md-5">
+            <div class="col-md-4">
+              <label class="form-label">Atau Link Ijazah Drive</label>
+              {{ form_pendidikan.link_ijazah }}
+            </div>
+            <div class="col-md-4">
               <label class="form-label">Keterangan</label>
               {{ form_pendidikan.keterangan }}
             </div>
@@ -199,6 +203,10 @@
               {% if r.file_ijazah %}
               <a href="{{ r.file_ijazah.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">
                 <span class="ti ti-file-text"></span>
+              </a>
+              {% elif r.link_ijazah %}
+              <a href="{{ r.link_ijazah }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
               </a>
               {% else %}—{% endif %}
             </td>
@@ -264,6 +272,10 @@
               <label class="form-label">File Sertifikat</label>
               {{ form_pelatihan.file_sertifikat }}
             </div>
+            <div class="col-md-3">
+              <label class="form-label">Atau Link Sertifikat Drive</label>
+              {{ form_pelatihan.link_sertifikat }}
+            </div>
             <div class="col-12">
               <label class="form-label">Keterangan</label>
               {{ form_pelatihan.keterangan }}
@@ -292,6 +304,10 @@
               {% if r.file_sertifikat %}
               <a href="{{ r.file_sertifikat.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">
                 <span class="ti ti-file-text"></span>
+              </a>
+              {% elif r.link_sertifikat %}
+              <a href="{{ r.link_sertifikat }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
               </a>
               {% else %}—{% endif %}
             </td>
@@ -349,6 +365,10 @@
               <label class="form-label">File Bukti</label>
               {{ form_prestasi.file_bukti }}
             </div>
+            <div class="col-md-4">
+              <label class="form-label">Atau Link Bukti Drive</label>
+              {{ form_prestasi.link_bukti }}
+            </div>
             <div class="col-12">
               <label class="form-label">Keterangan</label>
               {{ form_prestasi.keterangan }}
@@ -377,6 +397,10 @@
               {% if r.file_bukti %}
               <a href="{{ r.file_bukti.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">
                 <span class="ti ti-file-text"></span>
+              </a>
+              {% elif r.link_bukti %}
+              <a href="{{ r.link_bukti }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">
+                <span class="ti ti-link"></span>
               </a>
               {% else %}—{% endif %}
             </td>

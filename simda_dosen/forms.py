@@ -141,7 +141,7 @@ class RiwayatPendidikanTendikForm(forms.ModelForm):
         model = RiwayatPendidikanTendik
         fields = [
             "jenjang", "institusi", "jurusan", "tahun_masuk", "tahun_lulus",
-            "no_ijazah", "file_ijazah", "keterangan",
+            "no_ijazah", "file_ijazah", "link_ijazah", "keterangan",
         ]
         widgets = {
             "jenjang": forms.Select(attrs={"class": "form-select"}),
@@ -151,6 +151,7 @@ class RiwayatPendidikanTendikForm(forms.ModelForm):
             "tahun_lulus": forms.NumberInput(attrs={"class": "form-control"}),
             "no_ijazah": forms.TextInput(attrs={"class": "form-control"}),
             "file_ijazah": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "link_ijazah": forms.URLInput(attrs={"class": "form-control", "placeholder": "Atau link Google Drive..."}),
             "keterangan": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
 
@@ -163,7 +164,7 @@ class RiwayatPelatihanTendikForm(forms.ModelForm):
         model = RiwayatPelatihanTendik
         fields = [
             "nama_pelatihan", "penyelenggara", "tingkat", "jumlah_jam", "no_sertifikat",
-            "tanggal_mulai", "tanggal_selesai", "file_sertifikat", "keterangan",
+            "tanggal_mulai", "tanggal_selesai", "file_sertifikat", "link_sertifikat", "keterangan",
         ]
         widgets = {
             "nama_pelatihan": forms.TextInput(attrs={"class": "form-control"}),
@@ -174,6 +175,7 @@ class RiwayatPelatihanTendikForm(forms.ModelForm):
             "tanggal_mulai": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
             "tanggal_selesai": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
             "file_sertifikat": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "link_sertifikat": forms.URLInput(attrs={"class": "form-control", "placeholder": "Atau link Google Drive..."}),
             "keterangan": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
 
@@ -186,7 +188,7 @@ class RiwayatPrestasiTendikForm(forms.ModelForm):
         model = RiwayatPrestasiTendik
         fields = [
             "nama_prestasi", "pemberi_penghargaan", "tingkat", "tahun",
-            "no_sertifikat", "file_bukti", "keterangan",
+            "no_sertifikat", "file_bukti", "link_bukti", "keterangan",
         ]
         widgets = {
             "nama_prestasi": forms.TextInput(attrs={"class": "form-control"}),
@@ -195,6 +197,7 @@ class RiwayatPrestasiTendikForm(forms.ModelForm):
             "tahun": forms.NumberInput(attrs={"class": "form-control"}),
             "no_sertifikat": forms.TextInput(attrs={"class": "form-control"}),
             "file_bukti": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "link_bukti": forms.URLInput(attrs={"class": "form-control", "placeholder": "Atau link Google Drive..."}),
             "keterangan": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
         }
 

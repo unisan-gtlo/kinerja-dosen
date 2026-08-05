@@ -71,6 +71,7 @@ class DataDosen(models.Model):
     tgl_sk_pengangkatan = models.DateField(null=True, blank=True)
     file_sk_pengangkatan = models.FileField(upload_to='dosen/sk_pengangkatan/', null=True, blank=True,
                                              validators=[validate_file_size], storage=simda_media_storage)
+    link_sk_pengangkatan = models.URLField(blank=True, verbose_name='Link SK Pengangkatan (alternatif)')
     is_active = models.BooleanField(default=True)
     tgl_dibuat = models.DateTimeField(auto_now_add=True)
     tgl_diperbarui = models.DateTimeField(auto_now=True)
@@ -107,8 +108,10 @@ class DataDosen(models.Model):
                               validators=[validate_file_size], storage=simda_media_storage)
     file_ktp = models.FileField(upload_to='dosen/ktp/', null=True, blank=True,
                                  validators=[validate_file_size], storage=simda_media_storage)
+    link_ktp = models.URLField(blank=True, verbose_name='Link KTP (alternatif)')
     file_npwp = models.FileField(upload_to='dosen/npwp/', null=True, blank=True,
                                   validators=[validate_file_size], storage=simda_media_storage)
+    link_npwp = models.URLField(blank=True, verbose_name='Link NPWP (alternatif)')
     npwp = models.CharField(max_length=20, blank=True)
     nik = models.CharField(max_length=20, blank=True)
 
@@ -120,7 +123,7 @@ class DataDosen(models.Model):
         'provinsi_domisili_id', 'kode_pos', 'no_hp', 'email_pribadi',
         'id_sinta', 'id_scopus', 'id_google_scholar', 'orcid', 'id_garuda',
         'h_index_sinta', 'h_index_scopus', 'nira', 'minat_penelitian',
-        'foto', 'file_ktp', 'file_npwp', 'npwp', 'nik',
+        'foto', 'file_ktp', 'link_ktp', 'file_npwp', 'link_npwp', 'npwp', 'nik',
     ]
 
     class Meta:
@@ -768,6 +771,7 @@ class RiwayatPendidikanTendik(models.Model):
     no_ijazah = models.CharField(max_length=50, blank=True)
     file_ijazah = models.FileField(upload_to='tendik/ijazah/', null=True, blank=True,
                                     validators=[validate_file_size], storage=simda_media_storage)
+    link_ijazah = models.URLField(blank=True, verbose_name='Link Ijazah (alternatif)')
     keterangan = models.TextField(blank=True)
     tgl_dibuat = models.DateTimeField(auto_now_add=True)
     tgl_diperbarui = models.DateTimeField(auto_now=True)
@@ -804,6 +808,7 @@ class RiwayatPelatihanTendik(models.Model):
     tanggal_selesai = models.DateField(null=True, blank=True)
     file_sertifikat = models.FileField(upload_to='tendik/pelatihan/', null=True, blank=True,
                                         validators=[validate_file_size], storage=simda_media_storage)
+    link_sertifikat = models.URLField(blank=True, verbose_name='Link Sertifikat (alternatif)')
     keterangan = models.TextField(blank=True)
     tgl_dibuat = models.DateTimeField(auto_now_add=True)
     tgl_diperbarui = models.DateTimeField(auto_now=True)
@@ -838,6 +843,7 @@ class RiwayatPrestasiTendik(models.Model):
     no_sertifikat = models.CharField(max_length=100, blank=True)
     file_bukti = models.FileField(upload_to='tendik/prestasi/', null=True, blank=True,
                                    validators=[validate_file_size], storage=simda_media_storage)
+    link_bukti = models.URLField(blank=True, verbose_name='Link Bukti (alternatif)')
     keterangan = models.TextField(blank=True)
     tgl_dibuat = models.DateTimeField(auto_now_add=True)
     tgl_diperbarui = models.DateTimeField(auto_now=True)

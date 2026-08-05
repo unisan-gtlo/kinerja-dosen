@@ -139,6 +139,9 @@ def simpan_profil(request):
     )
     profil.no_sk_pengangkatan = request.POST.get('no_sk_pengangkatan', '').strip()
     profil.tgl_sk_pengangkatan = request.POST.get('tgl_sk_pengangkatan') or None
+    profil.link_ktp = request.POST.get('link_ktp', '').strip()
+    profil.link_npwp = request.POST.get('link_npwp', '').strip()
+    profil.link_sk_pengangkatan = request.POST.get('link_sk_pengangkatan', '').strip()
 
     # Status Kepegawaian & Status Keaktifan -- ADMIN/HR, dosen tidak boleh
     # ubah status kepegawaiannya sendiri lewat form self-service ini.
@@ -304,6 +307,8 @@ def tambah_pendidikan(request):
         tahun_lulus=request.POST.get('tahun_lulus') or None,
         no_ijazah=request.POST.get('no_ijazah', '').strip(),
         judul_thesis=request.POST.get('judul_thesis', '').strip(),
+        url_ijazah=request.POST.get('url_ijazah', '').strip(),
+        url_transkrip=request.POST.get('url_transkrip', '').strip(),
     )
     if 'file_ijazah' in request.FILES:
         pend.file_ijazah = compress_uploaded_file(request.FILES['file_ijazah'])
@@ -360,6 +365,8 @@ def edit_pendidikan(request, pend_id):
         pend.tahun_masuk = request.POST.get('tahun_masuk') or None
         pend.tahun_lulus = request.POST.get('tahun_lulus') or None
         pend.no_ijazah = request.POST.get('no_ijazah', '').strip()
+        pend.url_ijazah = request.POST.get('url_ijazah', '').strip()
+        pend.url_transkrip = request.POST.get('url_transkrip', '').strip()
         if 'file_ijazah' in request.FILES:
             pend.file_ijazah = compress_uploaded_file(request.FILES['file_ijazah'])
         if 'file_transkrip' in request.FILES:
