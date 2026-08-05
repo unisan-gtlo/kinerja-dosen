@@ -2,7 +2,10 @@
 tersedia saat test, jadi query ke sana di-mock (pola sama dengan
 GetPejabatAktifTest/GetDosenByNidnTest di presensi/tests.py)."""
 import datetime
+import io
 from unittest.mock import MagicMock, Mock, patch
+
+from PIL import Image
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
@@ -322,7 +325,13 @@ class ProfilTendikAksesTest(TestCase):
     def test_admin_bisa_buka_detail_tendik(self, mock_cls):
         mock_qs = MagicMock(spec=["get", "filter", "all", "order_by"])
         mock_cls.objects.using.return_value = mock_qs
-        mock_tendik = MagicMock(
+        # Mock biasa (bukan MagicMock) -- template merender {% url ...
+        # tendik.id %}, dan MagicMock otomatis meng-implementasi
+        # __getitem__ di level class, jadi Django Variable._resolve_lookup
+        # mencoba tendik['id'] duluan (selalu "berhasil", mengembalikan
+        # mock bersarang) sebelum sempat jatuh ke getattr(tendik, 'id')
+        # -- lihat catatan bug MagicMock lain di CLAUDE.md.
+        mock_tendik = Mock(
             id=1, nama_lengkap="Contoh Tendik", jabatan="Staf TU",
             unit_kerja_nama="Tata Usaha", nip_yayasan="12345",
         )
@@ -393,7 +402,13 @@ class CompressUploadedFileWiringTest(TestCase):
         )
 
     def _file_gambar(self, name="foto.jpg"):
-        return SimpleUploadedFile(name, b"isi-file-palsu", content_type="image/jpeg")
+        # Harus JPEG betulan (bukan byte palsu) -- ImageField form Django
+        # memvalidasi isi file lewat Pillow (Image.open()), byte palsu
+        # membuat form.is_valid() False secara diam-diam (tanpa exception)
+        # sehingga compress_uploaded_file tidak pernah dipanggil.
+        buf = io.BytesIO()
+        Image.new("RGB", (10, 10), color=(120, 120, 120)).save(buf, format="JPEG")
+        return SimpleUploadedFile(name, buf.getvalue(), content_type="image/jpeg")
 
     @patch("simda_dosen.views.compress_uploaded_file")
     @patch("simda_dosen.forms.UnitKerja")
@@ -442,7 +457,10 @@ class CompressUploadedFileWiringTest(TestCase):
     def test_tambah_riwayat_pendidikan_kompres_file_ijazah(self, mock_datatendik_cls, mock_get, mock_compress):
         mock_qs = MagicMock(spec=["get", "filter", "all", "order_by"])
         mock_datatendik_cls.objects.using.return_value = mock_qs
-        mock_qs.get.return_value = MagicMock(id=5)
+        # spec=DataTendik wajib -- riwayat.tendik = tendik (views.py) divalidasi
+        # isinstance() oleh descriptor ForeignKey Django, MagicMock polos
+        # gagal isinstance-nya (ValueError "must be a DataTendik instance").
+        mock_qs.get.return_value = MagicMock(spec=DataTendik, id=5)
         mock_get.return_value = MagicMock(id=5)
         mock_compress.return_value = "hasil-kompres"
 
@@ -481,9 +499,17 @@ class ProfilRiwayatSayaAksesTest(TestCase):
         resp = self.client.get("/simda-dosen/profil-riwayat-saya/")
         self.assertEqual(resp.status_code, 302)
 
+    @patch("simda_dosen.forms.AgamaPublik")
     @patch("simda_dosen.views.get_simda_tendik_or_none")
-    def test_tendik_dengan_data_cocok_bisa_akses(self, mock_get):
-        mock_tendik = MagicMock(
+    def test_tendik_dengan_data_cocok_bisa_akses(self, mock_get, mock_agama):
+        # AgamaPublik di-mock -- ProfilSayaTendikForm(instance=tendik) di
+        # view mengisi dropdown agama lewat query 'simda' sungguhan kalau
+        # tidak di-mock (DatabaseOperationForbidden di test).
+        mock_agama.objects.using.return_value.order_by.return_value = []
+        # Mock biasa (bukan MagicMock) -- template merender {% url ...
+        # tendik.id %} di form Tambah Riwayat, lihat catatan bug MagicMock
+        # di test_admin_bisa_buka_detail_tendik/CLAUDE.md.
+        mock_tendik = Mock(
             id=5, nama_lengkap="Contoh Tendik", jabatan="Staf",
             unit_kerja_nama="TU", nip_yayasan="1111",
         )
@@ -521,7 +547,10 @@ class ProfilRiwayatSayaAksesTest(TestCase):
     def test_tendik_bisa_tambah_riwayat_milik_sendiri(self, mock_datatendik_cls, mock_get):
         mock_qs = MagicMock(spec=["get", "filter", "all", "order_by"])
         mock_datatendik_cls.objects.using.return_value = mock_qs
-        mock_qs.get.return_value = MagicMock(id=5)
+        # spec=DataTendik wajib -- riwayat.tendik = tendik (views.py) divalidasi
+        # isinstance() oleh descriptor ForeignKey Django, MagicMock polos
+        # gagal isinstance-nya (ValueError "must be a DataTendik instance").
+        mock_qs.get.return_value = MagicMock(spec=DataTendik, id=5)
         mock_get.return_value = MagicMock(id=5)
 
         self.client.force_login(self.tendik_user)
@@ -646,7 +675,18 @@ class TendikDateInputFormatTest(TestCase):
     untuk memperbaiki ini (dicoba & diverifikasi TIDAK berpengaruh --
     locale module id-id selalu menang atas setting global selama l10n
     aktif, lihat riwayat percakapan), jadi diperbaiki dengan
-    `format="%Y-%m-%d"` eksplisit di tiap widget."""
+    `format="%Y-%m-%d"` eksplisit di tiap widget.
+
+    PENTING (ditemukan saat verifikasi VPS 2026-08-05): assertion di
+    bawah SEMPAT salah menguji `form["field"].value()` -- API ini
+    mengembalikan objek Python `datetime.date` MENTAH (BoundField.value()
+    return `field.prepare_value(initial)`, DateField tidak override
+    `prepare_value`), BUKAN string berformat widget. Parameter `format=`
+    pada widget HANYA memengaruhi HASIL RENDER HTML (`str(form["field"])`
+    / `widget.format_value()`), bukan `.value()`. Diverifikasi ulang
+    (`str(form["field"])` mengandung `value="1985-12-25"`) -- perbaikan
+    aplikasi aslinya SUDAH BENAR sejak awal, cuma assertion test-nya
+    yang salah sasaran."""
 
     @patch("simda_dosen.forms.AgamaPublik")
     def test_profil_saya_tendik_tgl_lahir_render_iso(self, mock_agama):
@@ -654,7 +694,7 @@ class TendikDateInputFormatTest(TestCase):
         tendik = DataTendik(id=1, nama_lengkap="Contoh", tgl_lahir=datetime.date(1985, 12, 25))
         form = ProfilSayaTendikForm(instance=tendik)
 
-        self.assertEqual(form["tgl_lahir"].value(), "1985-12-25")
+        self.assertIn('value="1985-12-25"', str(form["tgl_lahir"]))
 
     @patch("simda_dosen.forms.AgamaPublik")
     @patch("simda_dosen.forms.UnitKerja")
@@ -677,9 +717,9 @@ class TendikDateInputFormatTest(TestCase):
         )
         form = DataTendikForm(instance=tendik)
 
-        self.assertEqual(form["tgl_lahir"].value(), "1985-12-25")
-        self.assertEqual(form["tgl_mulai_kerja"].value(), "2010-01-15")
-        self.assertEqual(form["tgl_sk_pengangkatan"].value(), "2010-01-01")
+        self.assertIn('value="1985-12-25"', str(form["tgl_lahir"]))
+        self.assertIn('value="2010-01-15"', str(form["tgl_mulai_kerja"]))
+        self.assertIn('value="2010-01-01"', str(form["tgl_sk_pengangkatan"]))
 
     def test_riwayat_pelatihan_tendik_form_tanggal_render_iso(self):
         riwayat = RiwayatPelatihanTendik(
@@ -687,8 +727,8 @@ class TendikDateInputFormatTest(TestCase):
         )
         form = RiwayatPelatihanTendikForm(instance=riwayat)
 
-        self.assertEqual(form["tanggal_mulai"].value(), "2020-06-01")
-        self.assertEqual(form["tanggal_selesai"].value(), "2020-06-05")
+        self.assertIn('value="2020-06-01"', str(form["tanggal_mulai"]))
+        self.assertIn('value="2020-06-05"', str(form["tanggal_selesai"]))
 
 
 class RiwayatTendikLinkDriveFormTest(TestCase):

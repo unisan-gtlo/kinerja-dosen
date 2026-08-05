@@ -38,7 +38,11 @@ class TambahBeasiswaAksesTest(TestCase):
 
     def _post(self, user, dosen_id=None):
         self.client.force_login(user)
-        data = {"nama_beasiswa": "Contoh Beasiswa"}
+        # tahun_mulai wajib -- IntegerField() NOT NULL tanpa default di
+        # Beasiswa. Sebelum fix force_login (lihat CLAUDE.md), test ini
+        # tidak pernah benar-benar mencapai Beasiswa.objects.create(),
+        # jadi celah data test ini baru ketahuan sekarang.
+        data = {"nama_beasiswa": "Contoh Beasiswa", "tahun_mulai": "2024"}
         if dosen_id is not None:
             data["dosen_id"] = dosen_id
         return self.client.post(reverse("reward:tambah_beasiswa"), data)

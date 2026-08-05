@@ -37,7 +37,15 @@ class TambahPenelitianAksesTest(TestCase):
 
     def _post(self, user, dosen_id=None):
         self.client.force_login(user)
-        data = {"judul_kegiatan": "Contoh Penelitian"}
+        # tahun_usulan/tahun_pelaksanaan wajib -- IntegerField() NOT NULL
+        # tanpa default di Penelitian. Sebelum fix force_login (lihat
+        # CLAUDE.md), test ini tidak pernah benar-benar mencapai
+        # Penelitian.objects.create(), jadi celah data test ini baru
+        # ketahuan sekarang.
+        data = {
+            "judul_kegiatan": "Contoh Penelitian",
+            "tahun_usulan": "2024", "tahun_pelaksanaan": "2024",
+        }
         if dosen_id is not None:
             data["dosen_id"] = dosen_id
         return self.client.post(reverse("penelitian:tambah_penelitian"), data)

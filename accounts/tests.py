@@ -1,4 +1,5 @@
 import io
+from unittest.mock import patch
 
 import openpyxl
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -92,13 +93,25 @@ class KelolaUserAksesTest(TestCase):
         self.dosen_ft.refresh_from_db()
         self.assertNotEqual(self.dosen_ft.first_name, "Diubah")
 
-    def test_operator_fakultas_sendiri_diterima(self):
+    @patch("simda_dosen.utils.StatusKepegawaianPublik")
+    @patch("simda_dosen.utils.JenisKepegawaianPublik")
+    def test_operator_fakultas_sendiri_diterima(self, mock_jenis, mock_status):
+        # kelola_user memanggil attach_kepegawaian_labels() yang query
+        # JenisKepegawaianPublik/StatusKepegawaianPublik ke 'simda' tanpa
+        # syarat -- di-mock supaya test tidak butuh koneksi SIMDA
+        # sungguhan (pola sama dengan test SIMDA lain di proyek ini).
+        mock_jenis.objects.using.return_value.all.return_value = []
+        mock_status.objects.using.return_value.all.return_value = []
         self.client.force_login(self.operator)
         resp = self.client.get("/accounts/kelola-user/")
         self.assertEqual(resp.status_code, 200)
         self.assertIn(self.dosen_ft, resp.context["page_obj"].object_list)
 
-    def test_admin_tetap_diterima(self):
+    @patch("simda_dosen.utils.StatusKepegawaianPublik")
+    @patch("simda_dosen.utils.JenisKepegawaianPublik")
+    def test_admin_tetap_diterima(self, mock_jenis, mock_status):
+        mock_jenis.objects.using.return_value.all.return_value = []
+        mock_status.objects.using.return_value.all.return_value = []
         self.client.force_login(self.admin)
         resp = self.client.get("/accounts/kelola-user/")
         self.assertEqual(resp.status_code, 200)

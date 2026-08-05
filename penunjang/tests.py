@@ -38,7 +38,12 @@ class TambahProfesiAksesTest(TestCase):
 
     def _post(self, user, dosen_id=None):
         self.client.force_login(user)
-        data = {"nama_organisasi": "Contoh Organisasi"}
+        # mulai_keanggotaan wajib -- DateField() NOT NULL tanpa default
+        # di AnggotaProfesi. Sebelum fix force_login (lihat CLAUDE.md),
+        # test ini tidak pernah benar-benar mencapai
+        # AnggotaProfesi.objects.create(), jadi celah data test ini baru
+        # ketahuan sekarang.
+        data = {"nama_organisasi": "Contoh Organisasi", "mulai_keanggotaan": "2024-01-15"}
         if dosen_id is not None:
             data["dosen_id"] = dosen_id
         return self.client.post(reverse("penunjang:tambah_profesi"), data)

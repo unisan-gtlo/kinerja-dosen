@@ -38,7 +38,15 @@ class TambahPengabdianAksesTest(TestCase):
 
     def _post(self, user, dosen_id=None):
         self.client.force_login(user)
-        data = {"judul_kegiatan": "Contoh Pengabdian"}
+        # tahun_usulan/tahun_pelaksanaan wajib -- IntegerField() NOT NULL
+        # tanpa default di Pengabdian. Sebelum fix force_login (lihat
+        # CLAUDE.md), test ini tidak pernah benar-benar mencapai
+        # Pengabdian.objects.create(), jadi celah data test ini baru
+        # ketahuan sekarang.
+        data = {
+            "judul_kegiatan": "Contoh Pengabdian",
+            "tahun_usulan": "2024", "tahun_pelaksanaan": "2024",
+        }
         if dosen_id is not None:
             data["dosen_id"] = dosen_id
         return self.client.post(reverse("pengabdian:tambah_pengabdian"), data)
