@@ -366,7 +366,8 @@
                 <span class="ti ti-eye me-1"></span>Lihat KTP
               </a>
             </div>
-            {% elif profil and profil.link_ktp %}
+            {% endif %}
+            {% if profil and profil.link_ktp %}
             <div class="mb-1">
               <a href="{{ profil.link_ktp }}" target="_blank" class="btn btn-sm btn-outline-info">
                 <span class="ti ti-link me-1"></span>Buka Link
@@ -387,7 +388,8 @@
                 <span class="ti ti-eye me-1"></span>Lihat NPWP
               </a>
             </div>
-            {% elif profil and profil.link_npwp %}
+            {% endif %}
+            {% if profil and profil.link_npwp %}
             <div class="mb-1">
               <a href="{{ profil.link_npwp }}" target="_blank" class="btn btn-sm btn-outline-info">
                 <span class="ti ti-link me-1"></span>Buka Link
@@ -483,7 +485,8 @@
                 <span class="ti ti-eye me-1"></span>Lihat SK
               </a>
             </div>
-            {% elif profil and profil.link_sk_pengangkatan %}
+            {% endif %}
+            {% if profil and profil.link_sk_pengangkatan %}
             <div class="mb-1">
               <a href="{{ profil.link_sk_pengangkatan }}" target="_blank" class="btn btn-sm btn-outline-info">
                 <span class="ti ti-link me-1"></span>Buka Link
@@ -852,22 +855,26 @@
               <a href="{{ p.file_ijazah.url }}" target="_blank" class="btn btn-sm btn-outline-success">
                 <span class="ti ti-file"></span>
               </a>
-              {% elif p.url_ijazah %}
+              {% endif %}
+              {% if p.url_ijazah %}
               <a href="{{ p.url_ijazah }}" target="_blank" class="btn btn-sm btn-outline-info">
                 <span class="ti ti-link"></span>
               </a>
-              {% else %}-{% endif %}
+              {% endif %}
+              {% if not p.file_ijazah and not p.url_ijazah %}-{% endif %}
             </td>
             <td>
               {% if p.file_transkrip %}
               <a href="{{ p.file_transkrip.url }}" target="_blank" class="btn btn-sm btn-outline-success">
                 <span class="ti ti-file"></span>
               </a>
-              {% elif p.url_transkrip %}
+              {% endif %}
+              {% if p.url_transkrip %}
               <a href="{{ p.url_transkrip }}" target="_blank" class="btn btn-sm btn-outline-info">
                 <span class="ti ti-link"></span>
               </a>
-              {% else %}-{% endif %}
+              {% endif %}
+              {% if not p.file_transkrip and not p.url_transkrip %}-{% endif %}
             </td>
             <td>
               {% if bisa_edit %}

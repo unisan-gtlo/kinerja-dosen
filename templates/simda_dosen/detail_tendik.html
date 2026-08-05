@@ -204,11 +204,13 @@
               <a href="{{ r.file_ijazah.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">
                 <span class="ti ti-file-text"></span>
               </a>
-              {% elif r.link_ijazah %}
+              {% endif %}
+              {% if r.link_ijazah %}
               <a href="{{ r.link_ijazah }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">
                 <span class="ti ti-link"></span>
               </a>
-              {% else %}—{% endif %}
+              {% endif %}
+              {% if not r.file_ijazah and not r.link_ijazah %}—{% endif %}
             </td>
             <td class="text-nowrap">
               <div class="d-flex gap-1">
@@ -305,11 +307,13 @@
               <a href="{{ r.file_sertifikat.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">
                 <span class="ti ti-file-text"></span>
               </a>
-              {% elif r.link_sertifikat %}
+              {% endif %}
+              {% if r.link_sertifikat %}
               <a href="{{ r.link_sertifikat }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">
                 <span class="ti ti-link"></span>
               </a>
-              {% else %}—{% endif %}
+              {% endif %}
+              {% if not r.file_sertifikat and not r.link_sertifikat %}—{% endif %}
             </td>
             <td class="text-nowrap">
               <div class="d-flex gap-1">
@@ -398,11 +402,13 @@
               <a href="{{ r.file_bukti.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success">
                 <span class="ti ti-file-text"></span>
               </a>
-              {% elif r.link_bukti %}
+              {% endif %}
+              {% if r.link_bukti %}
               <a href="{{ r.link_bukti }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">
                 <span class="ti ti-link"></span>
               </a>
-              {% else %}—{% endif %}
+              {% endif %}
+              {% if not r.file_bukti and not r.link_bukti %}—{% endif %}
             </td>
             <td class="text-nowrap">
               <div class="d-flex gap-1">
