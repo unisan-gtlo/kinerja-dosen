@@ -177,8 +177,18 @@ SIMPLE_JWT = {
 # ============================================================
 # SESSION & SECURITY
 # ============================================================
-SESSION_COOKIE_AGE = 7200
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# SESSION_EXPIRE_AT_BROWSER_CLOSE=False + SESSION_COOKIE_AGE 30 hari --
+# supaya dosen/tendik tidak perlu login ulang tiap buka PWA presensi di HP
+# (PWA yang di-background sering "dianggap ditutup" oleh browser/OS Android,
+# menghapus cookie sesi kalau SESSION_EXPIRE_AT_BROWSER_CLOSE=True, beda
+# dari tab browser desktop yang jarang benar-benar ditutup). SESSION_SAVE_
+# EVERY_REQUEST=True memperpanjang masa berlaku tiap request, jadi selama
+# dipakai minimal sebulan sekali praktis tidak akan diminta login ulang.
+# Risiko keamanannya rendah untuk modul presensi -- aksi Absen Masuk/Pulang
+# tetap wajib lolos verifikasi wajah terlepas dari sesi login, lihat
+# CLAUDE.md.
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 hari
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
