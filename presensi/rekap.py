@@ -114,19 +114,19 @@ def rekap_bulanan_user(user, bulan, tahun):
 
 
 def laporan_bulanan_jam_kerja(user_qs, bulan, tahun):
-    """Satu baris per user dalam cakupan yang PUNYA presensi di bulan itu
-    -- laporan lintas-pegawai (dosen + staf) untuk dasar penggajian, lihat
-    CLAUDE.md § 9. Beda dengan data_presensi_harian (1 baris per hari per
-    orang, termasuk yang belum absen): di sini 1 baris per orang per bulan,
-    dan yang tanpa presensi sama sekali di bulan itu tidak ikut tampil.
-    `user.nama_resmi` (dari attach_nama_resmi) dipakai sebagai nama
-    tampilan -- resolve dari SIMDA (DataDosen/DataTendik) supaya akun
-    jabatan/administratif generik tidak nongol dengan nama jabatan."""
-    user_ids_ada_presensi = (
-        Presensi.objects.filter(user__in=user_qs, tanggal__year=tahun, tanggal__month=bulan)
-        .values_list("user_id", flat=True).distinct()
-    )
-    users = attach_nama_resmi(user_qs.filter(id__in=user_ids_ada_presensi))
+    """Satu baris per user dalam cakupan -- laporan lintas-pegawai (dosen +
+    staf) untuk dasar penggajian, lihat CLAUDE.md § 9. SEMUA user dalam
+    cakupan ikut tampil, termasuk yang tidak punya presensi sama sekali
+    di bulan itu (hari_hadir=0, total_jam_kerja="00:00", kelompok/target/
+    selisih kosong) -- sama pola dengan data_laporan_internal (Laporan
+    Presensi Internal), supaya konsisten dengan laporan lain di halaman
+    yang sama (dulu baris tanpa presensi disembunyikan total, jadi
+    tampak seolah orang itu tidak termasuk cakupan padahal sekadar
+    belum ada presensi). `user.nama_resmi` (dari attach_nama_resmi)
+    dipakai sebagai nama tampilan -- resolve dari SIMDA (DataDosen/
+    DataTendik) supaya akun jabatan/administratif generik tidak nongol
+    dengan nama jabatan."""
+    users = attach_nama_resmi(user_qs)
     baris = [{"user": u, **rekap_bulanan_user(u, bulan, tahun)} for u in users]
     baris.sort(key=lambda b: b["user"].nama_resmi)
     return baris

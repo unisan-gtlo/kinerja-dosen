@@ -33,7 +33,10 @@ from .models import (
     LokasiKantor, ParafDosen, Perangkat, Presensi, StatusApprovalLembur, StatusPresensi, TargetKerjaBulanan,
     TingkatRisiko, UrutanSerdos, format_jam_menit,
 )
-from .rekap import data_presensi_harian, rekap_bulanan_user, ringkasan_hari_ini, top_telat_hari_ini, tren_mingguan
+from .rekap import (
+    data_presensi_harian, laporan_bulanan_jam_kerja, rekap_bulanan_user, ringkasan_hari_ini,
+    top_telat_hari_ini, tren_mingguan,
+)
 from .utils import get_dosen_by_nidn, get_dosen_serdos_qs
 
 
@@ -491,6 +494,41 @@ class RekapBulananUserTest(TestCase):
         rekap = rekap_bulanan_user(self.user, self.hari_ini.month, self.hari_ini.year)
         self.assertIsNone(rekap["target"])
         self.assertEqual(rekap["total_menit"], 0)
+
+
+class LaporanBulananJamKerjaTest(TestCase):
+    """laporan_bulanan_jam_kerja -- bug fix 2026-08-05: dulu HANYA user
+    yang punya presensi di bulan itu yang ikut tampil (user_ids_ada_
+    presensi), sekarang SEMUA user dalam cakupan (user_qs) ikut tampil
+    -- konsisten dengan data_laporan_internal (Laporan Presensi
+    Internal), supaya user tanpa presensi tidak tampak seolah di luar
+    cakupan."""
+
+    def setUp(self):
+        self.dengan_presensi = _buat_dosen_user(nidn="8700000001", username="ringkasandengan")
+        self.tanpa_presensi = _buat_dosen_user(nidn="8700000002", username="ringkasantanpa")
+        self.hari_ini = timezone.localdate()
+        Presensi.objects.create(
+            user=self.dengan_presensi, tanggal=self.hari_ini,
+            waktu_masuk=timezone.make_aware(dt.combine(self.hari_ini, dt_time(8, 0))),
+            waktu_pulang=timezone.make_aware(dt.combine(self.hari_ini, dt_time(14, 0))),
+        )
+
+    def test_user_tanpa_presensi_tetap_ikut_dengan_nol_hari_hadir(self):
+        user_qs = User.objects.filter(id__in=[self.dengan_presensi.id, self.tanpa_presensi.id])
+        hasil = laporan_bulanan_jam_kerja(user_qs, self.hari_ini.month, self.hari_ini.year)
+
+        self.assertEqual(len(hasil), 2)
+        baris_tanpa = next(b for b in hasil if b["user"].id == self.tanpa_presensi.id)
+        self.assertEqual(baris_tanpa["hari_hadir"], 0)
+        self.assertIsNone(baris_tanpa["target"])
+        self.assertIsNone(baris_tanpa["kelompok"])
+
+    def test_user_dengan_presensi_tetap_terhitung_benar(self):
+        user_qs = User.objects.filter(id=self.dengan_presensi.id)
+        hasil = laporan_bulanan_jam_kerja(user_qs, self.hari_ini.month, self.hari_ini.year)
+
+        self.assertEqual(hasil[0]["hari_hadir"], 1)
 
 
 class GetDosenByNidnTest(TestCase):
@@ -1235,13 +1273,19 @@ class LaporanRingkasanJamKerjaTest(TestCase):
         self.assertContains(resp, "lapstaf")
         self.assertNotContains(resp, "lapdosen")
 
-    def test_bulan_tanpa_presensi_kosong(self):
+    def test_bulan_tanpa_presensi_tetap_tampil(self):
+        # Bug fix 2026-08-05: dulu baris disembunyikan TOTAL kalau user
+        # tidak punya presensi sama sekali di bulan itu -- sekarang
+        # SEMUA user dalam cakupan tetap tampil (0 hari hadir), sama
+        # pola dengan Laporan Presensi Internal (grid harian) di
+        # halaman yang sama, supaya tidak tampak seolah user itu di
+        # luar cakupan padahal cuma belum ada presensi.
         admin = User.objects.create_user(username="lapadmin3", password="testpass123", role="admin")
         self.client.force_login(admin)
         bulan_lalu = self.hari_ini.month - 1 or 12
         resp = self.client.get(f"/presensi/laporan-internal/?bulan={bulan_lalu}&tahun={self.hari_ini.year}")
         self.assertEqual(resp.status_code, 200)
-        self.assertNotContains(resp, "lapdosen")
+        self.assertContains(resp, "lapdosen")
 
     def test_dosen_biasa_tidak_bisa_ekspor(self):
         self.client.force_login(self.dosen)

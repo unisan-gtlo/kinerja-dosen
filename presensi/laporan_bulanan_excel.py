@@ -36,12 +36,12 @@ def render_excel_laporan_bulanan(
         top=Side(style="thin"), bottom=Side(style="thin"),
     )
 
-    ws.merge_cells("A1:H1")
+    ws.merge_cells("A1:G1")
     ws["A1"] = "LAPORAN BULANAN JAM KERJA"
     ws["A1"].font = Font(bold=True, size=14)
     ws["A1"].alignment = center
 
-    ws.merge_cells("A2:H2")
+    ws.merge_cells("A2:G2")
     ws["A2"] = f"Universitas Ichsan Gorontalo · {NAMA_BULAN[bulan - 1]} {tahun}"
     ws["A2"].font = Font(bold=True, size=12)
     ws["A2"].alignment = center
@@ -49,13 +49,13 @@ def render_excel_laporan_bulanan(
     row_header = 4
     label_filter = _label_filter(kategori, fakultas, prodi)
     if label_filter:
-        ws.merge_cells("A3:H3")
+        ws.merge_cells("A3:G3")
         ws["A3"] = label_filter
         ws["A3"].font = Font(size=9, italic=True)
         ws["A3"].alignment = center
         row_header = 5
 
-    headers = ["No", "Nama", "Role", "Kelompok", "Hari Hadir", "Total Jam Kerja", "Target Jam Kerja", "Selisih"]
+    headers = ["No", "Nama", "Role", "Hari Hadir", "Total Jam Kerja", "Target Jam Kerja", "Selisih"]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=row_header, column=col, value=header)
         cell.font = header_font
@@ -71,7 +71,6 @@ def render_excel_laporan_bulanan(
             idx,
             u.nama_resmi,
             u.get_role_display_id(),
-            item["kelompok"].nama if item["kelompok"] else "-",
             item["hari_hadir"],
             item["total_jam_kerja"],
             f"{target.target_jam_kerja} jam" if target else "-",
@@ -83,24 +82,24 @@ def render_excel_laporan_bulanan(
             cell.border = thin
             cell.alignment = center if col != 2 else left
 
-    col_widths = [5, 28, 16, 16, 10, 14, 14, 10]
+    col_widths = [5, 30, 16, 10, 14, 14, 10]
     for col, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
     if jabatan_penandatangan or nama_penandatangan or id_penandatangan:
         baris_ttd = row_header + len(daftar) + 3
-        ws.cell(row=baris_ttd, column=6, value=f"{kota}, {tanggal_cetak.strftime('%d %B %Y').upper()}")
-        ws.cell(row=baris_ttd, column=6).alignment = center
+        ws.cell(row=baris_ttd, column=5, value=f"{kota}, {tanggal_cetak.strftime('%d %B %Y').upper()}")
+        ws.cell(row=baris_ttd, column=5).alignment = center
         if jabatan_penandatangan:
-            ws.cell(row=baris_ttd + 1, column=6, value=f"{jabatan_penandatangan.upper()},")
-            ws.cell(row=baris_ttd + 1, column=6).alignment = center
+            ws.cell(row=baris_ttd + 1, column=5, value=f"{jabatan_penandatangan.upper()},")
+            ws.cell(row=baris_ttd + 1, column=5).alignment = center
 
         baris_nama_ttd = baris_ttd + 5
-        nama_cell = ws.cell(row=baris_nama_ttd, column=6, value=nama_penandatangan or ".........................")
+        nama_cell = ws.cell(row=baris_nama_ttd, column=5, value=nama_penandatangan or ".........................")
         nama_cell.font = Font(underline="single")
         nama_cell.alignment = center
         if id_penandatangan:
-            id_cell = ws.cell(row=baris_nama_ttd + 1, column=6, value=id_penandatangan)
+            id_cell = ws.cell(row=baris_nama_ttd + 1, column=5, value=id_penandatangan)
             id_cell.alignment = center
 
     buffer = io.BytesIO()

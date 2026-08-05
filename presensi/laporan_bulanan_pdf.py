@@ -5,7 +5,7 @@ import io
 
 from django.utils import timezone
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
@@ -34,6 +34,7 @@ def render_pdf_laporan_bulanan(
     styles = getSampleStyleSheet()
     judul_style = ParagraphStyle("judul", parent=styles["Heading1"], fontSize=13, alignment=TA_CENTER, spaceAfter=2)
     sub_style = ParagraphStyle("sub", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER, spaceAfter=2)
+    cell_style = ParagraphStyle("cell", parent=styles["Normal"], fontSize=8, alignment=TA_LEFT, leading=9)
     ttd_style = ParagraphStyle("ttd", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER)
 
     elements = [
@@ -46,19 +47,18 @@ def render_pdf_laporan_bulanan(
         elements.append(Paragraph(label_filter, sub_style))
     elements.append(Spacer(1, 0.4 * cm))
 
-    headers = ["No", "Nama", "Role", "Kelompok", "Hari Hadir", "Total Jam", "Target", "Selisih"]
+    headers = ["No", "Nama", "Role", "Hari Hadir", "Total Jam", "Target", "Selisih"]
     table_data = [headers]
     for idx, item in enumerate(daftar, start=1):
         target = item["target"]
         table_data.append([
-            str(idx), item["user"].nama_resmi, item["user"].get_role_display_id(),
-            item["kelompok"].nama if item["kelompok"] else "-",
+            str(idx), Paragraph(item["user"].nama_resmi, cell_style), item["user"].get_role_display_id(),
             str(item["hari_hadir"]), item["total_jam_kerja"],
             f"{target.target_jam_kerja} jam" if target else "-",
             item["selisih_jam_kerja"] or "-",
         ])
 
-    col_widths = [1 * cm, 4.5 * cm, 2.3 * cm, 2.3 * cm, 2 * cm, 2.3 * cm, 2 * cm, 2 * cm]
+    col_widths = [1 * cm, 5.2 * cm, 2.2 * cm, 2.3 * cm, 2.3 * cm, 2.3 * cm, 2.3 * cm]
     table = Table(table_data, colWidths=col_widths, repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), WARNA_HEADER),

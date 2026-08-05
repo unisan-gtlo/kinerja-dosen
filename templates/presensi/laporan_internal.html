@@ -109,14 +109,13 @@
 <div class="card">
   <div class="card-body">
     <h3 class="card-title">Ringkasan Jam Kerja</h3>
-    <p class="text-muted small">Cuma menampilkan orang yang punya presensi di bulan terpilih.</p>
+    <p class="text-muted small">Menampilkan semua orang sesuai filter (kategori/fakultas/prodi), termasuk yang belum ada presensi di bulan terpilih.</p>
     <div class="table-responsive">
       <table class="table table-vcenter card-table">
         <thead>
           <tr>
             <th>Nama</th>
             <th>Role</th>
-            <th>Kelompok</th>
             <th>Hari Hadir</th>
             <th>Total Jam Kerja</th>
             <th>Target Jam Kerja</th>
@@ -129,7 +128,6 @@
           <tr>
             <td>{{ item.user.nama_resmi }}</td>
             <td>{{ item.user.get_role_display_id }}</td>
-            <td>{{ item.kelompok.nama|default:"—" }}</td>
             <td>{{ item.hari_hadir }}</td>
             <td class="fw-bold">{{ item.total_jam_kerja }}</td>
             <td>{% if item.target %}{{ item.target.target_jam_kerja }} jam{% else %}—{% endif %}</td>
