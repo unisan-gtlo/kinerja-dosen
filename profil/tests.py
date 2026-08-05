@@ -147,7 +147,14 @@ class LinkGoogleDriveDokumenTest(TestCase):
             nidn="8800000901",
         )
         self.client = Client()
-        self.client.login(username=self.dosen.username, password="testpass123")
+        # force_login (bukan login) -- django-axes (AxesStandaloneBackend,
+        # AUTHENTICATION_BACKENDS di config/settings.py) mewajibkan request
+        # bukan None saat authenticate(), padahal Client.login() Django
+        # TIDAK PERNAH mengirim request (lihat django/test/client.py). Ini
+        # bug pre-existing yang memengaruhi SEMUA test client.login() di
+        # seluruh aplikasi (bukan cuma di sini), force_login melewati
+        # authenticate() sepenuhnya jadi aman dipakai di sini.
+        self.client.force_login(self.dosen)
 
     @patch("profil.views.get_simda_dosen_or_none")
     def test_simpan_profil_menyimpan_link_ktp_npwp_sk_pengangkatan(self, mock_dosen_fn):
