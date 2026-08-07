@@ -348,10 +348,16 @@
           </li>
           {% endif %}
 
-          <!-- Data Dosen — dosen, operator (admin sengaja DIKELUARKAN,
-               2026-08-02 -- admin bukan dosen dan tidak punya profil
-               sendiri di sini, cuma bikin sidebar ramai tanpa guna) -->
-          {% if user.role == 'dosen' or user.role == 'operator' %}
+          {% comment %}
+          Data Dosen — dosen, operator SELALU (2026-08-02, admin sengaja
+          dikeluarkan dari tampilan default -- tidak punya profil sendiri
+          di sini). Role LAIN (admin/dekan/kaprodi/rektorat/biro dst.)
+          ikut ditampilkan HANYA SAAT sedang aktif melihat dosen lain
+          lewat drill-down Rekap Data (target_user terisi & beda dari
+          diri sendiri, 2026-08-05) -- supaya bisa pindah antar-menu Tri
+          Dharma dosen itu tanpa harus bolak-balik ke Rekap Data tiap kali.
+          {% endcomment %}
+          {% if user.role == 'dosen' or user.role == 'operator' or target_user and target_user.id != user.id %}
           <li class="nav-item">
             <div class="nav-section">Data Dosen</div>
           </li>
