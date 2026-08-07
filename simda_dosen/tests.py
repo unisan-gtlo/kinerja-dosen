@@ -846,7 +846,14 @@ class KelolaJabatanStrukturalViewTest(TestCase):
             mock_qs = MagicMock()
             mock_cls.objects.using.return_value = mock_qs
             mock_qs.filter.return_value = mock_qs
-            mock_qs.order_by.return_value = []
+            # order_by() TIDAK boleh dibuat return list polos -- ketiga
+            # field ini (jabatan/dosen/tendik) FK Django asli, di-assign
+            # ke .queryset (ModelChoiceField) yang internal memanggil
+            # .all() saat di-set; list tidak punya .all(). MagicMock()
+            # baru otomatis mendukung .all() (auto-vivify), aman dipakai
+            # di sini karena test ini cuma memverifikasi form/halaman
+            # bisa dibuka, bukan isi dropdown-nya.
+            mock_qs.order_by.return_value = MagicMock()
 
         self.client.force_login(self.admin)
         resp = self.client.get("/simda-dosen/jabatan-struktural/tambah/")
@@ -887,7 +894,7 @@ class PejabatStrukturalFormTest(TestCase):
                 mock_qs = MagicMock()
                 mock_cls.objects.using.return_value = mock_qs
                 mock_qs.filter.return_value = mock_qs
-                mock_qs.order_by.return_value = []
+                mock_qs.order_by.return_value = MagicMock()
             return PejabatStrukturalForm(data={
                 "jabatan": "", "dosen": "", "tendik": "",
                 "kode_fakultas": "", "kode_prodi": "",
