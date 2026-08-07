@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
 
+from simda_dosen.utils import punya_jabatan_struktural_aktif
+
 from .face import (
     SKOR_KEMIRIPAN_MINIMUM, _baca_gambar, dekripsi_embedding, deteksi_spoofing, ekstrak_satu_wajah,
     kemiripan_kosinus,
@@ -53,10 +55,25 @@ def cek_lokasi(lat, lng, akurasi_m) -> HasilCekLokasi:
 
 
 def resolve_kelompok(user) -> Optional[KelompokPresensi]:
-    """Kelompok presensi yang berlaku untuk user, ditentukan OTOMATIS dari
-    role akun (lihat KelompokPresensi.roles). None kalau role user belum
-    dipetakan ke kelompok mana pun -- presensi tetap jalan, jam kerja
+    """Kelompok presensi yang berlaku untuk user. Dicek DUA jalur, jalur
+    jabatan struktural diprioritaskan:
+    (1) Kalau user tercatat AKTIF menjabat struktural di SIMDA (Kelola
+        Jabatan Struktural, lihat punya_jabatan_struktural_aktif) DAN ada
+        kelompok yang ditandai otomatis_dari_jabatan_struktural=True,
+        pakai kelompok itu -- TERLEPAS dari role akun user (dosen dengan
+        jabatan tetap role='dosen' untuk RBAC, cuma jam kerja presensinya
+        yang naik jadi jam Pejabat).
+    (2) Kalau tidak, jatuh ke pencocokan role biasa (KelompokPresensi.roles).
+    None kalau keduanya tidak ketemu -- presensi tetap jalan, jam kerja
     LokasiKantor dipakai sebagai fallback (lihat tentukan_status_waktu)."""
+    if punya_jabatan_struktural_aktif(user):
+        kelompok_jabatan = (
+            KelompokPresensi.objects.filter(aktif=True, otomatis_dari_jabatan_struktural=True)
+            .order_by("id")
+            .first()
+        )
+        if kelompok_jabatan is not None:
+            return kelompok_jabatan
     return (
         KelompokPresensi.objects.filter(aktif=True, roles__contains=[user.role])
         .order_by("id")

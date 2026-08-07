@@ -2,9 +2,11 @@ import re
 
 from django.contrib import messages
 from django.db import DatabaseError
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.test.testcases import DatabaseOperationForbidden
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import (
     DataDosen, DataTendik, BidangKeahlian, BidangKeahlianPublik, GolonganPublik,
@@ -362,3 +364,32 @@ def get_pejabat_aktif(nama_jabatan):
         )
     except DatabaseError:
         return None
+
+
+def punya_jabatan_struktural_aktif(user):
+    """Cek apakah `user` (dosen lewat nidn, atau tendik lewat nip_yayasan)
+    tercatat AKTIF menjabat struktural di SIMDA (master.pejabat_struktural,
+    dikelola lewat "Kelola Jabatan Struktural") -- dipakai
+    presensi.decision.resolve_kelompok() untuk otomatis menaikkan jam
+    kerja ke kelompok yang ditandai `otomatis_dari_jabatan_struktural`,
+    TERLEPAS dari role akun login user (role tetap tidak berubah, cuma
+    jam kerja presensinya). "Aktif" = is_aktif=True DAN (tgl_selesai
+    kosong ATAU belum lewat hari ini) -- dobel cek supaya baris yang
+    tanggal selesainya sudah diisi tapi lupa di-nonaktifkan tidak ikut
+    terhitung. Dibungkus try/except DatabaseError (pola sama
+    get_pejabat_aktif) -- kalau akses SIMDA belum di-grant, dianggap
+    tidak menjabat (fallback aman), bukan 500."""
+    hari_ini = timezone.localdate()
+    aktif_filter = Q(is_aktif=True) & (Q(tgl_selesai__isnull=True) | Q(tgl_selesai__gte=hari_ini))
+    try:
+        if user.nidn:
+            dosen = DataDosen.objects.using('simda').filter(nidn=user.nidn).first()
+            if dosen and PejabatStruktural.objects.using('simda').filter(aktif_filter, dosen=dosen).exists():
+                return True
+        if user.nip_yayasan:
+            tendik = DataTendik.objects.using('simda').filter(nip_yayasan=user.nip_yayasan).first()
+            if tendik and PejabatStruktural.objects.using('simda').filter(aktif_filter, tendik=tendik).exists():
+                return True
+    except DatabaseError:
+        return False
+    return False

@@ -15,8 +15,11 @@ class LokasiKantorAdmin(admin.ModelAdmin):
 
 @admin.register(KelompokPresensi)
 class KelompokPresensiAdmin(admin.ModelAdmin):
-    list_display = ['nama', 'roles', 'jam_masuk', 'jam_pulang', 'toleransi_menit', 'aktif']
-    list_filter = ['aktif']
+    list_display = [
+        'nama', 'roles', 'jam_masuk', 'jam_pulang', 'toleransi_menit',
+        'aktif', 'otomatis_dari_jabatan_struktural',
+    ]
+    list_filter = ['aktif', 'otomatis_dari_jabatan_struktural']
     search_fields = ['nama']
 
 

@@ -142,6 +142,16 @@ class KelompokPresensi(models.Model):
     jam_pulang = models.TimeField(default=time(16, 0))
     toleransi_menit = models.PositiveIntegerField("Toleransi telat (menit)", default=15)
     aktif = models.BooleanField(default=True)
+    otomatis_dari_jabatan_struktural = models.BooleanField(
+        "Otomatis dari Jabatan Struktural (SIMDA)", default=False,
+        help_text=(
+            "Kalau dicentang, kelompok ini SEKALIGUS berlaku otomatis untuk "
+            "dosen/tendik yang tercatat AKTIF menjabat struktural di SIMDA "
+            "(Kelola Jabatan Struktural) -- terlepas dari role akun "
+            "login-nya. Dicek LEBIH DULU sebelum pencocokan `roles` biasa, "
+            "lihat presensi.decision.resolve_kelompok."
+        ),
+    )
     dibuat = models.DateTimeField(auto_now_add=True)
 
     class Meta:

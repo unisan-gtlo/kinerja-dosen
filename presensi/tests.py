@@ -310,6 +310,65 @@ class ResolveKelompokTest(TestCase):
         self.assertIsNone(resolve_kelompok(user))
 
 
+class ResolveKelompokJabatanStrukturalTest(TestCase):
+    """resolve_kelompok() sekarang mengecek DUA jalur (2026-08-07): dosen
+    yang tercatat AKTIF menjabat struktural di SIMDA (Kelola Jabatan
+    Struktural) otomatis masuk kelompok yang ditandai
+    otomatis_dari_jabatan_struktural=True, TERLEPAS dari role akun login
+    (role tetap 'dosen', cuma jam kerja presensinya naik ke jam Pejabat).
+    punya_jabatan_struktural_aktif di-mock (SIMDA tidak selalu tersedia
+    saat test) supaya murni menguji logika prioritas di resolve_kelompok,
+    bukan query SIMDA sungguhan."""
+
+    def setUp(self):
+        KelompokPresensi.objects.all().delete()
+        self.kelompok_dosen = KelompokPresensi.objects.create(
+            nama="Dosen Test", roles=["dosen"], jam_masuk=dt_time(8, 0), jam_pulang=dt_time(14, 0),
+        )
+        self.kelompok_pejabat = KelompokPresensi.objects.create(
+            nama="Pejabat Test", roles=["dekan"], jam_masuk=dt_time(8, 0), jam_pulang=dt_time(16, 0),
+            otomatis_dari_jabatan_struktural=True,
+        )
+
+    @patch("presensi.decision.punya_jabatan_struktural_aktif")
+    def test_dosen_dengan_jabatan_struktural_aktif_masuk_kelompok_pejabat(self, mock_punya):
+        mock_punya.return_value = True
+        user = _buat_dosen_user()
+        self.assertEqual(resolve_kelompok(user), self.kelompok_pejabat)
+
+    @patch("presensi.decision.punya_jabatan_struktural_aktif")
+    def test_dosen_tanpa_jabatan_struktural_tetap_masuk_kelompok_dosen(self, mock_punya):
+        mock_punya.return_value = False
+        user = _buat_dosen_user()
+        self.assertEqual(resolve_kelompok(user), self.kelompok_dosen)
+
+    @patch("presensi.decision.punya_jabatan_struktural_aktif")
+    def test_role_akun_tidak_berubah_cuma_kelompok_jam_kerja(self, mock_punya):
+        mock_punya.return_value = True
+        user = _buat_dosen_user()
+        resolve_kelompok(user)
+        user.refresh_from_db()
+        self.assertEqual(user.role, "dosen")
+
+    @patch("presensi.decision.punya_jabatan_struktural_aktif")
+    def test_tidak_ada_kelompok_otomatis_jabatan_jatuh_ke_role(self, mock_punya):
+        mock_punya.return_value = True
+        self.kelompok_pejabat.otomatis_dari_jabatan_struktural = False
+        self.kelompok_pejabat.save()
+        user = _buat_dosen_user()
+        self.assertEqual(resolve_kelompok(user), self.kelompok_dosen)
+
+    @patch("simda_dosen.utils.DataDosen")
+    def test_simda_error_di_punya_jabatan_tidak_menggagalkan_resolve_kelompok(self, mock_dosen_cls):
+        # Regresi: punya_jabatan_struktural_aktif (dipanggil resolve_kelompok
+        # LANGSUNG, tidak di-mock di sini) harus degradasi aman ke False
+        # kalau akses SIMDA gagal -- resolve_kelompok tetap jatuh ke
+        # pencocokan role biasa, bukan crash. Pola sama get_pejabat_aktif.
+        mock_dosen_cls.objects.using.side_effect = DatabaseError("permission denied")
+        user = _buat_dosen_user()
+        self.assertEqual(resolve_kelompok(user), self.kelompok_dosen)
+
+
 class TentukanStatusWaktuTest(TestCase):
     """Prioritas jam kerja KelompokPresensi > LokasiKantor, plus pengecualian
     hari libur & hari non-kerja kelompok -- lihat CLAUDE.md § 9."""

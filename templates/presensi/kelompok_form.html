@@ -61,6 +61,19 @@
         <label class="form-check-label">Aktif</label>
       </div>
 
+      <div class="mb-3 form-check">
+        {{ form.otomatis_dari_jabatan_struktural }}
+        <label class="form-check-label">Otomatis dari Jabatan Struktural (SIMDA)</label>
+        <div class="form-text">
+          Kalau dicentang, kelompok ini berlaku SEKALIGUS untuk dosen/tendik
+          yang tercatat aktif menjabat struktural di SIMDA (lihat menu
+          "Kelola Jabatan Struktural") -- terlepas dari role akun login-nya.
+          Cocok untuk kelompok "Pejabat" supaya dosen yang menjabat Dekan/
+          Kaprodi/dst otomatis kena jam kerja ini tanpa perlu mengubah role
+          akunnya lewat Kelola User.
+        </div>
+      </div>
+
       <button type="submit" class="btn btn-primary">Simpan</button>
       <a class="btn btn-outline-secondary" href="{% url 'presensi_web:pengaturan_kelompok' %}">Batal</a>
     </form>

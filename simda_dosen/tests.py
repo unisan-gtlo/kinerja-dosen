@@ -14,11 +14,11 @@ from django.test import TestCase, Client
 from accounts.models import User
 
 from .forms import (
-    DataTendikForm, ProfilSayaTendikForm, RiwayatPelatihanTendikForm,
+    DataTendikForm, ProfilSayaTendikForm, PejabatStrukturalForm, RiwayatPelatihanTendikForm,
     RiwayatPendidikanTendikForm, RiwayatPrestasiTendikForm,
 )
 from .models import DataTendik, RiwayatPelatihanTendik, RiwayatPendidikanTendik, RiwayatPrestasiTendik
-from .utils import bisa_tambah_tridarma, get_or_create_unit_kerja
+from .utils import bisa_tambah_tridarma, get_or_create_unit_kerja, punya_jabatan_struktural_aktif
 
 
 class DataTendikFormTest(TestCase):
@@ -781,3 +781,172 @@ class RiwayatTendikLinkDriveFormTest(TestCase):
         })
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["link_bukti"], "https://drive.google.com/bukti")
+
+
+class KelolaJabatanStrukturalViewTest(TestCase):
+    """Halaman /simda-dosen/jabatan-struktural/ -- admin-only (pola sama
+    KelolaDataTendikViewTest). Data ini dipakai presensi.decision.
+    resolve_kelompok() untuk otomatis menaikkan jam kerja ke kelompok
+    Pejabat, jadi CRUD-nya sengaja dibatasi admin saja (institusi-wide,
+    bukan discope fakultas/prodi)."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="jabatanadmin", password="testpass123", role="admin")
+        self.dosen = User.objects.create_user(username="jabatandosen", password="testpass123", role="dosen")
+
+    def test_dosen_biasa_tidak_bisa_akses_daftar(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/simda-dosen/jabatan-struktural/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_dosen_biasa_tidak_bisa_akses_tambah(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.get("/simda-dosen/jabatan-struktural/tambah/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_dosen_biasa_tidak_bisa_toggle_aktif(self):
+        self.client.force_login(self.dosen)
+        resp = self.client.post("/simda-dosen/jabatan-struktural/1/toggle-aktif/")
+        self.assertEqual(resp.status_code, 403)
+
+    @patch("simda_dosen.views.PejabatStruktural")
+    def test_admin_bisa_akses_daftar(self, mock_cls):
+        mock_qs = MagicMock()
+        mock_cls.objects.using.return_value = mock_qs
+        mock_qs.select_related.return_value = mock_qs
+        mock_qs.all.return_value = mock_qs
+        mock_qs.order_by.return_value = []
+
+        self.client.force_login(self.admin)
+        resp = self.client.get("/simda-dosen/jabatan-struktural/")
+
+        self.assertEqual(resp.status_code, 200)
+        mock_cls.objects.using.assert_called_with("simda")
+
+    @patch("simda_dosen.views.PejabatStruktural")
+    def test_admin_bisa_cari(self, mock_cls):
+        mock_qs = MagicMock()
+        mock_cls.objects.using.return_value = mock_qs
+        mock_qs.select_related.return_value = mock_qs
+        mock_qs.all.return_value = mock_qs
+        mock_qs.filter.return_value = mock_qs
+        mock_qs.order_by.return_value = []
+
+        self.client.force_login(self.admin)
+        resp = self.client.get("/simda-dosen/jabatan-struktural/", {"q": "Dekan"})
+
+        self.assertEqual(resp.status_code, 200)
+        mock_qs.filter.assert_called_once()
+
+    @patch("simda_dosen.forms.DataTendik")
+    @patch("simda_dosen.forms.DataDosen")
+    @patch("simda_dosen.forms.JabatanStruktural")
+    def test_admin_bisa_buka_form_tambah(self, mock_jabatan, mock_dosen, mock_tendik):
+        for mock_cls in (mock_jabatan, mock_dosen, mock_tendik):
+            mock_qs = MagicMock()
+            mock_cls.objects.using.return_value = mock_qs
+            mock_qs.filter.return_value = mock_qs
+            mock_qs.order_by.return_value = []
+
+        self.client.force_login(self.admin)
+        resp = self.client.get("/simda-dosen/jabatan-struktural/tambah/")
+        self.assertEqual(resp.status_code, 200)
+
+    @patch("simda_dosen.views.PejabatStruktural")
+    def test_admin_bisa_toggle_aktif(self, mock_cls):
+        pejabat = Mock(id=1, is_aktif=True)
+        mock_qs = MagicMock()
+        mock_cls.objects.using.return_value = mock_qs
+        mock_qs.get.return_value = pejabat
+
+        self.client.force_login(self.admin)
+        resp = self.client.post("/simda-dosen/jabatan-struktural/1/toggle-aktif/")
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(pejabat.is_aktif)
+        pejabat.save.assert_called_once_with(update_fields=["is_aktif"])
+
+
+class PejabatStrukturalFormTest(TestCase):
+    """PejabatStrukturalForm.clean() -- wajib pilih SALAH SATU dosen atau
+    tendik (constraint alami tabel SIMDA aslinya, dosen_id/tendik_id
+    sama-sama nullable). Dropdown jabatan/dosen/tendik/fakultas/prodi
+    di-mock (SIMDA tidak selalu tersedia saat test)."""
+
+    def _form_kosong(self):
+        with patch("simda_dosen.forms.JabatanStruktural") as mock_jabatan, \
+             patch("simda_dosen.forms.DataDosen") as mock_dosen, \
+             patch("simda_dosen.forms.DataTendik") as mock_tendik:
+            for mock_cls in (mock_jabatan, mock_dosen, mock_tendik):
+                mock_qs = MagicMock()
+                mock_cls.objects.using.return_value = mock_qs
+                mock_qs.filter.return_value = mock_qs
+                mock_qs.order_by.return_value = []
+            return PejabatStrukturalForm(data={
+                "jabatan": "", "dosen": "", "tendik": "",
+                "kode_fakultas": "", "kode_prodi": "",
+                "tgl_mulai": "2024-01-01", "is_aktif": "on",
+                "lebar_ttd": "60", "tinggi_ttd": "25",
+            })
+
+    def test_tanpa_dosen_maupun_tendik_tidak_valid(self):
+        form = self._form_kosong()
+        self.assertFalse(form.is_valid())
+
+    def test_dosen_required_false_tendik_required_false(self):
+        # Memastikan is_valid() gagal karena clean() (bukan required field
+        # bawaan ModelChoiceField), sesuai desain __init__ yang men-set
+        # required=False untuk keduanya.
+        form = self._form_kosong()
+        form.is_valid()
+        self.assertNotIn("dosen", form.errors)
+        self.assertNotIn("tendik", form.errors)
+
+
+class PunyaJabatanStrukturalAktifTest(TestCase):
+    """simda_dosen.utils.punya_jabatan_struktural_aktif -- dipakai
+    presensi.decision.resolve_kelompok() untuk otomatis menaikkan jam
+    kerja ke kelompok Pejabat. DataDosen/DataTendik/PejabatStruktural
+    di-mock (SIMDA tidak selalu tersedia saat test, pola sama
+    GetPejabatAktifTest)."""
+
+    def test_tanpa_nidn_maupun_nip_yayasan_false(self):
+        user = Mock(nidn="", nip_yayasan="")
+        self.assertFalse(punya_jabatan_struktural_aktif(user))
+
+    @patch("simda_dosen.utils.PejabatStruktural")
+    @patch("simda_dosen.utils.DataDosen")
+    def test_dosen_dengan_jabatan_aktif_true(self, mock_dosen_cls, mock_pejabat_cls):
+        user = Mock(nidn="8800000401", nip_yayasan="")
+        dosen = Mock(id=1)
+        mock_dosen_cls.objects.using.return_value.filter.return_value.first.return_value = dosen
+        mock_pejabat_cls.objects.using.return_value.filter.return_value.exists.return_value = True
+
+        self.assertTrue(punya_jabatan_struktural_aktif(user))
+
+    @patch("simda_dosen.utils.PejabatStruktural")
+    @patch("simda_dosen.utils.DataDosen")
+    def test_dosen_tanpa_jabatan_aktif_false(self, mock_dosen_cls, mock_pejabat_cls):
+        user = Mock(nidn="8800000402", nip_yayasan="")
+        dosen = Mock(id=2)
+        mock_dosen_cls.objects.using.return_value.filter.return_value.first.return_value = dosen
+        mock_pejabat_cls.objects.using.return_value.filter.return_value.exists.return_value = False
+
+        self.assertFalse(punya_jabatan_struktural_aktif(user))
+
+    @patch("simda_dosen.utils.PejabatStruktural")
+    @patch("simda_dosen.utils.DataTendik")
+    def test_tendik_dengan_jabatan_aktif_true(self, mock_tendik_cls, mock_pejabat_cls):
+        user = Mock(nidn="", nip_yayasan="19800101")
+        tendik = Mock(id=3)
+        mock_tendik_cls.objects.using.return_value.filter.return_value.first.return_value = tendik
+        mock_pejabat_cls.objects.using.return_value.filter.return_value.exists.return_value = True
+
+        self.assertTrue(punya_jabatan_struktural_aktif(user))
+
+    @patch("simda_dosen.utils.DataDosen")
+    def test_database_error_fallback_false_bukan_crash(self, mock_dosen_cls):
+        user = Mock(nidn="8800000403", nip_yayasan="")
+        mock_dosen_cls.objects.using.side_effect = DatabaseError("permission denied")
+
+        self.assertFalse(punya_jabatan_struktural_aktif(user))

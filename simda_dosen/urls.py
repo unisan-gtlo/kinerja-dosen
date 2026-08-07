@@ -15,6 +15,12 @@ urlpatterns = [
     path('tendik/<int:tendik_id>/ubah/', views.ubah_tendik, name='ubah_tendik'),
     path('tendik/<int:tendik_id>/toggle-aktif/', views.toggle_aktif_tendik, name='toggle_aktif_tendik'),
     path('tendik/<int:tendik_id>/detail/', views.detail_tendik, name='detail_tendik'),
+
+    path('jabatan-struktural/', views.daftar_jabatan_struktural, name='daftar_jabatan_struktural'),
+    path('jabatan-struktural/tambah/', views.tambah_jabatan_struktural, name='tambah_jabatan_struktural'),
+    path('jabatan-struktural/<int:pejabat_id>/ubah/', views.ubah_jabatan_struktural, name='ubah_jabatan_struktural'),
+    path('jabatan-struktural/<int:pejabat_id>/toggle-aktif/', views.toggle_aktif_jabatan_struktural,
+         name='toggle_aktif_jabatan_struktural'),
     path('profil-riwayat-saya/', views.profil_riwayat_saya, name='profil_riwayat_saya'),
     path('profil-riwayat-saya/simpan/', views.simpan_profil_saya_tendik, name='simpan_profil_saya_tendik'),
 

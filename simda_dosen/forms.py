@@ -1,8 +1,11 @@
 from django.db import DatabaseError
 from django import forms
 
+from master.models import Fakultas, Prodi
+
 from .models import (
-    AgamaPublik, DataTendik, GolonganPublik, JenisKepegawaianPublik, StatusKepegawaianPublik, UnitKerja,
+    AgamaPublik, DataDosen, DataTendik, GolonganPublik, JabatanStruktural, JenisKepegawaianPublik,
+    PejabatStruktural, StatusKepegawaianPublik, UnitKerja,
     RiwayatPendidikanTendik, RiwayatPelatihanTendik, RiwayatPrestasiTendik,
 )
 
@@ -246,3 +249,87 @@ class ProfilSayaTendikForm(forms.ModelForm):
             ]
         except DatabaseError:
             self.fields["agama_id"].choices = kosong
+
+
+class PejabatStrukturalForm(forms.ModelForm):
+    """Form "Kelola Jabatan Struktural" -- menetapkan dosen/tendik ke
+    jabatan yang SUDAH ADA di SIMDA (master.jabatan_struktural, daftar
+    jenisnya dikelola lewat aplikasi SIMDA sendiri, TIDAK ada CRUD-nya di
+    sini -- keputusan user 2026-08-07: "jenis jabatan sudah tersedia
+    pilihannya di Simda"). Data yang diisi lewat form ini dipakai
+    presensi.decision.resolve_kelompok() (lewat
+    simda_dosen.utils.punya_jabatan_struktural_aktif) untuk otomatis
+    menaikkan jam kerja presensi dosen/tendik yang menjabat ke kelompok
+    "Pejabat", TERLEPAS dari role akun login-nya.
+
+    jabatan/dosen/tendik adalah FK Django ASLI (beda dengan *_id mentah
+    di DataTendikForm) -- cukup di-set queryset-nya di __init__, tidak
+    perlu TypedChoiceField. Pilih SALAH SATU dosen ATAU tendik (divalidasi
+    di clean()), sesuai constraint alami tabel SIMDA aslinya (kolom
+    dosen_id/tendik_id sama-sama nullable)."""
+
+    kode_fakultas = forms.ChoiceField(
+        required=False, label="Fakultas", widget=forms.Select(attrs={"class": "form-select"}),
+        help_text="Kosongkan untuk jabatan tingkat universitas (mis. Rektor).",
+    )
+    kode_prodi = forms.ChoiceField(
+        required=False, label="Program Studi", widget=forms.Select(attrs={"class": "form-select"}),
+        help_text="Diisi kalau jabatan tingkat program studi (mis. Kaprodi/Sekprodi).",
+    )
+
+    class Meta:
+        model = PejabatStruktural
+        fields = [
+            "jabatan", "dosen", "tendik", "kode_fakultas", "kode_prodi",
+            "tgl_mulai", "tgl_selesai", "is_aktif", "file_ttd", "lebar_ttd", "tinggi_ttd",
+        ]
+        widgets = {
+            "jabatan": forms.Select(attrs={"class": "form-select"}),
+            "dosen": forms.Select(attrs={"class": "form-select"}),
+            "tendik": forms.Select(attrs={"class": "form-select"}),
+            "tgl_mulai": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
+            "tgl_selesai": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
+            "is_aktif": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "file_ttd": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            "lebar_ttd": forms.NumberInput(attrs={"class": "form-control"}),
+            "tinggi_ttd": forms.NumberInput(attrs={"class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["dosen"].required = False
+        self.fields["tendik"].required = False
+        try:
+            self.fields["jabatan"].queryset = (
+                JabatanStruktural.objects.using("simda").filter(status=True).order_by("level", "nama")
+            )
+            self.fields["dosen"].queryset = (
+                DataDosen.objects.using("simda").filter(is_active=True).order_by("nama_lengkap")
+            )
+            self.fields["tendik"].queryset = (
+                DataTendik.objects.using("simda").filter(is_active=True).order_by("nama_lengkap")
+            )
+        except DatabaseError:
+            self.fields["jabatan"].queryset = JabatanStruktural.objects.none()
+            self.fields["dosen"].queryset = DataDosen.objects.none()
+            self.fields["tendik"].queryset = DataTendik.objects.none()
+
+        kosong = [("", "---------")]
+        self.fields["kode_fakultas"].choices = kosong + [
+            (f.kode_fakultas, f.nama_fakultas)
+            for f in Fakultas.objects.filter(status="aktif").order_by("nama_fakultas")
+        ]
+        self.fields["kode_prodi"].choices = kosong + [
+            (p.kode_prodi, p.nama_prodi)
+            for p in Prodi.objects.filter(status="aktif").order_by("nama_prodi")
+        ]
+
+    def clean(self):
+        cleaned = super().clean()
+        dosen = cleaned.get("dosen")
+        tendik = cleaned.get("tendik")
+        if not dosen and not tendik:
+            raise forms.ValidationError("Pilih salah satu: Dosen atau Tendik.")
+        if dosen and tendik:
+            raise forms.ValidationError("Pilih HANYA SALAH SATU: Dosen atau Tendik, jangan keduanya.")
+        return cleaned

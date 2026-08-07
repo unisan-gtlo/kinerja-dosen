@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}{{ judul }} — SIKD{% endblock %}
+{% block page_title %}Kelola Jabatan Struktural{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">{{ judul }}</h3>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="mb-3">
+        <label class="form-label">Jabatan *</label>
+        {{ form.jabatan }}
+        {% if form.jabatan.errors %}<div class="text-danger small mt-1">{{ form.jabatan.errors|join:", " }}</div>{% endif %}
+      </div>
+
+      <div class="alert alert-info small">
+        Pilih SALAH SATU: Dosen atau Tendik yang menjabat.
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label">Dosen</label>
+          {{ form.dosen }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Tendik</label>
+          {{ form.tendik }}
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label">Fakultas</label>
+          {{ form.kode_fakultas }}
+          {% if form.kode_fakultas.help_text %}<div class="form-text">{{ form.kode_fakultas.help_text }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Program Studi</label>
+          {{ form.kode_prodi }}
+          {% if form.kode_prodi.help_text %}<div class="form-text">{{ form.kode_prodi.help_text }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label">Tanggal Mulai Menjabat *</label>
+          {{ form.tgl_mulai }}
+          {% if form.tgl_mulai.errors %}<div class="text-danger small mt-1">{{ form.tgl_mulai.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Tanggal Selesai Menjabat</label>
+          {{ form.tgl_selesai }}
+          <div class="form-text">Kosongkan kalau masih menjabat.</div>
+        </div>
+      </div>
+
+      <div class="mb-3 form-check">
+        {{ form.is_aktif }}
+        <label class="form-check-label">Aktif menjabat</label>
+        <div class="form-text">
+          Dosen/tendik yang tercatat Aktif di sini otomatis kena jam kerja
+          kelompok "Pejabat" di presensi, tanpa perlu mengubah role akun
+          login-nya.
+        </div>
+      </div>
+
+      <h4 class="mt-3">Tanda Tangan (opsional)</h4>
+      <p class="text-muted small">Dipakai otomatis untuk blok tanda tangan di Laporan Daftar Hadir Serdos.</p>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label">File Tanda Tangan</label>
+          {{ form.file_ttd }}
+          {% if form.instance.file_ttd %}
+          <div class="form-text">
+            Saat ini: <a href="{{ form.instance.file_ttd.url }}" target="_blank">lihat file tersimpan</a>
+          </div>
+          {% endif %}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Lebar TTD (mm)</label>
+          {{ form.lebar_ttd }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Tinggi TTD (mm)</label>
+          {{ form.tinggi_ttd }}
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Simpan</button>
+      <a class="btn btn-outline-secondary" href="{% url 'simda_dosen:daftar_jabatan_struktural' %}">Batal</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

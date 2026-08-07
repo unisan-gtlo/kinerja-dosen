@@ -31,7 +31,14 @@
           {% for k in daftar %}
           <tr>
             <td>{{ k.nama }}</td>
-            <td>{{ k.roles|join:", " }}</td>
+            <td>
+              {{ k.roles|join:", " }}
+              {% if k.otomatis_dari_jabatan_struktural %}
+              <br><span class="badge bg-azure-lt mt-1" title="Berlaku juga untuk dosen/tendik yang tercatat aktif menjabat struktural di SIMDA, terlepas dari role akunnya.">
+                <span class="ti ti-briefcase me-1"></span>+ Jabatan Struktural (SIMDA)
+              </span>
+              {% endif %}
+            </td>
             <td>{{ k.hari_kerja|length }} hari/minggu</td>
             <td>{{ k.jam_masuk|time:"H:i" }}–{{ k.jam_pulang|time:"H:i" }}</td>
             <td>{{ k.toleransi_menit }} menit</td>

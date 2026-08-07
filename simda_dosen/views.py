@@ -6,10 +6,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import (
     DataTendikForm, RiwayatPendidikanTendikForm, RiwayatPelatihanTendikForm, RiwayatPrestasiTendikForm,
-    ProfilSayaTendikForm,
+    ProfilSayaTendikForm, PejabatStrukturalForm,
 )
 from .models import (
-    DataDosen, DataTendik, MahasiswaPublik, MataKuliahPublik,
+    DataDosen, DataTendik, MahasiswaPublik, MataKuliahPublik, PejabatStruktural,
     RiwayatPendidikanTendik, RiwayatPelatihanTendik, RiwayatPrestasiTendik,
 )
 from .file_compress import compress_uploaded_file
@@ -255,6 +255,104 @@ def toggle_aktif_tendik(request, tendik_id):
         request, f"{tendik.nama_lengkap} sekarang {'aktif' if tendik.is_active else 'nonaktif'}.",
     )
     return redirect('simda_dosen:daftar_tendik')
+
+
+# ============================================================
+# Kelola Jabatan Struktural -- CRUD ke master.pejabat_struktural SIMDA,
+# admin-only (pola sama Kelola Data Tendik). Menetapkan dosen/tendik ke
+# jabatan yang SUDAH ADA (master.jabatan_struktural dikelola di SIMDA
+# sendiri, tidak ada CRUD-nya di sini). Data ini dipakai
+# presensi.decision.resolve_kelompok() (lewat punya_jabatan_struktural_aktif)
+# untuk otomatis menaikkan jam kerja presensi ke kelompok Pejabat,
+# terlepas dari role akun login -- lihat tambah_akses_pejabat_struktural_tulis.sql
+# di repo SIMDA untuk grant baca-tulisnya.
+# ============================================================
+
+def _bisa_kelola_jabatan_struktural(user):
+    return user.role == 'admin'
+
+
+def _daftar_jabatan_struktural_qs(request):
+    """Query + filter cari yang sama dipakai halaman daftar -- pola sama
+    _daftar_tendik_qs, supaya konsisten kalau nanti ditambah ekspor."""
+    q = request.GET.get('q', '').strip()
+    daftar = (
+        PejabatStruktural.objects.using('simda')
+        .select_related('jabatan', 'dosen', 'tendik')
+        .all()
+    )
+    if q:
+        daftar = daftar.filter(
+            Q(jabatan__nama__icontains=q) | Q(dosen__nama_lengkap__icontains=q) |
+            Q(tendik__nama_lengkap__icontains=q)
+        )
+    return daftar.order_by('jabatan__level', '-tgl_mulai'), q
+
+
+@login_required
+def daftar_jabatan_struktural(request):
+    if not _bisa_kelola_jabatan_struktural(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    daftar, q = _daftar_jabatan_struktural_qs(request)
+    return render(request, 'simda_dosen/daftar_jabatan_struktural.html', {
+        'daftar': daftar, 'kata_kunci': q,
+    })
+
+
+@login_required
+def tambah_jabatan_struktural(request):
+    if not _bisa_kelola_jabatan_struktural(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    if request.method == 'POST':
+        form = PejabatStrukturalForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Jabatan struktural berhasil ditambahkan.')
+            return redirect('simda_dosen:daftar_jabatan_struktural')
+    else:
+        form = PejabatStrukturalForm()
+    return render(request, 'simda_dosen/jabatan_struktural_form.html', {
+        'form': form, 'judul': 'Tambah Jabatan Struktural',
+    })
+
+
+@login_required
+def ubah_jabatan_struktural(request, pejabat_id):
+    if not _bisa_kelola_jabatan_struktural(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    pejabat = get_object_or_404(PejabatStruktural.objects.using('simda'), id=pejabat_id)
+    if request.method == 'POST':
+        form = PejabatStrukturalForm(request.POST, request.FILES, instance=pejabat)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Jabatan struktural berhasil diperbarui.')
+            return redirect('simda_dosen:daftar_jabatan_struktural')
+    else:
+        form = PejabatStrukturalForm(instance=pejabat)
+    return render(request, 'simda_dosen/jabatan_struktural_form.html', {
+        'form': form, 'judul': f'Ubah Jabatan Struktural: {pejabat}',
+    })
+
+
+@login_required
+def toggle_aktif_jabatan_struktural(request, pejabat_id):
+    """POST-only: aktifkan/nonaktifkan is_aktif, BUKAN hapus -- record
+    tetap dipertahankan sebagai riwayat siapa pernah menjabat apa."""
+    if not _bisa_kelola_jabatan_struktural(request.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method != 'POST':
+        return redirect('simda_dosen:daftar_jabatan_struktural')
+
+    pejabat = get_object_or_404(PejabatStruktural.objects.using('simda'), id=pejabat_id)
+    pejabat.is_aktif = not pejabat.is_aktif
+    pejabat.save(update_fields=['is_aktif'])
+    messages.success(
+        request, f"{pejabat} sekarang {'aktif' if pejabat.is_aktif else 'nonaktif'}.",
+    )
+    return redirect('simda_dosen:daftar_jabatan_struktural')
 
 
 # ============================================================

@@ -57,12 +57,16 @@ class KelompokPresensiForm(forms.ModelForm):
 
     class Meta:
         model = KelompokPresensi
-        fields = ["nama", "roles", "hari_kerja", "jam_masuk", "jam_pulang", "toleransi_menit", "aktif"]
+        fields = [
+            "nama", "roles", "hari_kerja", "jam_masuk", "jam_pulang", "toleransi_menit",
+            "aktif", "otomatis_dari_jabatan_struktural",
+        ]
         widgets = {
             "nama": forms.TextInput(attrs={"class": "form-control"}),
             "jam_masuk": forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
             "jam_pulang": forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
             "toleransi_menit": forms.NumberInput(attrs={"class": "form-control"}),
+            "otomatis_dari_jabatan_struktural": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def clean_hari_kerja(self):
