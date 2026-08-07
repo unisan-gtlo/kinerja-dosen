@@ -357,70 +357,70 @@
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'profil' and request.resolver_match.url_name != 'kualifikasi_index' and request.resolver_match.url_name != 'kompetensi_index' and request.resolver_match.url_name != 'dokumen_index' %}active{% endif %}"
-               href="{% url 'profil:index' %}">
+               href="{% url 'profil:index' %}{% if target_user and target_user.id != user.id %}?dosen_id={{ target_user.id }}{% endif %}">
               <span class="nav-link-icon"><span class="ti ti-user"></span></span>
               <span class="nav-link-title">Profil Dosen</span>
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.url_name == 'kualifikasi_index' %}active{% endif %}"
-               href="{% url 'profil:kualifikasi_index' %}">
+               href="{% url 'profil:kualifikasi_index' %}{% if target_user and target_user.id != user.id %}?dosen_id={{ target_user.id }}{% endif %}">
               <span class="nav-link-icon"><span class="ti ti-school"></span></span>
               <span class="nav-link-title">Kualifikasi</span>
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.url_name == 'kompetensi_index' %}active{% endif %}"
-               href="{% url 'profil:kompetensi_index' %}">
+               href="{% url 'profil:kompetensi_index' %}{% if target_user and target_user.id != user.id %}?dosen_id={{ target_user.id }}{% endif %}">
               <span class="nav-link-icon"><span class="ti ti-award"></span></span>
               <span class="nav-link-title">Kompetensi</span>
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'pendidikan' %}active{% endif %}"
-               href="{% url 'pendidikan:index' %}">
+               href="{% url 'pendidikan:index' %}{% if target_user and target_user.id != user.id %}?dosen_id={{ target_user.id }}{% endif %}">
               <span class="nav-link-icon"><span class="ti ti-chalkboard"></span></span>
               <span class="nav-link-title">Pelaks. Pendidikan</span>
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'penelitian' %}active{% endif %}"
-               href="{% url 'penelitian:index' %}">
+               href="{% url 'penelitian:index' %}{% if target_user and target_user.id != user.id %}?dosen_id={{ target_user.id }}{% endif %}">
               <span class="nav-link-icon"><span class="ti ti-microscope"></span></span>
               <span class="nav-link-title">Pelaks. Penelitian</span>
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'pengabdian' %}active{% endif %}"
-               href="{% url 'pengabdian:index' %}">
+               href="{% url 'pengabdian:index' %}{% if target_user and target_user.id != user.id %}?dosen_id={{ target_user.id }}{% endif %}">
               <span class="nav-link-icon"><span class="ti ti-hearts"></span></span>
               <span class="nav-link-title">Pelaks. Pengabdian</span>
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'penunjang' %}active{% endif %}"
-               href="{% url 'penunjang:index' %}">
+               href="{% url 'penunjang:index' %}{% if target_user and target_user.id != user.id %}?dosen_id={{ target_user.id }}{% endif %}">
               <span class="nav-link-icon"><span class="ti ti-shield-check"></span></span>
               <span class="nav-link-title">Penunjang</span>
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'reward' %}active{% endif %}"
-               href="{% url 'reward:index' %}">
+               href="{% url 'reward:index' %}{% if target_user and target_user.id != user.id %}?dosen_id={{ target_user.id }}{% endif %}">
               <span class="nav-link-icon"><span class="ti ti-gift"></span></span>
               <span class="nav-link-title">Reward</span>
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.url_name == 'bkd_index' %}active{% endif %}"
-               href="{% url 'kinerja:bkd_index' %}">
+               href="{% url 'kinerja:bkd_index' %}{% if target_user and target_user.id != user.id %}?dosen_id={{ target_user.id }}{% endif %}">
               <span class="nav-link-icon"><span class="ti ti-file-description"></span></span>
               <span class="nav-link-title">Laporan BKD</span>
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.url_name == 'dokumen_index' %}active{% endif %}"
-               href="{% url 'profil:dokumen_index' %}">
+               href="{% url 'profil:dokumen_index' %}{% if target_user and target_user.id != user.id %}?dosen_id={{ target_user.id }}{% endif %}">
               <span class="nav-link-icon"><span class="ti ti-file-text"></span></span>
               <span class="nav-link-title">Data Dokumen</span>
             </a>
