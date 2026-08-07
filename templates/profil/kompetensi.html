@@ -3,7 +3,9 @@
 {% block page_title %}
   Kompetensi
   {% if target_user != request.user %}
-  <small class="text-muted fs-5">— {{ target_user.get_full_name|default:target_user.username }}</small>
+  <span class="badge bg-blue-lt ms-2 align-middle" style="font-size:0.95rem; font-weight:600; padding:0.5em 1em; border-radius:999px;">
+    <span class="ti ti-user-circle me-1"></span>{{ target_user.get_full_name|default:target_user.username }}
+  </span>
   {% endif %}
 {% endblock %}
 
