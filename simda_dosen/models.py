@@ -903,6 +903,8 @@ class PejabatStruktural(models.Model):
     )
     kode_fakultas = models.CharField(max_length=10, blank=True)
     kode_prodi = models.CharField(max_length=10, blank=True)
+    no_sk = models.CharField(max_length=100, blank=True, default='', verbose_name='No. SK')
+    tgl_sk = models.DateField(null=True, blank=True, verbose_name='Tanggal SK')
     tgl_mulai = models.DateField()
     tgl_selesai = models.DateField(null=True, blank=True)
     is_aktif = models.BooleanField(default=True)
@@ -912,6 +914,20 @@ class PejabatStruktural(models.Model):
     )
     lebar_ttd = models.IntegerField(default=60, verbose_name='Lebar TTD (mm)')
     tinggi_ttd = models.IntegerField(default=25, verbose_name='Tinggi TTD (mm)')
+    # no_sk (di atas) & keterangan (text, keduanya NOT NULL tanpa default di
+    # tabel SIMDA aslinya) DAN foto (nullable) ditambahkan 2026-08-08 --
+    # sebelumnya model ini cuma dipakai READ-ONLY (blok tanda tangan
+    # laporan), jadi field yang tidak relevan untuk itu sengaja tidak
+    # dipetakan. Begitu "Kelola Jabatan Struktural" CRUD dibangun,
+    # INSERT lewat Django ORM gagal (IntegrityError "null value in
+    # column no_sk") karena kolom NOT NULL yang tidak ada di model sama
+    # sekali tidak pernah diisi Django -- default='' di sini membuat
+    # instance baru otomatis punya nilai yang valid tanpa perlu
+    # ditampilkan di form (scope CRUD sengaja cuma "siapa menjabat apa").
+    keterangan = models.TextField(blank=True, default='')
+    foto = models.ImageField(
+        upload_to='pejabat/foto/', null=True, blank=True, storage=simda_media_storage,
+    )
 
     class Meta:
         managed = False

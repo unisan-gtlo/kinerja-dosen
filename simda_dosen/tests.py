@@ -17,7 +17,7 @@ from .forms import (
     DataTendikForm, ProfilSayaTendikForm, PejabatStrukturalForm, RiwayatPelatihanTendikForm,
     RiwayatPendidikanTendikForm, RiwayatPrestasiTendikForm,
 )
-from .models import DataTendik, RiwayatPelatihanTendik, RiwayatPendidikanTendik, RiwayatPrestasiTendik
+from .models import DataTendik, PejabatStruktural, RiwayatPelatihanTendik, RiwayatPendidikanTendik, RiwayatPrestasiTendik
 from .utils import bisa_tambah_tridarma, get_or_create_unit_kerja, punya_jabatan_struktural_aktif
 
 
@@ -963,3 +963,19 @@ class PunyaJabatanStrukturalAktifTest(TestCase):
         mock_dosen_cls.objects.using.side_effect = DatabaseError("permission denied")
 
         self.assertFalse(punya_jabatan_struktural_aktif(user))
+
+
+class PejabatStrukturalModelDefaultsTest(TestCase):
+    """Regresi produksi 2026-08-08: `no_sk`/`keterangan` NOT NULL tanpa
+    default di tabel SIMDA aslinya (`master.pejabat_struktural`), tapi
+    sebelumnya TIDAK dipetakan sama sekali di model Django (model ini
+    awalnya cuma dipakai READ-ONLY untuk blok tanda tangan laporan) --
+    INSERT lewat form Tambah Jabatan Struktural (yang sengaja tidak
+    menampilkan field ini) meledak IntegrityError "null value in column
+    no_sk". Instance baru sekarang harus otomatis dapat string kosong
+    lewat default='' di model, murni level Python (tidak menyentuh DB)."""
+
+    def test_instance_baru_no_sk_dan_keterangan_default_kosong(self):
+        pejabat = PejabatStruktural(jabatan_id=1, dosen_id=1, tgl_mulai="2024-01-01")
+        self.assertEqual(pejabat.no_sk, "")
+        self.assertEqual(pejabat.keterangan, "")
