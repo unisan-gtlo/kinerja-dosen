@@ -854,9 +854,15 @@ class KelolaJabatanStrukturalViewTest(TestCase):
 
     @patch("simda_dosen.views.PejabatStruktural")
     def test_admin_bisa_toggle_aktif(self, mock_cls):
-        pejabat = Mock(id=1, is_aktif=True)
-        mock_qs = MagicMock()
+        # spec= WAJIB di sini -- get_object_or_404 pakai duck-typing
+        # hasattr(klass, '_default_manager'); MagicMock() polos akan
+        # auto-vivify atribut APA PUN jadi "ada" (hasattr selalu True),
+        # bikin get_object_or_404 salah jalur ke klass._default_manager
+        # .all().get(...) alih-alih queryset.get(...) yang di-mock
+        # (pola sama KelolaDataTendikViewTest::test_admin_bisa_toggle_aktif).
+        mock_qs = MagicMock(spec=["get", "filter", "select_related", "all", "order_by"])
         mock_cls.objects.using.return_value = mock_qs
+        pejabat = Mock(id=1, is_aktif=True)
         mock_qs.get.return_value = pejabat
 
         self.client.force_login(self.admin)

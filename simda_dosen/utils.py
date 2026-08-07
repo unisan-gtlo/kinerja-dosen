@@ -378,7 +378,15 @@ def punya_jabatan_struktural_aktif(user):
     tanggal selesainya sudah diisi tapi lupa di-nonaktifkan tidak ikut
     terhitung. Dibungkus try/except DatabaseError (pola sama
     get_pejabat_aktif) -- kalau akses SIMDA belum di-grant, dianggap
-    tidak menjabat (fallback aman), bukan 500."""
+    tidak menjabat (fallback aman), bukan 500. Ditangkap juga
+    DatabaseOperationForbidden -- ini BUKAN error koneksi sungguhan, tapi
+    guard Django TestCase yang memblokir query ke alias database yang
+    tidak dideklarasikan di `databases` test class (AssertionError,
+    bukan turunan DatabaseError, jadi harus ditangkap eksplisit) -- lihat
+    penjelasan lengkap di attach_nama_resmi(). Fungsi ini dipanggil dari
+    resolve_kelompok() yang dipanggil pervasif di seluruh test lama
+    presensi yang tidak mendeklarasikan 'simda', TIDAK pernah muncul di
+    produksi (cuma ada di bawah Django test runner)."""
     hari_ini = timezone.localdate()
     aktif_filter = Q(is_aktif=True) & (Q(tgl_selesai__isnull=True) | Q(tgl_selesai__gte=hari_ini))
     try:
@@ -390,6 +398,6 @@ def punya_jabatan_struktural_aktif(user):
             tendik = DataTendik.objects.using('simda').filter(nip_yayasan=user.nip_yayasan).first()
             if tendik and PejabatStruktural.objects.using('simda').filter(aktif_filter, tendik=tendik).exists():
                 return True
-    except DatabaseError:
+    except (DatabaseError, DatabaseOperationForbidden):
         return False
     return False
