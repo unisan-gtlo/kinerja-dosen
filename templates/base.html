@@ -480,6 +480,12 @@
                     <span class="nav-link-title">Kelola User</span>
                   </a>
                 </li>
+                <li class="nav-item">
+                  <a class="nav-link ps-5 {% if request.resolver_match.url_name == 'validasi_serdos' %}active{% endif %}"
+                     href="{% url 'profil:validasi_serdos' %}">
+                    <span class="nav-link-title">Validasi Serdos</span>
+                  </a>
+                </li>
                 {% if user.role == 'admin' %}
                 <li class="nav-item">
                   <a class="nav-link ps-5 {% if request.resolver_match.app_name == 'simda_dosen' and 'tendik' in request.resolver_match.url_name %}active{% endif %}"

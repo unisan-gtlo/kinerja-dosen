@@ -141,7 +141,10 @@
               {% elif s.status_validasi == 'ditolak' %}
               <span class="badge bg-danger-lt text-danger">Ditolak</span>
               {% else %}
-              <span class="badge bg-warning-lt text-warning">Menunggu Validasi</span>
+              <span class="badge bg-warning-lt text-warning"><span class="ti ti-clock-hour-4 me-1"></span>Menunggu Validasi</span>
+              {% if s.jenis_sertifikasi == 'serdos' %}
+              <div class="text-muted small mt-1">Belum divalidasi admin/operator — belum masuk Laporan Daftar Hadir Serdos.</div>
+              {% endif %}
               {% endif %}
             </td>
             <td>

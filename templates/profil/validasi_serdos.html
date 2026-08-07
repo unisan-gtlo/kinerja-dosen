@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Validasi Serdos — SIKD{% endblock %}
+{% block page_title %}Validasi Serdos{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">Pengajuan Sertifikasi Dosen (Serdos) Menunggu Validasi</h3>
+    <p class="text-muted">
+      Sertifikasi Dosen baru masuk sebagai "Menunggu Validasi" dan TIDAK ikut
+      di Laporan Daftar Hadir Serdos (LLDIKTI) sampai disetujui di sini.
+      Sertifikasi Kompetensi/Profesi tidak butuh validasi, tidak tampil di daftar ini.
+    </p>
+
+    {% if not antrian %}
+    <div class="alert alert-success">
+      <span class="ti ti-check me-1"></span> Tidak ada pengajuan Serdos yang perlu divalidasi saat ini.
+    </div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Tgl Diajukan</th>
+            <th>NIDN</th>
+            <th>Nama Dosen</th>
+            <th>Bidang Studi</th>
+            <th>No. SK Sertifikasi</th>
+            <th>Tahun</th>
+            <th class="w-1">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in antrian %}
+          <tr>
+            <td>{{ s.tgl_input|date:"d-m-Y" }}</td>
+            <td>{{ s.user.nidn|default:"—" }}</td>
+            <td>{{ s.user.get_full_name|default:s.user.username }}</td>
+            <td>{{ s.bidang_studi }}</td>
+            <td>{{ s.no_sk_sertifikasi }}</td>
+            <td>{{ s.tahun_sertifikasi }}</td>
+            <td class="text-nowrap">
+              <form method="post" action="{% url 'profil:putuskan_validasi_serdos' s.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="aksi" value="setujui">
+                <button type="submit" class="btn btn-sm btn-success">Setujui</button>
+              </form>
+              <form method="post" action="{% url 'profil:putuskan_validasi_serdos' s.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="aksi" value="tolak">
+                <button type="submit" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Tolak Serdos {{ s.user.get_full_name|default:s.user.username }}?');">
+                  Tolak
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

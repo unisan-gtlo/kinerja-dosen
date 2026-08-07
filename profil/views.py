@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import HttpResponseForbidden
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import (
@@ -598,6 +599,53 @@ def edit_sertifikasi(request, id):
         obj.save()
         messages.success(request, 'Data sertifikasi berhasil diupdate.')
     return redirect('profil:kompetensi_index')
+
+
+@login_required
+def validasi_serdos(request):
+    """Halaman admin/operator: daftar pengajuan Sertifikasi Dosen (Serdos)
+    yang masih "Menunggu Validasi", dengan tombol Setujui/Tolak langsung
+    di situ (2026-08-06) -- sebelumnya validasi CUMA bisa lewat form Edit
+    Sertifikasi biasa di tab Kompetensi tiap dosen (jalur tersembunyi,
+    harus sudah tahu dosennya siapa dulu, tidak ada daftar terpusat).
+    Dibatasi ke dosen dalam cakupan reviewer (operator: fakultas sendiri,
+    admin: semua) lewat dapat_kelola, pola sama dengan Tinjau Presensi."""
+    if request.user.role not in Sertifikasi.ROLE_BOLEH_VALIDASI:
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+
+    semua_menunggu = (
+        Sertifikasi.objects.filter(jenis_sertifikasi='serdos', status_validasi='menunggu')
+        .select_related('user')
+        .order_by('-tgl_input')
+    )
+    antrian = [s for s in semua_menunggu if request.user.dapat_kelola(s.user)]
+
+    return render(request, 'profil/validasi_serdos.html', {'antrian': antrian})
+
+
+@login_required
+def putuskan_validasi_serdos(request, id):
+    """POST-only: admin/operator menyetujui atau menolak satu pengajuan Serdos."""
+    if request.user.role not in Sertifikasi.ROLE_BOLEH_VALIDASI:
+        return HttpResponseForbidden("Anda tidak memiliki akses ke halaman ini.")
+    if request.method != 'POST':
+        return redirect('profil:validasi_serdos')
+
+    obj = get_object_or_404(Sertifikasi, id=id, jenis_sertifikasi='serdos', status_validasi='menunggu')
+    if not request.user.dapat_kelola(obj.user):
+        return HttpResponseForbidden("Anda tidak memiliki akses ke data dosen ini.")
+
+    aksi = request.POST.get('aksi')
+    nama_dosen = obj.user.get_full_name() or obj.user.username
+    if aksi == 'setujui':
+        obj.status_validasi = 'disetujui'
+        obj.save(update_fields=['status_validasi'])
+        messages.success(request, f"Serdos {nama_dosen} disetujui.")
+    elif aksi == 'tolak':
+        obj.status_validasi = 'ditolak'
+        obj.save(update_fields=['status_validasi'])
+        messages.warning(request, f"Serdos {nama_dosen} ditolak.")
+    return redirect('profil:validasi_serdos')
 
 
 @login_required

@@ -112,9 +112,14 @@ class Sertifikasi(models.Model):
     tgl_input = models.DateTimeField(auto_now_add=True)
     updated_by = models.CharField(max_length=50, blank=True, null=True)
 
-    # Serdos butuh validasi kaprodi/dekan/rektorat -- dosen pemilik tidak
-    # bisa validasi sertifikasinya sendiri. Sama pola dengan RiwayatBKD.
-    ROLE_BOLEH_VALIDASI = ['admin', 'kaprodi', 'sekprodi', 'dekan', 'wadek', 'rektorat']
+    # Validasi Serdos dipersempit ke admin+operator saja (2026-08-06) --
+    # sebelumnya juga terbuka untuk kaprodi/sekprodi/dekan/wadek/rektorat
+    # lewat form Edit Sertifikasi biasa (jalur tersembunyi, sulit
+    # ditemukan). Sekarang ada halaman khusus "Validasi Serdos"
+    # (profil/views.py::validasi_serdos) yang cuma bisa diakses admin/
+    # operator, konsisten dengan pembatasan constant ini. Dosen pemilik
+    # tidak pernah bisa validasi sertifikasinya sendiri.
+    ROLE_BOLEH_VALIDASI = ['admin', 'operator']
 
     class Meta:
         verbose_name = 'Sertifikasi'

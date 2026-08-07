@@ -4,7 +4,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 
 from accounts.models import User
-from .models import DokumenLain
+from .models import DokumenLain, Sertifikasi
 
 
 class TambahDokumenLainAksesTest(TestCase):
@@ -216,3 +216,178 @@ class LinkGoogleDriveDokumenTest(TestCase):
         self.assertEqual(pend.url_ijazah, "https://drive.google.com/ijazah2")
         self.assertEqual(pend.url_transkrip, "https://drive.google.com/transkrip2")
         pend.save.assert_called_once()
+
+
+class ValidasiSerdosAksesTest(TestCase):
+    """Fitur "Validasi Serdos" (2026-08-06) -- halaman terpusat admin/operator
+    untuk menyetujui/menolak pengajuan Sertifikasi Dosen (Serdos) yang masih
+    "Menunggu Validasi", pengganti jalur tersembunyi (Edit Sertifikasi biasa).
+    ROLE_BOLEH_VALIDASI dipersempit ke admin+operator saja -- dekan/kaprodi/
+    sekprodi/wadek/rektorat/biro yang SEBELUMNYA bisa validasi lewat Edit
+    Sertifikasi sekarang harus ditolak juga di jalur lama itu."""
+
+    def setUp(self):
+        self.dosen_ft = User.objects.create_user(
+            username="dosen_ft_serdos", password="testpass123", role="dosen",
+            kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.dosen_feb = User.objects.create_user(
+            username="dosen_feb_serdos", password="testpass123", role="dosen",
+            kode_fakultas="FEB", kode_prodi="MN",
+        )
+        self.admin = User.objects.create_user(
+            username="admin_serdos", password="testpass123", role="admin",
+        )
+        self.operator_ft = User.objects.create_user(
+            username="operator_ft_serdos", password="testpass123", role="operator",
+            kode_fakultas="FT",
+        )
+        self.dekan_ft = User.objects.create_user(
+            username="dekan_ft_serdos", password="testpass123", role="dekan",
+            kode_fakultas="FT",
+        )
+        self.rektorat = User.objects.create_user(
+            username="rektorat_serdos", password="testpass123", role="rektorat",
+        )
+        self.serdos_ft = Sertifikasi.objects.create(
+            user=self.dosen_ft, jenis_sertifikasi="serdos", bidang_studi="Informatika",
+            no_sk_sertifikasi="SK/001", tahun_sertifikasi=2024, status_validasi="menunggu",
+        )
+        self.serdos_feb = Sertifikasi.objects.create(
+            user=self.dosen_feb, jenis_sertifikasi="serdos", bidang_studi="Manajemen",
+            no_sk_sertifikasi="SK/002", tahun_sertifikasi=2024, status_validasi="menunggu",
+        )
+        self.client = Client()
+
+    def test_dosen_ditolak_akses_halaman(self):
+        self.client.force_login(self.dosen_ft)
+        resp = self.client.get(reverse("profil:validasi_serdos"))
+        self.assertEqual(resp.status_code, 403)
+
+    def test_dekan_ditolak_akses_halaman(self):
+        self.client.force_login(self.dekan_ft)
+        resp = self.client.get(reverse("profil:validasi_serdos"))
+        self.assertEqual(resp.status_code, 403)
+
+    def test_rektorat_ditolak_akses_halaman(self):
+        self.client.force_login(self.rektorat)
+        resp = self.client.get(reverse("profil:validasi_serdos"))
+        self.assertEqual(resp.status_code, 403)
+
+    def test_admin_melihat_semua_pengajuan(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get(reverse("profil:validasi_serdos"))
+        self.assertEqual(resp.status_code, 200)
+        antrian = resp.context["antrian"]
+        self.assertCountEqual(antrian, [self.serdos_ft, self.serdos_feb])
+
+    def test_operator_hanya_melihat_fakultas_sendiri(self):
+        self.client.force_login(self.operator_ft)
+        resp = self.client.get(reverse("profil:validasi_serdos"))
+        self.assertEqual(resp.status_code, 200)
+        antrian = resp.context["antrian"]
+        self.assertEqual(antrian, [self.serdos_ft])
+
+    def test_admin_setujui_mengubah_status(self):
+        self.client.force_login(self.admin)
+        self.client.post(
+            reverse("profil:putuskan_validasi_serdos", args=[self.serdos_ft.id]),
+            {"aksi": "setujui"},
+        )
+        self.serdos_ft.refresh_from_db()
+        self.assertEqual(self.serdos_ft.status_validasi, "disetujui")
+
+    def test_admin_tolak_mengubah_status(self):
+        self.client.force_login(self.admin)
+        self.client.post(
+            reverse("profil:putuskan_validasi_serdos", args=[self.serdos_ft.id]),
+            {"aksi": "tolak"},
+        )
+        self.serdos_ft.refresh_from_db()
+        self.assertEqual(self.serdos_ft.status_validasi, "ditolak")
+
+    def test_operator_tidak_bisa_putuskan_di_luar_fakultas(self):
+        self.client.force_login(self.operator_ft)
+        resp = self.client.post(
+            reverse("profil:putuskan_validasi_serdos", args=[self.serdos_feb.id]),
+            {"aksi": "setujui"},
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.serdos_feb.refresh_from_db()
+        self.assertEqual(self.serdos_feb.status_validasi, "menunggu")
+
+    def test_dekan_ditolak_putuskan(self):
+        self.client.force_login(self.dekan_ft)
+        resp = self.client.post(
+            reverse("profil:putuskan_validasi_serdos", args=[self.serdos_ft.id]),
+            {"aksi": "setujui"},
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.serdos_ft.refresh_from_db()
+        self.assertEqual(self.serdos_ft.status_validasi, "menunggu")
+
+    def test_get_tidak_memutuskan(self):
+        self.client.force_login(self.admin)
+        self.client.get(
+            reverse("profil:putuskan_validasi_serdos", args=[self.serdos_ft.id])
+        )
+        self.serdos_ft.refresh_from_db()
+        self.assertEqual(self.serdos_ft.status_validasi, "menunggu")
+
+    def test_sudah_diputuskan_tidak_bisa_diputuskan_ulang(self):
+        self.serdos_ft.status_validasi = "disetujui"
+        self.serdos_ft.save(update_fields=["status_validasi"])
+        self.client.force_login(self.admin)
+        resp = self.client.post(
+            reverse("profil:putuskan_validasi_serdos", args=[self.serdos_ft.id]),
+            {"aksi": "tolak"},
+        )
+        self.assertEqual(resp.status_code, 404)
+        self.serdos_ft.refresh_from_db()
+        self.assertEqual(self.serdos_ft.status_validasi, "disetujui")
+
+
+class EditSertifikasiValidasiRoleTest(TestCase):
+    """edit_sertifikasi (jalur lama, tab Kompetensi) -- gerbang validasi
+    status_validasi mengikuti Sertifikasi.ROLE_BOLEH_VALIDASI yang sama
+    dengan halaman Validasi Serdos, sekarang dipersempit ke admin+operator.
+    Dekan yang dulu bisa mengubah status_validasi lewat form ini sekarang
+    kirimannya diam-diam diabaikan (status_validasi tidak berubah), bukan
+    ditolak akses ke seluruh view (edit_sertifikasi masih dipakai untuk
+    mengubah field lain oleh dekan sesuai dapat_kelola biasa)."""
+
+    def setUp(self):
+        self.dosen_ft = User.objects.create_user(
+            username="dosen_ft_editserdos", password="testpass123", role="dosen",
+            kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.dekan_ft = User.objects.create_user(
+            username="dekan_ft_editserdos", password="testpass123", role="dekan",
+            kode_fakultas="FT",
+        )
+        self.admin = User.objects.create_user(
+            username="admin_editserdos", password="testpass123", role="admin",
+        )
+        self.serdos = Sertifikasi.objects.create(
+            user=self.dosen_ft, jenis_sertifikasi="serdos", bidang_studi="Informatika",
+            no_sk_sertifikasi="SK/010", tahun_sertifikasi=2024, status_validasi="menunggu",
+        )
+        self.client = Client()
+
+    def _post(self, user, status_validasi):
+        self.client.force_login(user)
+        return self.client.post(reverse("profil:edit_sertifikasi", args=[self.serdos.id]), {
+            "jenis_sertifikasi": "serdos", "bidang_studi": "Informatika",
+            "no_sk_sertifikasi": "SK/010", "tahun_sertifikasi": "2024",
+            "status_validasi": status_validasi,
+        })
+
+    def test_dekan_tidak_bisa_ubah_status_validasi_lagi(self):
+        self._post(self.dekan_ft, "disetujui")
+        self.serdos.refresh_from_db()
+        self.assertEqual(self.serdos.status_validasi, "menunggu")
+
+    def test_admin_tetap_bisa_ubah_status_validasi(self):
+        self._post(self.admin, "disetujui")
+        self.serdos.refresh_from_db()
+        self.assertEqual(self.serdos.status_validasi, "disetujui")
