@@ -391,3 +391,69 @@ class EditSertifikasiValidasiRoleTest(TestCase):
         self._post(self.admin, "disetujui")
         self.serdos.refresh_from_db()
         self.assertEqual(self.serdos.status_validasi, "disetujui")
+
+
+class RedirectMempertahankanDosenIdTest(TestCase):
+    """2026-08-07: lihat pendidikan/tests.py::RedirectMempertahankanDosenIdTest
+    untuk penjelasan lengkap bug & fix (redirect_ke) -- di app ini
+    mencakup KEDUA pola: FK langsung ke accounts.User (Sertifikasi/
+    DokumenLain) dan resolusi lewat dosen.nidn SIMDA (tambah_jabfung,
+    SIMDA di-mock ke None supaya tidak perlu koneksi 'simda' sungguhan)."""
+
+    def setUp(self):
+        self.dosen_ft = User.objects.create_user(
+            username="dosen_ft_redirect_profil", password="testpass123", role="dosen",
+            nidn="8800000303", kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.admin = User.objects.create_user(
+            username="admin_redirect_profil", password="testpass123", role="admin",
+        )
+        self.client = Client()
+        self.client.force_login(self.admin)
+
+    def test_tambah_sertifikasi_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        resp = self.client.post(reverse("profil:tambah_sertifikasi"), {
+            "jenis_sertifikasi": "kompetensi", "bidang_studi": "Informatika",
+            "no_sk_sertifikasi": "SK/001", "tahun_sertifikasi": "2024",
+            "dosen_id": self.dosen_ft.id,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_edit_sertifikasi_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        obj = Sertifikasi.objects.create(
+            user=self.dosen_ft, jenis_sertifikasi="kompetensi", bidang_studi="Lama",
+            no_sk_sertifikasi="SK/001", tahun_sertifikasi=2023, status_validasi="disetujui",
+        )
+        resp = self.client.post(reverse("profil:edit_sertifikasi", args=[obj.id]), {
+            "jenis_sertifikasi": "kompetensi", "bidang_studi": "Baru",
+            "no_sk_sertifikasi": "SK/002", "tahun_sertifikasi": "2024",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_hapus_sertifikasi_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        obj = Sertifikasi.objects.create(
+            user=self.dosen_ft, jenis_sertifikasi="kompetensi", bidang_studi="Lama",
+            no_sk_sertifikasi="SK/001", tahun_sertifikasi=2023, status_validasi="disetujui",
+        )
+        resp = self.client.post(reverse("profil:hapus_sertifikasi", args=[obj.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_tambah_dokumen_lain_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        resp = self.client.post(reverse("profil:tambah_dokumen_lain"), {
+            "jenis_dokumen": "lainnya", "nama_dokumen": "Contoh Dokumen",
+            "dosen_id": self.dosen_ft.id,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    @patch("profil.views.get_simda_dosen_or_none")
+    def test_tambah_jabfung_untuk_dosen_lain_redirect_bawa_dosen_id(self, mock_profil_fn):
+        mock_profil_fn.return_value = None
+        resp = self.client.post(reverse("profil:tambah_jabfung"), {
+            "jabatan_fungsional_id": "1", "dosen_id": self.dosen_ft.id,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)

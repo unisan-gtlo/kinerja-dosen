@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.db import DatabaseError
 from django.shortcuts import get_object_or_404, redirect
 from django.test.testcases import DatabaseOperationForbidden
+from django.urls import reverse
 
 from .models import (
     DataDosen, DataTendik, BidangKeahlian, BidangKeahlianPublik, GolonganPublik,
@@ -310,6 +311,33 @@ def resolve_target_user_tambah(request, dosen_id, redirect_url_name):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
         return None, redirect(redirect_url_name)
     return target_user, None
+
+
+def user_id_dari_nidn(nidn):
+    """Riwayat Jabfung/Pangkat/Pendidikan Dosen & BKD (SIMDA) cuma punya
+    dosen.nidn, bukan FK ke accounts.User -- dipakai supaya redirect_ke()
+    tetap bisa menyertakan ?dosen_id= setelah Tambah/Edit/Hapus riwayat
+    ini (lihat profil/views.py dan kinerja/views.py)."""
+    from accounts.models import User
+    u = User.objects.filter(nidn=nidn).first()
+    return u.id if u else None
+
+
+def redirect_ke(url_name, request_user, target_user_id=None):
+    """redirect() ke url_name, menambahkan ?dosen_id=<id> kalau target
+    BUKAN diri sendiri -- dipakai di SEMUA tambah_*/edit_*/hapus_* Tri
+    Dharma (2026-08-07) supaya identitas dosen yang sedang dikelola
+    admin/operator/dekan/dst TIDAK hilang setelah simpan (sebelumnya
+    redirect selalu polos ke url_name, jadi setelah Tambah/Edit malah
+    balik ke data milik sendiri, harus kembali ke Rekap Data untuk cari
+    dosen itu lagi). Pola query string ini SAMA dengan href sidebar di
+    templates/base.html (`?dosen_id={{ target_user.id }}`) dan sama-sama
+    dibaca oleh semua view index() lewat request.GET.get('dosen_id').
+    target_user_id boleh None/kosong (redirect polos, dipakai request
+    milik diri sendiri)."""
+    if target_user_id and target_user_id != request_user.id:
+        return redirect(f'{reverse(url_name)}?dosen_id={target_user_id}')
+    return redirect(url_name)
 
 
 def get_pejabat_aktif(nama_jabatan):

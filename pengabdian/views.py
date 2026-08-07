@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import DataDosen, MahasiswaPublik
-from simda_dosen.utils import get_simda_dosen_or_none, bisa_tambah_tridarma
+from simda_dosen.utils import get_simda_dosen_or_none, bisa_tambah_tridarma, redirect_ke
 from kinerja.utils import attach_dokumen_count
 from .models import (
     Pengabdian, AnggotaPengabdian, Pembicara, PengelolaJurnal, JabatanStruktural,
@@ -123,7 +123,7 @@ def tambah_pengabdian(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, target_user.id)
     Pengabdian.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -151,7 +151,7 @@ def tambah_pengabdian(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data pengabdian berhasil ditambahkan.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, target_user.id)
 
 
 @login_required
@@ -159,7 +159,7 @@ def edit_pengabdian(request, id):
     obj = get_object_or_404(Pengabdian, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.kategori_kegiatan = request.POST.get('kategori_kegiatan', obj.kategori_kegiatan)
         obj.judul_kegiatan = request.POST.get('judul_kegiatan', '').strip()
@@ -184,7 +184,7 @@ def edit_pengabdian(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data pengabdian berhasil diupdate.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, obj.user_id)
 
 
 @login_required
@@ -192,10 +192,10 @@ def hapus_pengabdian(request, id):
     obj = get_object_or_404(Pengabdian, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data pengabdian berhasil dihapus.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, obj.user_id)
 
 
 @login_required
@@ -209,7 +209,7 @@ def kelola_anggota_pengabdian(request, pengabdian_id):
         is_co = dosen and pengabdian.anggota_set.filter(jenis_anggota='dosen', dosen_id=dosen.id).exists()
         if not is_co:
             messages.error(request, 'Tidak memiliki akses.')
-            return redirect('pengabdian:index')
+            return redirect_ke('pengabdian:index', request.user, pengabdian.user_id)
 
     if request.method == 'POST':
         aksi = request.POST.get('aksi')
@@ -305,7 +305,7 @@ def tambah_pembicara(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, target_user.id)
     Pembicara.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -327,7 +327,7 @@ def tambah_pembicara(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data pembicara berhasil ditambahkan.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, target_user.id)
 
 
 @login_required
@@ -335,7 +335,7 @@ def edit_pembicara(request, id):
     obj = get_object_or_404(Pembicara, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.kategori_kegiatan = request.POST.get('kategori_kegiatan', obj.kategori_kegiatan)
         obj.kategori_capaian_luaran = request.POST.get('kategori_capaian_luaran', '').strip()
@@ -354,7 +354,7 @@ def edit_pembicara(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data pembicara berhasil diupdate.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, obj.user_id)
 
 
 @login_required
@@ -362,10 +362,10 @@ def hapus_pembicara(request, id):
     obj = get_object_or_404(Pembicara, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data pembicara berhasil dihapus.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -383,7 +383,7 @@ def tambah_jurnal(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, target_user.id)
     PengelolaJurnal.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -400,7 +400,7 @@ def tambah_jurnal(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data pengelola jurnal berhasil ditambahkan.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, target_user.id)
 
 
 @login_required
@@ -408,7 +408,7 @@ def edit_jurnal(request, id):
     obj = get_object_or_404(PengelolaJurnal, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.nama_jurnal = request.POST.get('nama_jurnal', '').strip()
         obj.media_publikasi = request.POST.get('media_publikasi', '').strip()
@@ -422,7 +422,7 @@ def edit_jurnal(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data pengelola jurnal berhasil diupdate.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, obj.user_id)
 
 
 @login_required
@@ -430,10 +430,10 @@ def hapus_jurnal(request, id):
     obj = get_object_or_404(PengelolaJurnal, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data pengelola jurnal berhasil dihapus.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -451,7 +451,7 @@ def tambah_jabatan(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, target_user.id)
     JabatanStruktural.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -466,7 +466,7 @@ def tambah_jabatan(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data jabatan struktural berhasil ditambahkan.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, target_user.id)
 
 
 @login_required
@@ -474,7 +474,7 @@ def edit_jabatan(request, id):
     obj = get_object_or_404(JabatanStruktural, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jabatan_tugas = request.POST.get('jabatan_tugas', '').strip()
         obj.no_sk_jabatan_struktural = request.POST.get('no_sk_jabatan_struktural', '').strip()
@@ -486,7 +486,7 @@ def edit_jabatan(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data jabatan struktural berhasil diupdate.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, obj.user_id)
 
 
 @login_required
@@ -494,7 +494,7 @@ def hapus_jabatan(request, id):
     obj = get_object_or_404(JabatanStruktural, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pengabdian:index')
+        return redirect_ke('pengabdian:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data jabatan struktural berhasil dihapus.')
-    return redirect('pengabdian:index')
+    return redirect_ke('pengabdian:index', request.user, obj.user_id)

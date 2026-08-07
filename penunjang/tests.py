@@ -67,3 +67,46 @@ class TambahProfesiAksesTest(TestCase):
     def test_dekan_tetap_bisa_tambah_untuk_diri_sendiri(self):
         self._post(self.dekan_ft)
         self.assertEqual(AnggotaProfesi.objects.filter(user=self.dekan_ft).count(), 1)
+
+
+class RedirectMempertahankanDosenIdTest(TestCase):
+    """2026-08-07: lihat pendidikan/tests.py::RedirectMempertahankanDosenIdTest
+    untuk penjelasan lengkap bug & fix (redirect_ke). Representatif untuk
+    tambah_profesi/edit_profesi/hapus_profesi di app ini."""
+
+    def setUp(self):
+        self.dosen_ft = User.objects.create_user(
+            username="dosen_ft_redirect_penunjang", password="testpass123", role="dosen",
+            kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.admin = User.objects.create_user(
+            username="admin_redirect_penunjang", password="testpass123", role="admin",
+        )
+        self.client = Client()
+        self.client.force_login(self.admin)
+
+    def test_tambah_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        resp = self.client.post(reverse("penunjang:tambah_profesi"), {
+            "nama_organisasi": "Contoh Organisasi", "mulai_keanggotaan": "2024-01-15",
+            "dosen_id": self.dosen_ft.id,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_edit_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        obj = AnggotaProfesi.objects.create(
+            user=self.dosen_ft, nama_organisasi="Lama", mulai_keanggotaan="2023-01-01",
+        )
+        resp = self.client.post(reverse("penunjang:edit_profesi", args=[obj.id]), {
+            "nama_organisasi": "Baru", "mulai_keanggotaan": "2024-01-01",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_hapus_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        obj = AnggotaProfesi.objects.create(
+            user=self.dosen_ft, nama_organisasi="Lama", mulai_keanggotaan="2023-01-01",
+        )
+        resp = self.client.post(reverse("penunjang:hapus_profesi", args=[obj.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)

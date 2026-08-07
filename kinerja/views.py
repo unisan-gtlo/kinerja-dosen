@@ -7,6 +7,7 @@ from simda_dosen.models import RiwayatBKD, TahunAkademikPublik
 from simda_dosen.utils import (
     get_simda_dosen_or_none, dapat_kelola_nidn,
     resolve_target_user_tambah, bisa_tambah_tridarma,
+    redirect_ke, user_id_dari_nidn,
 )
 from simda_dosen.file_compress import compress_uploaded_file
 from profil.models import Diklat, Sertifikasi, TesKompetensi
@@ -83,13 +84,13 @@ def tambah_bkd(request):
     dosen = get_simda_dosen_or_none(target_user)
     if not dosen:
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
-        return redirect('kinerja:bkd_index')
+        return redirect_ke('kinerja:bkd_index', request.user, target_user.id)
 
     periode_id = request.POST.get('periode_id')
 
     if RiwayatBKD.objects.filter(dosen=dosen, periode_id=periode_id).exists():
         messages.error(request, 'BKD untuk periode ini sudah ada.')
-        return redirect('kinerja:bkd_index')
+        return redirect_ke('kinerja:bkd_index', request.user, target_user.id)
 
     bkd = RiwayatBKD(
         dosen=dosen,
@@ -105,7 +106,7 @@ def tambah_bkd(request):
         bkd.file_bkd = compress_uploaded_file(request.FILES['file_bkd'])
     bkd.save()
     messages.success(request, 'BKD berhasil disimpan ke SIMDA.')
-    return redirect('kinerja:bkd_index')
+    return redirect_ke('kinerja:bkd_index', request.user, target_user.id)
 
 
 @login_required
@@ -113,10 +114,11 @@ def hapus_bkd(request, bkd_id):
     bkd = get_object_or_404(RiwayatBKD, id=bkd_id)
     if not dapat_kelola_nidn(request.user, bkd.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:bkd_index')
+        return redirect_ke('kinerja:bkd_index', request.user, user_id_dari_nidn(bkd.dosen.nidn))
+    dosen_nidn = bkd.dosen.nidn
     bkd.delete()
     messages.success(request, 'BKD berhasil dihapus.')
-    return redirect('kinerja:bkd_index')
+    return redirect_ke('kinerja:bkd_index', request.user, user_id_dari_nidn(dosen_nidn))
 
 
 from django.core.exceptions import ValidationError
@@ -234,7 +236,7 @@ def kelola_dokumen(request, jenis_kinerja, kinerja_id):
             boleh_lihat = dosen and kinerja_obj.anggota_set.filter(dosen_id=dosen.id).exists()
         if not boleh_lihat:
             messages.error(request, 'Anda tidak memiliki akses.')
-            return redirect(_kembali_url(jenis_kinerja))
+            return redirect_ke(_kembali_url(jenis_kinerja), request.user, pemilik.id if pemilik else None)
 
     dokumen_list = DokumenKinerja.objects.filter(
         user=pemilik,
@@ -373,7 +375,7 @@ def edit_bkd(request, id):
     obj = get_object_or_404(RiwayatBKD, id=id)
     if not dapat_kelola_nidn(request.user, obj.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('kinerja:bkd_index')
+        return redirect_ke('kinerja:bkd_index', request.user, user_id_dari_nidn(obj.dosen.nidn))
     if request.method == 'POST':
         obj.sks_pengajaran = request.POST.get('sks_pengajaran') or None
         obj.sks_penelitian = request.POST.get('sks_penelitian') or None
@@ -389,6 +391,6 @@ def edit_bkd(request, id):
             obj.status_pengesahan = request.POST.get('status_pengesahan', obj.status_pengesahan)
         obj.save()
         messages.success(request, 'BKD berhasil diupdate.')
-    return redirect('kinerja:bkd_index')
+    return redirect_ke('kinerja:bkd_index', request.user, user_id_dari_nidn(obj.dosen.nidn))
 
 

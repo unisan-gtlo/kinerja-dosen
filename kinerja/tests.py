@@ -52,3 +52,31 @@ class TambahBkdAksesTest(TestCase):
         mock_profil_fn.return_value = None
         self._post(self.dekan_ft)
         mock_profil_fn.assert_called_once_with(self.dekan_ft)
+
+
+class RedirectMempertahankanDosenIdTest(TestCase):
+    """2026-08-07: lihat pendidikan/tests.py::RedirectMempertahankanDosenIdTest
+    untuk penjelasan lengkap bug & fix (redirect_ke). SIMDA di-mock
+    (get_simda_dosen_or_none -> None, memicu cabang "NIDN belum cocok")
+    supaya tidak perlu koneksi 'simda' sungguhan -- yang diuji murni
+    Location header redirect membawa ?dosen_id= yang benar."""
+
+    def setUp(self):
+        self.dosen_ft = User.objects.create_user(
+            username="dosen_ft_redirect_bkd", password="testpass123", role="dosen",
+            nidn="8800000302", kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.admin = User.objects.create_user(
+            username="admin_redirect_bkd", password="testpass123", role="admin",
+        )
+        self.client = Client()
+        self.client.force_login(self.admin)
+
+    @patch("kinerja.views.get_simda_dosen_or_none")
+    def test_tambah_untuk_dosen_lain_redirect_bawa_dosen_id(self, mock_profil_fn):
+        mock_profil_fn.return_value = None
+        resp = self.client.post(reverse("kinerja:tambah_bkd"), {
+            "periode_id": "1", "dosen_id": self.dosen_ft.id,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)

@@ -12,7 +12,8 @@ from simda_dosen.models import (
 from simda_dosen.utils import (
     get_simda_dosen_or_none, dapat_kelola_nidn, get_or_create_bidang_keahlian,
     sync_jabfung_aktif, sync_pendidikan_terakhir, sync_golongan_terakhir,
-    get_golongan_ref_list_dosen,
+    get_golongan_ref_list_dosen, redirect_ke,
+    user_id_dari_nidn as _uid_dari_nidn,
     resolve_target_user as resolve_target_user_util,
     resolve_target_user_tambah as resolve_target_user_tambah_util,
     bisa_tambah_tridarma,
@@ -106,7 +107,7 @@ def simpan_profil(request):
     profil = get_simda_dosen_or_none(target_user)
     if not profil:
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin untuk membetulkan NIDN.')
-        return redirect('profil:index')
+        return redirect_ke('profil:index', request.user, target_user.id)
 
     profil.nuptk = request.POST.get('nuptk', '').strip()
     profil.nama_lengkap = request.POST.get('nama_lengkap', '').strip() or profil.nama_lengkap
@@ -161,7 +162,7 @@ def simpan_profil(request):
 
     profil.save()
     messages.success(request, 'Profil berhasil disimpan ke SIMDA.')
-    return redirect('profil:index')
+    return redirect_ke('profil:index', request.user, target_user.id)
 
 @login_required
 def tambah_jabfung(request):
@@ -179,7 +180,7 @@ def tambah_jabfung(request):
     dosen = get_simda_dosen_or_none(target_user)
     if not dosen:
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
-        return redirect('profil:index')
+        return redirect_ke('profil:index', request.user, target_user.id)
 
     jabfung = RiwayatJabatanFungsional(
         dosen=dosen,
@@ -196,19 +197,19 @@ def tambah_jabfung(request):
     sync_jabfung_aktif(dosen)
 
     messages.success(request, 'Riwayat jabatan fungsional berhasil ditambahkan ke SIMDA.')
-    return redirect('profil:index')
+    return redirect_ke('profil:index', request.user, target_user.id)
 
 @login_required
 def hapus_jabfung(request, jabfung_id):
     jabfung = get_object_or_404(RiwayatJabatanFungsional, id=jabfung_id)
     if not dapat_kelola_nidn(request.user, jabfung.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:index')
+        return redirect_ke('profil:index', request.user, _uid_dari_nidn(jabfung.dosen.nidn))
     dosen = jabfung.dosen
     jabfung.delete()
     sync_jabfung_aktif(dosen)
     messages.success(request, 'Data jabatan berhasil dihapus.')
-    return redirect('profil:index')
+    return redirect_ke('profil:index', request.user, _uid_dari_nidn(dosen.nidn))
 
 @login_required
 def tambah_pangkat(request):
@@ -226,7 +227,7 @@ def tambah_pangkat(request):
     dosen = get_simda_dosen_or_none(target_user)
     if not dosen:
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
-        return redirect('profil:index')
+        return redirect_ke('profil:index', request.user, target_user.id)
 
     pangkat = RiwayatPangkatGolongan(
         dosen=dosen,
@@ -245,14 +246,14 @@ def tambah_pangkat(request):
     sync_golongan_terakhir(dosen)
 
     messages.success(request, 'Riwayat pangkat/golongan berhasil ditambahkan ke SIMDA.')
-    return redirect('profil:index')
+    return redirect_ke('profil:index', request.user, target_user.id)
 
 @login_required
 def edit_pangkat(request, pangkat_id):
     pangkat = get_object_or_404(RiwayatPangkatGolongan, id=pangkat_id)
     if not dapat_kelola_nidn(request.user, pangkat.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:index')
+        return redirect_ke('profil:index', request.user, _uid_dari_nidn(pangkat.dosen.nidn))
     if request.method == 'POST':
         pangkat.golongan_id = request.POST.get('golongan_id') or pangkat.golongan_id
         pangkat.no_sk = request.POST.get('no_sk', '').strip()
@@ -267,19 +268,19 @@ def edit_pangkat(request, pangkat_id):
         pangkat.save()
         sync_golongan_terakhir(pangkat.dosen)
         messages.success(request, 'Data pangkat/golongan berhasil diupdate.')
-    return redirect('profil:index')
+    return redirect_ke('profil:index', request.user, _uid_dari_nidn(pangkat.dosen.nidn))
 
 @login_required
 def hapus_pangkat(request, pangkat_id):
     pangkat = get_object_or_404(RiwayatPangkatGolongan, id=pangkat_id)
     if not dapat_kelola_nidn(request.user, pangkat.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:index')
+        return redirect_ke('profil:index', request.user, _uid_dari_nidn(pangkat.dosen.nidn))
     dosen = pangkat.dosen
     pangkat.delete()
     sync_golongan_terakhir(dosen)
     messages.success(request, 'Data pangkat/golongan berhasil dihapus.')
-    return redirect('profil:index')
+    return redirect_ke('profil:index', request.user, _uid_dari_nidn(dosen.nidn))
 
 @login_required
 def tambah_pendidikan(request):
@@ -297,7 +298,7 @@ def tambah_pendidikan(request):
     dosen = get_simda_dosen_or_none(target_user)
     if not dosen:
         messages.error(request, 'NIDN Anda belum cocok dengan data di SIMDA. Hubungi admin.')
-        return redirect('profil:index')
+        return redirect_ke('profil:index', request.user, target_user.id)
 
     pend = RiwayatPendidikanDosen(
         dosen=dosen,
@@ -318,26 +319,26 @@ def tambah_pendidikan(request):
     pend.save()
     sync_pendidikan_terakhir(dosen)
     messages.success(request, 'Data pendidikan berhasil ditambahkan ke SIMDA.')
-    return redirect('profil:index')
+    return redirect_ke('profil:index', request.user, target_user.id)
 
 @login_required
 def hapus_pendidikan(request, pend_id):
     pend = get_object_or_404(RiwayatPendidikanDosen, id=pend_id)
     if not dapat_kelola_nidn(request.user, pend.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:index')
+        return redirect_ke('profil:index', request.user, _uid_dari_nidn(pend.dosen.nidn))
     dosen = pend.dosen
     pend.delete()
     sync_pendidikan_terakhir(dosen)
     messages.success(request, 'Data pendidikan berhasil dihapus.')
-    return redirect('profil:index')
+    return redirect_ke('profil:index', request.user, _uid_dari_nidn(dosen.nidn))
 
 @login_required
 def edit_jabfung(request, jabfung_id):
     jabfung = get_object_or_404(RiwayatJabatanFungsional, id=jabfung_id)
     if not dapat_kelola_nidn(request.user, jabfung.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:index')
+        return redirect_ke('profil:index', request.user, _uid_dari_nidn(jabfung.dosen.nidn))
     if request.method == 'POST':
         jabfung.jabatan_fungsional_id = request.POST.get('jabatan_fungsional_id') or jabfung.jabatan_fungsional_id
         jabfung.no_sk = request.POST.get('no_sk', '').strip()
@@ -350,7 +351,7 @@ def edit_jabfung(request, jabfung_id):
         jabfung.save()
         sync_jabfung_aktif(jabfung.dosen)
         messages.success(request, 'Data jabatan berhasil diupdate.')
-    return redirect('profil:index')
+    return redirect_ke('profil:index', request.user, _uid_dari_nidn(jabfung.dosen.nidn))
 
 
 @login_required
@@ -358,7 +359,7 @@ def edit_pendidikan(request, pend_id):
     pend = get_object_or_404(RiwayatPendidikanDosen, id=pend_id)
     if not dapat_kelola_nidn(request.user, pend.dosen.nidn):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:index')
+        return redirect_ke('profil:index', request.user, _uid_dari_nidn(pend.dosen.nidn))
     if request.method == 'POST':
         pend.jenjang = request.POST.get('jenjang', pend.jenjang)
         pend.institusi = request.POST.get('nama_pt', '').strip()
@@ -375,7 +376,7 @@ def edit_pendidikan(request, pend_id):
         pend.save()
         sync_pendidikan_terakhir(pend.dosen)
         messages.success(request, 'Data pendidikan berhasil diupdate.')
-    return redirect('profil:index')
+    return redirect_ke('profil:index', request.user, _uid_dari_nidn(pend.dosen.nidn))
 
 
 
@@ -449,7 +450,7 @@ def tambah_diklat(request):
     )
     diklat.save()
     messages.success(request, 'Data diklat berhasil ditambahkan.')
-    return redirect('profil:kualifikasi_index')
+    return redirect_ke('profil:kualifikasi_index', request.user, target_user.id)
 
 
 @login_required
@@ -457,10 +458,10 @@ def hapus_diklat(request, id):
     obj = get_object_or_404(Diklat, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:kualifikasi_index')
+        return redirect_ke('profil:kualifikasi_index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data diklat berhasil dihapus.')
-    return redirect('profil:kualifikasi_index')
+    return redirect_ke('profil:kualifikasi_index', request.user, obj.user_id)
 
 
 @login_required
@@ -468,7 +469,7 @@ def edit_diklat(request, id):
     obj = get_object_or_404(Diklat, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:kualifikasi_index')
+        return redirect_ke('profil:kualifikasi_index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis_diklat = request.POST.get('jenis_diklat', obj.jenis_diklat)
         obj.nama_diklat = request.POST.get('nama_diklat', '').strip()
@@ -489,7 +490,7 @@ def edit_diklat(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data diklat berhasil diupdate.')
-    return redirect('profil:kualifikasi_index')
+    return redirect_ke('profil:kualifikasi_index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -559,7 +560,7 @@ def tambah_sertifikasi(request):
         updated_by=user.username,
     )
     messages.success(request, 'Data sertifikasi berhasil ditambahkan.')
-    return redirect('profil:kompetensi_index')
+    return redirect_ke('profil:kompetensi_index', request.user, target_user.id)
 
 
 @login_required
@@ -567,10 +568,10 @@ def hapus_sertifikasi(request, id):
     obj = get_object_or_404(Sertifikasi, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:kompetensi_index')
+        return redirect_ke('profil:kompetensi_index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data sertifikasi berhasil dihapus.')
-    return redirect('profil:kompetensi_index')
+    return redirect_ke('profil:kompetensi_index', request.user, obj.user_id)
 
 
 @login_required
@@ -578,7 +579,7 @@ def edit_sertifikasi(request, id):
     obj = get_object_or_404(Sertifikasi, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:kompetensi_index')
+        return redirect_ke('profil:kompetensi_index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis_sertifikasi = request.POST.get('jenis_sertifikasi', obj.jenis_sertifikasi)
         obj.bidang_studi = request.POST.get('bidang_studi', '').strip()
@@ -598,7 +599,7 @@ def edit_sertifikasi(request, id):
             obj.status_validasi = request.POST.get('status_validasi', obj.status_validasi)
         obj.save()
         messages.success(request, 'Data sertifikasi berhasil diupdate.')
-    return redirect('profil:kompetensi_index')
+    return redirect_ke('profil:kompetensi_index', request.user, obj.user_id)
 
 
 @login_required
@@ -677,7 +678,7 @@ def tambah_tes(request):
         updated_by=user.username,
     )
     messages.success(request, 'Data tes berhasil ditambahkan.')
-    return redirect('profil:kompetensi_index')
+    return redirect_ke('profil:kompetensi_index', request.user, target_user.id)
 
 
 @login_required
@@ -685,10 +686,10 @@ def hapus_tes(request, id):
     obj = get_object_or_404(TesKompetensi, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:kompetensi_index')
+        return redirect_ke('profil:kompetensi_index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data tes berhasil dihapus.')
-    return redirect('profil:kompetensi_index')
+    return redirect_ke('profil:kompetensi_index', request.user, obj.user_id)
 
 
 @login_required
@@ -696,7 +697,7 @@ def edit_tes(request, id):
     obj = get_object_or_404(TesKompetensi, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:kompetensi_index')
+        return redirect_ke('profil:kompetensi_index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis_tes = request.POST.get('jenis_tes', obj.jenis_tes)
         obj.nama_tes = request.POST.get('nama_tes', '').strip()
@@ -709,7 +710,7 @@ def edit_tes(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data tes berhasil diupdate.')
-    return redirect('profil:kompetensi_index')
+    return redirect_ke('profil:kompetensi_index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -837,7 +838,7 @@ def tambah_dokumen_lain(request):
 
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('profil:dokumen_index')
+        return redirect_ke('profil:dokumen_index', request.user, target_user.id)
 
     dok = DokumenLain(
         user=target_user,
@@ -853,7 +854,7 @@ def tambah_dokumen_lain(request):
         dok.file_dokumen = compress_uploaded_file(request.FILES['file_dokumen'])
     dok.save()
     messages.success(request, 'Dokumen berhasil ditambahkan.')
-    return redirect('profil:dokumen_index')
+    return redirect_ke('profil:dokumen_index', request.user, target_user.id)
 
 
 @login_required
@@ -861,7 +862,7 @@ def edit_dokumen_lain(request, id):
     obj = get_object_or_404(DokumenLain, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:dokumen_index')
+        return redirect_ke('profil:dokumen_index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis_dokumen = request.POST.get('jenis_dokumen', obj.jenis_dokumen)
         obj.nama_dokumen = request.POST.get('nama_dokumen', '').strip()
@@ -874,7 +875,7 @@ def edit_dokumen_lain(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Dokumen berhasil diupdate.')
-    return redirect('profil:dokumen_index')
+    return redirect_ke('profil:dokumen_index', request.user, obj.user_id)
 
 
 @login_required
@@ -882,7 +883,7 @@ def hapus_dokumen_lain(request, id):
     obj = get_object_or_404(DokumenLain, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('profil:dokumen_index')
+        return redirect_ke('profil:dokumen_index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Dokumen berhasil dihapus.')
-    return redirect('profil:dokumen_index')
+    return redirect_ke('profil:dokumen_index', request.user, obj.user_id)

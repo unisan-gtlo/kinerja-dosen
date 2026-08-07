@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import DataDosen, MahasiswaPublik
-from simda_dosen.utils import get_simda_dosen_or_none, bisa_tambah_tridarma
+from simda_dosen.utils import get_simda_dosen_or_none, bisa_tambah_tridarma, redirect_ke
 from kinerja.utils import attach_dokumen_count
 from .models import (
     Penelitian, AnggotaPenelitian, PublikasiKarya, PenulisPublikasiKarya,
@@ -123,7 +123,7 @@ def tambah_penelitian(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('penelitian:index')
+        return redirect_ke('penelitian:index', request.user, target_user.id)
     Penelitian.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -151,7 +151,7 @@ def tambah_penelitian(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data penelitian berhasil ditambahkan.')
-    return redirect('penelitian:index')
+    return redirect_ke('penelitian:index', request.user, target_user.id)
 
 
 @login_required
@@ -159,7 +159,7 @@ def edit_penelitian(request, id):
     obj = get_object_or_404(Penelitian, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penelitian:index')
+        return redirect_ke('penelitian:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.kategori_pelaksanaan = request.POST.get('kategori_pelaksanaan', obj.kategori_pelaksanaan)
         obj.judul_kegiatan = request.POST.get('judul_kegiatan', '').strip()
@@ -184,7 +184,7 @@ def edit_penelitian(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data penelitian berhasil diupdate.')
-    return redirect('penelitian:index')
+    return redirect_ke('penelitian:index', request.user, obj.user_id)
 
 
 @login_required
@@ -192,10 +192,10 @@ def hapus_penelitian(request, id):
     obj = get_object_or_404(Penelitian, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penelitian:index')
+        return redirect_ke('penelitian:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data penelitian berhasil dihapus.')
-    return redirect('penelitian:index')
+    return redirect_ke('penelitian:index', request.user, obj.user_id)
 
 
 @login_required
@@ -209,7 +209,7 @@ def kelola_anggota_penelitian(request, penelitian_id):
         is_co = dosen and penelitian.anggota_set.filter(jenis_anggota='dosen', dosen_id=dosen.id).exists()
         if not is_co:
             messages.error(request, 'Tidak memiliki akses.')
-            return redirect('penelitian:index')
+            return redirect_ke('penelitian:index', request.user, penelitian.user_id)
 
     if request.method == 'POST':
         aksi = request.POST.get('aksi')
@@ -305,7 +305,7 @@ def tambah_publikasi(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('penelitian:index')
+        return redirect_ke('penelitian:index', request.user, target_user.id)
     PublikasiKarya.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -331,7 +331,7 @@ def tambah_publikasi(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data publikasi karya berhasil ditambahkan.')
-    return redirect('penelitian:index')
+    return redirect_ke('penelitian:index', request.user, target_user.id)
 
 
 @login_required
@@ -339,7 +339,7 @@ def edit_publikasi(request, id):
     obj = get_object_or_404(PublikasiKarya, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penelitian:index')
+        return redirect_ke('penelitian:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis = request.POST.get('jenis', obj.jenis)
         obj.kategori_capaian = request.POST.get('kategori_capaian', '').strip()
@@ -362,7 +362,7 @@ def edit_publikasi(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data publikasi karya berhasil diupdate.')
-    return redirect('penelitian:index')
+    return redirect_ke('penelitian:index', request.user, obj.user_id)
 
 
 @login_required
@@ -370,10 +370,10 @@ def hapus_publikasi(request, id):
     obj = get_object_or_404(PublikasiKarya, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penelitian:index')
+        return redirect_ke('penelitian:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data publikasi karya berhasil dihapus.')
-    return redirect('penelitian:index')
+    return redirect_ke('penelitian:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -391,7 +391,7 @@ def tambah_paten(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('penelitian:index')
+        return redirect_ke('penelitian:index', request.user, target_user.id)
     PatenHki.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -409,7 +409,7 @@ def tambah_paten(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data Paten/HKI berhasil ditambahkan.')
-    return redirect('penelitian:index')
+    return redirect_ke('penelitian:index', request.user, target_user.id)
 
 
 @login_required
@@ -417,7 +417,7 @@ def edit_paten(request, id):
     obj = get_object_or_404(PatenHki, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penelitian:index')
+        return redirect_ke('penelitian:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis = request.POST.get('jenis', obj.jenis)
         obj.kategori_capaian = request.POST.get('kategori_capaian', '').strip()
@@ -432,7 +432,7 @@ def edit_paten(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data Paten/HKI berhasil diupdate.')
-    return redirect('penelitian:index')
+    return redirect_ke('penelitian:index', request.user, obj.user_id)
 
 
 @login_required
@@ -440,10 +440,10 @@ def hapus_paten(request, id):
     obj = get_object_or_404(PatenHki, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penelitian:index')
+        return redirect_ke('penelitian:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data Paten/HKI berhasil dihapus.')
-    return redirect('penelitian:index')
+    return redirect_ke('penelitian:index', request.user, obj.user_id)
 
 
 def _kelola_penulis(request, obj, penulis_related, fk_field, id_field, template, redirect_url_name):
@@ -459,7 +459,7 @@ def _kelola_penulis(request, obj, penulis_related, fk_field, id_field, template,
         is_co = dosen and penulis_related.filter(jenis_penulis='dosen', dosen_id=dosen.id).exists()
         if not is_co:
             messages.error(request, 'Tidak memiliki akses.')
-            return redirect('penelitian:index')
+            return redirect_ke('penelitian:index', request.user, obj.user_id)
 
     PenulisModel = penulis_related.model
 

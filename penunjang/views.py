@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import DataDosen
-from simda_dosen.utils import get_simda_dosen_or_none, bisa_tambah_tridarma
+from simda_dosen.utils import get_simda_dosen_or_none, bisa_tambah_tridarma, redirect_ke
 from kinerja.utils import attach_dokumen_count
 from .models import AnggotaProfesi, Penghargaan, PenunjangLain, AnggotaPenunjangLain
 
@@ -114,7 +114,7 @@ def tambah_profesi(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('penunjang:index')
+        return redirect_ke('penunjang:index', request.user, target_user.id)
     AnggotaProfesi.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -130,7 +130,7 @@ def tambah_profesi(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data anggota profesi berhasil ditambahkan.')
-    return redirect('penunjang:index')
+    return redirect_ke('penunjang:index', request.user, target_user.id)
 
 
 @login_required
@@ -138,7 +138,7 @@ def edit_profesi(request, id):
     obj = get_object_or_404(AnggotaProfesi, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penunjang:index')
+        return redirect_ke('penunjang:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.kategori_kegiatan = request.POST.get('kategori_kegiatan', obj.kategori_kegiatan)
         obj.nama_organisasi = request.POST.get('nama_organisasi', '').strip()
@@ -151,7 +151,7 @@ def edit_profesi(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data anggota profesi berhasil diupdate.')
-    return redirect('penunjang:index')
+    return redirect_ke('penunjang:index', request.user, obj.user_id)
 
 
 @login_required
@@ -159,10 +159,10 @@ def hapus_profesi(request, id):
     obj = get_object_or_404(AnggotaProfesi, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penunjang:index')
+        return redirect_ke('penunjang:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data anggota profesi berhasil dihapus.')
-    return redirect('penunjang:index')
+    return redirect_ke('penunjang:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -180,7 +180,7 @@ def tambah_penghargaan(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('penunjang:index')
+        return redirect_ke('penunjang:index', request.user, target_user.id)
     Penghargaan.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -196,7 +196,7 @@ def tambah_penghargaan(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data penghargaan berhasil ditambahkan.')
-    return redirect('penunjang:index')
+    return redirect_ke('penunjang:index', request.user, target_user.id)
 
 
 @login_required
@@ -204,7 +204,7 @@ def edit_penghargaan(request, id):
     obj = get_object_or_404(Penghargaan, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penunjang:index')
+        return redirect_ke('penunjang:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.kategori_kegiatan = request.POST.get('kategori_kegiatan', obj.kategori_kegiatan)
         obj.tingkat_penghargaan = request.POST.get('tingkat_penghargaan', obj.tingkat_penghargaan)
@@ -217,7 +217,7 @@ def edit_penghargaan(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data penghargaan berhasil diupdate.')
-    return redirect('penunjang:index')
+    return redirect_ke('penunjang:index', request.user, obj.user_id)
 
 
 @login_required
@@ -225,10 +225,10 @@ def hapus_penghargaan(request, id):
     obj = get_object_or_404(Penghargaan, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penunjang:index')
+        return redirect_ke('penunjang:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data penghargaan berhasil dihapus.')
-    return redirect('penunjang:index')
+    return redirect_ke('penunjang:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -246,7 +246,7 @@ def tambah_penunjang(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('penunjang:index')
+        return redirect_ke('penunjang:index', request.user, target_user.id)
     PenunjangLain.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -264,7 +264,7 @@ def tambah_penunjang(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data penunjang lain berhasil ditambahkan.')
-    return redirect('penunjang:index')
+    return redirect_ke('penunjang:index', request.user, target_user.id)
 
 
 @login_required
@@ -272,7 +272,7 @@ def edit_penunjang(request, id):
     obj = get_object_or_404(PenunjangLain, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penunjang:index')
+        return redirect_ke('penunjang:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.kategori_kegiatan = request.POST.get('kategori_kegiatan', '').strip()
         obj.nama_kegiatan = request.POST.get('nama_kegiatan', '').strip()
@@ -287,7 +287,7 @@ def edit_penunjang(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data penunjang lain berhasil diupdate.')
-    return redirect('penunjang:index')
+    return redirect_ke('penunjang:index', request.user, obj.user_id)
 
 
 @login_required
@@ -295,10 +295,10 @@ def hapus_penunjang(request, id):
     obj = get_object_or_404(PenunjangLain, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('penunjang:index')
+        return redirect_ke('penunjang:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data penunjang lain berhasil dihapus.')
-    return redirect('penunjang:index')
+    return redirect_ke('penunjang:index', request.user, obj.user_id)
 
 
 @login_required
@@ -312,7 +312,7 @@ def kelola_anggota_penunjang(request, penunjang_id):
         is_co = dosen and obj.anggota_set.filter(dosen_id=dosen.id).exists()
         if not is_co:
             messages.error(request, 'Tidak memiliki akses.')
-            return redirect('penunjang:index')
+            return redirect_ke('penunjang:index', request.user, obj.user_id)
 
     if request.method == 'POST':
         aksi = request.POST.get('aksi')

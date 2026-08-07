@@ -66,3 +66,46 @@ class TambahBeasiswaAksesTest(TestCase):
     def test_dekan_tetap_bisa_tambah_untuk_diri_sendiri(self):
         self._post(self.dekan_ft)
         self.assertEqual(Beasiswa.objects.filter(user=self.dekan_ft).count(), 1)
+
+
+class RedirectMempertahankanDosenIdTest(TestCase):
+    """2026-08-07: lihat pendidikan/tests.py::RedirectMempertahankanDosenIdTest
+    untuk penjelasan lengkap bug & fix (redirect_ke). Representatif untuk
+    tambah_beasiswa/edit_beasiswa/hapus_beasiswa di app ini."""
+
+    def setUp(self):
+        self.dosen_ft = User.objects.create_user(
+            username="dosen_ft_redirect_reward", password="testpass123", role="dosen",
+            kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.admin = User.objects.create_user(
+            username="admin_redirect_reward", password="testpass123", role="admin",
+        )
+        self.client = Client()
+        self.client.force_login(self.admin)
+
+    def test_tambah_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        resp = self.client.post(reverse("reward:tambah_beasiswa"), {
+            "nama_beasiswa": "Contoh Beasiswa", "tahun_mulai": "2024",
+            "dosen_id": self.dosen_ft.id,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_edit_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        obj = Beasiswa.objects.create(
+            user=self.dosen_ft, nama_beasiswa="Lama", tahun_mulai=2023,
+        )
+        resp = self.client.post(reverse("reward:edit_beasiswa", args=[obj.id]), {
+            "nama_beasiswa": "Baru", "tahun_mulai": "2024",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_hapus_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        obj = Beasiswa.objects.create(
+            user=self.dosen_ft, nama_beasiswa="Lama", tahun_mulai=2023,
+        )
+        resp = self.client.post(reverse("reward:hapus_beasiswa", args=[obj.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)

@@ -6,7 +6,7 @@ from django.db.models import Q
 from master.models import TahunAkademik, Pengaturan
 from accounts.models import User
 from simda_dosen.models import MataKuliahPublik, MahasiswaPublik, ProdiPublik, DataDosen
-from simda_dosen.utils import get_simda_dosen_or_none, bisa_tambah_tridarma
+from simda_dosen.utils import get_simda_dosen_or_none, bisa_tambah_tridarma, redirect_ke
 from kinerja.utils import attach_dokumen_count
 from .models import (
     Pengajaran, BimbinganMahasiswa, PengujianMahasiswa, BahanAjar,
@@ -161,12 +161,12 @@ def tambah_pengajaran(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, target_user.id)
     mk_id = request.POST.get('mata_kuliah_id')
     mk = get_object_or_404(MataKuliahPublik.objects.using('simda'), id=mk_id) if mk_id else None
     if not mk:
         messages.error(request, 'Mata kuliah wajib dipilih.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, target_user.id)
 
     Pengajaran.objects.create(
         user=target_user,
@@ -188,7 +188,7 @@ def tambah_pengajaran(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data pengajaran berhasil ditambahkan.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, target_user.id)
 
 
 @login_required
@@ -196,7 +196,7 @@ def edit_pengajaran(request, id):
     obj = get_object_or_404(Pengajaran, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     if request.method == 'POST':
         mk_id = request.POST.get('mata_kuliah_id')
         if mk_id:
@@ -217,7 +217,7 @@ def edit_pengajaran(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data pengajaran berhasil diupdate.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 @login_required
@@ -225,10 +225,10 @@ def hapus_pengajaran(request, id):
     obj = get_object_or_404(Pengajaran, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data pengajaran berhasil dihapus.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -246,12 +246,12 @@ def tambah_bimbingan(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, target_user.id)
     mhs_id = request.POST.get('mahasiswa_id')
     mhs = get_object_or_404(MahasiswaPublik.objects.using('simda'), id=mhs_id) if mhs_id else None
     if not mhs:
         messages.error(request, 'Mahasiswa wajib dipilih.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, target_user.id)
 
     BimbinganMahasiswa.objects.create(
         user=target_user,
@@ -271,7 +271,7 @@ def tambah_bimbingan(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data bimbingan mahasiswa berhasil ditambahkan.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, target_user.id)
 
 
 @login_required
@@ -279,7 +279,7 @@ def edit_bimbingan(request, id):
     obj = get_object_or_404(BimbinganMahasiswa, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     if request.method == 'POST':
         mhs_id = request.POST.get('mahasiswa_id')
         if mhs_id:
@@ -298,7 +298,7 @@ def edit_bimbingan(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data bimbingan mahasiswa berhasil diupdate.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 @login_required
@@ -306,10 +306,10 @@ def hapus_bimbingan(request, id):
     obj = get_object_or_404(BimbinganMahasiswa, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data bimbingan mahasiswa berhasil dihapus.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -327,12 +327,12 @@ def tambah_pengujian(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, target_user.id)
     mhs_id = request.POST.get('mahasiswa_id')
     mhs = get_object_or_404(MahasiswaPublik.objects.using('simda'), id=mhs_id) if mhs_id else None
     if not mhs:
         messages.error(request, 'Mahasiswa wajib dipilih.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, target_user.id)
 
     PengujianMahasiswa.objects.create(
         user=target_user,
@@ -351,7 +351,7 @@ def tambah_pengujian(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data pengujian mahasiswa berhasil ditambahkan.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, target_user.id)
 
 
 @login_required
@@ -359,7 +359,7 @@ def edit_pengujian(request, id):
     obj = get_object_or_404(PengujianMahasiswa, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     if request.method == 'POST':
         mhs_id = request.POST.get('mahasiswa_id')
         if mhs_id:
@@ -377,7 +377,7 @@ def edit_pengujian(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data pengujian mahasiswa berhasil diupdate.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 @login_required
@@ -385,10 +385,10 @@ def hapus_pengujian(request, id):
     obj = get_object_or_404(PengujianMahasiswa, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data pengujian mahasiswa berhasil dihapus.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -406,7 +406,7 @@ def tambah_bahan_ajar(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, target_user.id)
     BahanAjar.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -422,7 +422,7 @@ def tambah_bahan_ajar(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data bahan ajar berhasil ditambahkan.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, target_user.id)
 
 
 @login_required
@@ -430,7 +430,7 @@ def edit_bahan_ajar(request, id):
     obj = get_object_or_404(BahanAjar, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis_bahan_ajar = request.POST.get('jenis_bahan_ajar', obj.jenis_bahan_ajar)
         obj.judul = request.POST.get('judul', '').strip()
@@ -443,7 +443,7 @@ def edit_bahan_ajar(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data bahan ajar berhasil diupdate.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 @login_required
@@ -451,10 +451,10 @@ def hapus_bahan_ajar(request, id):
     obj = get_object_or_404(BahanAjar, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data bahan ajar berhasil dihapus.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -476,7 +476,7 @@ def kelola_penulis(request, bahan_ajar_id):
         ).exists()
         if not is_co_penulis:
             messages.error(request, 'Tidak memiliki akses.')
-            return redirect('pendidikan:index')
+            return redirect_ke('pendidikan:index', request.user, bahan_ajar.user_id)
 
     if request.method == 'POST':
         aksi = request.POST.get('aksi')
@@ -573,7 +573,7 @@ def tambah_pembinaan_mahasiswa(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, target_user.id)
     PembinaanMahasiswa.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -587,7 +587,7 @@ def tambah_pembinaan_mahasiswa(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data pembinaan mahasiswa berhasil ditambahkan.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, target_user.id)
 
 
 @login_required
@@ -595,7 +595,7 @@ def edit_pembinaan_mahasiswa(request, id):
     obj = get_object_or_404(PembinaanMahasiswa, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis_kegiatan = request.POST.get('jenis_kegiatan', obj.jenis_kegiatan)
         obj.nama_kegiatan = request.POST.get('nama_kegiatan', '').strip()
@@ -606,7 +606,7 @@ def edit_pembinaan_mahasiswa(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data pembinaan mahasiswa berhasil diupdate.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 @login_required
@@ -614,10 +614,10 @@ def hapus_pembinaan_mahasiswa(request, id):
     obj = get_object_or_404(PembinaanMahasiswa, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data pembinaan mahasiswa berhasil dihapus.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -635,7 +635,7 @@ def tambah_orasi_ilmiah(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, target_user.id)
     OrasiIlmiah.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -649,7 +649,7 @@ def tambah_orasi_ilmiah(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data orasi ilmiah berhasil ditambahkan.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, target_user.id)
 
 
 @login_required
@@ -657,7 +657,7 @@ def edit_orasi_ilmiah(request, id):
     obj = get_object_or_404(OrasiIlmiah, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.judul_orasi = request.POST.get('judul_orasi', '').strip()
         obj.penyelenggara = request.POST.get('penyelenggara', '').strip()
@@ -668,7 +668,7 @@ def edit_orasi_ilmiah(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data orasi ilmiah berhasil diupdate.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 @login_required
@@ -676,10 +676,10 @@ def hapus_orasi_ilmiah(request, id):
     obj = get_object_or_404(OrasiIlmiah, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data orasi ilmiah berhasil dihapus.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -697,7 +697,7 @@ def tambah_tugas_tambahan(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, target_user.id)
     TugasTambahan.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -712,7 +712,7 @@ def tambah_tugas_tambahan(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data tugas tambahan berhasil ditambahkan.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, target_user.id)
 
 
 @login_required
@@ -720,7 +720,7 @@ def edit_tugas_tambahan(request, id):
     obj = get_object_or_404(TugasTambahan, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jabatan_tambahan = request.POST.get('jabatan_tambahan', '').strip()
         obj.no_sk = request.POST.get('no_sk', '').strip()
@@ -732,7 +732,7 @@ def edit_tugas_tambahan(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data tugas tambahan berhasil diupdate.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)
 
 
 @login_required
@@ -740,7 +740,7 @@ def hapus_tugas_tambahan(request, id):
     obj = get_object_or_404(TugasTambahan, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('pendidikan:index')
+        return redirect_ke('pendidikan:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data tugas tambahan berhasil dihapus.')
-    return redirect('pendidikan:index')
+    return redirect_ke('pendidikan:index', request.user, obj.user_id)

@@ -70,3 +70,49 @@ class TambahPengabdianAksesTest(TestCase):
     def test_dekan_tetap_bisa_tambah_untuk_diri_sendiri(self):
         self._post(self.dekan_ft)
         self.assertEqual(Pengabdian.objects.filter(user=self.dekan_ft).count(), 1)
+
+
+class RedirectMempertahankanDosenIdTest(TestCase):
+    """2026-08-07: lihat pendidikan/tests.py::RedirectMempertahankanDosenIdTest
+    untuk penjelasan lengkap bug & fix (redirect_ke). Representatif untuk
+    tambah_pengabdian/edit_pengabdian/hapus_pengabdian di app ini."""
+
+    def setUp(self):
+        self.dosen_ft = User.objects.create_user(
+            username="dosen_ft_redirect_pengabdian", password="testpass123", role="dosen",
+            kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.admin = User.objects.create_user(
+            username="admin_redirect_pengabdian", password="testpass123", role="admin",
+        )
+        self.client = Client()
+        self.client.force_login(self.admin)
+
+    def test_tambah_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        resp = self.client.post(reverse("pengabdian:tambah_pengabdian"), {
+            "judul_kegiatan": "Contoh Pengabdian",
+            "tahun_usulan": "2024", "tahun_pelaksanaan": "2024",
+            "dosen_id": self.dosen_ft.id,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_edit_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        obj = Pengabdian.objects.create(
+            user=self.dosen_ft, judul_kegiatan="Lama",
+            tahun_usulan=2023, tahun_pelaksanaan=2023,
+        )
+        resp = self.client.post(reverse("pengabdian:edit_pengabdian", args=[obj.id]), {
+            "judul_kegiatan": "Baru", "tahun_usulan": "2024", "tahun_pelaksanaan": "2024",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_hapus_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        obj = Pengabdian.objects.create(
+            user=self.dosen_ft, judul_kegiatan="Lama",
+            tahun_usulan=2023, tahun_pelaksanaan=2023,
+        )
+        resp = self.client.post(reverse("pengabdian:hapus_pengabdian", args=[obj.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)

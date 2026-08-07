@@ -81,3 +81,58 @@ class TambahOrasiIlmiahAksesTest(TestCase):
     def test_dekan_tetap_bisa_tambah_untuk_diri_sendiri(self):
         self._post(self.dekan_ft)
         self.assertEqual(OrasiIlmiah.objects.filter(user=self.dekan_ft).count(), 1)
+
+
+class RedirectMempertahankanDosenIdTest(TestCase):
+    """2026-08-07: setelah Tambah/Edit/Hapus data Tri Dharma dosen LAIN,
+    redirect() sebelumnya selalu polos ke url_name (mis. 'pendidikan:index')
+    tanpa ?dosen_id= -- jadi admin/operator yang tadinya melihat dosen X
+    kembali melihat data MILIKNYA SENDIRI setelah simpan, harus kembali ke
+    Rekap Data untuk mencari dosen X lagi. Diperbaiki lewat
+    simda_dosen.utils.redirect_ke() -- tes ini memverifikasi Location
+    header redirect membawa ?dosen_id= yang benar (bukan cuma status
+    code), representatif untuk pola yang sama di 6 app Tri Dharma lain."""
+
+    def setUp(self):
+        self.dosen_ft = User.objects.create_user(
+            username="dosen_ft_redirect_pendidikan", password="testpass123", role="dosen",
+            kode_fakultas="FT", kode_prodi="TI",
+        )
+        self.admin = User.objects.create_user(
+            username="admin_redirect_pendidikan", password="testpass123", role="admin",
+        )
+        self.client = Client()
+        self.client.force_login(self.admin)
+
+    def test_tambah_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        resp = self.client.post(reverse("pendidikan:tambah_orasi_ilmiah"), {
+            "judul_orasi": "Contoh Orasi", "tanggal": "2024-01-15",
+            "dosen_id": self.dosen_ft.id,
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_edit_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        obj = OrasiIlmiah.objects.create(
+            user=self.dosen_ft, judul_orasi="Orasi Lama", tanggal="2024-01-01",
+        )
+        resp = self.client.post(reverse("pendidikan:edit_orasi_ilmiah", args=[obj.id]), {
+            "judul_orasi": "Orasi Baru",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_hapus_untuk_dosen_lain_redirect_bawa_dosen_id(self):
+        obj = OrasiIlmiah.objects.create(
+            user=self.dosen_ft, judul_orasi="Orasi Lama", tanggal="2024-01-01",
+        )
+        resp = self.client.post(reverse("pendidikan:hapus_orasi_ilmiah", args=[obj.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(f"?dosen_id={self.dosen_ft.id}", resp.url)
+
+    def test_tambah_untuk_diri_sendiri_redirect_tanpa_dosen_id(self):
+        resp = self.client.post(reverse("pendidikan:tambah_orasi_ilmiah"), {
+            "judul_orasi": "Contoh Orasi", "tanggal": "2024-01-15",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertNotIn("dosen_id", resp.url)

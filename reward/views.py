@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from master.models import Pengaturan
 from accounts.models import User
-from simda_dosen.utils import bisa_tambah_tridarma
+from simda_dosen.utils import bisa_tambah_tridarma, redirect_ke
 from kinerja.utils import attach_dokumen_count
 from .models import Beasiswa, Kesejahteraan, Tunjangan
 
@@ -91,7 +91,7 @@ def tambah_beasiswa(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('reward:index')
+        return redirect_ke('reward:index', request.user, target_user.id)
     Beasiswa.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -104,7 +104,7 @@ def tambah_beasiswa(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data beasiswa berhasil ditambahkan.')
-    return redirect('reward:index')
+    return redirect_ke('reward:index', request.user, target_user.id)
 
 
 @login_required
@@ -112,7 +112,7 @@ def edit_beasiswa(request, id):
     obj = get_object_or_404(Beasiswa, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('reward:index')
+        return redirect_ke('reward:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis_beasiswa = request.POST.get('jenis_beasiswa', obj.jenis_beasiswa)
         obj.nama_beasiswa = request.POST.get('nama_beasiswa', '').strip()
@@ -122,7 +122,7 @@ def edit_beasiswa(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data beasiswa berhasil diupdate.')
-    return redirect('reward:index')
+    return redirect_ke('reward:index', request.user, obj.user_id)
 
 
 @login_required
@@ -130,10 +130,10 @@ def hapus_beasiswa(request, id):
     obj = get_object_or_404(Beasiswa, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('reward:index')
+        return redirect_ke('reward:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data beasiswa berhasil dihapus.')
-    return redirect('reward:index')
+    return redirect_ke('reward:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -151,7 +151,7 @@ def tambah_kesejahteraan(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('reward:index')
+        return redirect_ke('reward:index', request.user, target_user.id)
     Kesejahteraan.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -164,7 +164,7 @@ def tambah_kesejahteraan(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data kesejahteraan berhasil ditambahkan.')
-    return redirect('reward:index')
+    return redirect_ke('reward:index', request.user, target_user.id)
 
 
 @login_required
@@ -172,7 +172,7 @@ def edit_kesejahteraan(request, id):
     obj = get_object_or_404(Kesejahteraan, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('reward:index')
+        return redirect_ke('reward:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis_kesejahteraan = request.POST.get('jenis_kesejahteraan', obj.jenis_kesejahteraan)
         obj.layanan_kesejahteraan = request.POST.get('layanan_kesejahteraan', '').strip()
@@ -182,7 +182,7 @@ def edit_kesejahteraan(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data kesejahteraan berhasil diupdate.')
-    return redirect('reward:index')
+    return redirect_ke('reward:index', request.user, obj.user_id)
 
 
 @login_required
@@ -190,10 +190,10 @@ def hapus_kesejahteraan(request, id):
     obj = get_object_or_404(Kesejahteraan, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('reward:index')
+        return redirect_ke('reward:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data kesejahteraan berhasil dihapus.')
-    return redirect('reward:index')
+    return redirect_ke('reward:index', request.user, obj.user_id)
 
 
 # ============================================================
@@ -211,7 +211,7 @@ def tambah_tunjangan(request):
     target_user = _target_user(request, from_post=True)
     if not bisa_tambah_tridarma(request.user, target_user):
         messages.error(request, 'Hanya admin/operator yang bisa menambahkan data untuk dosen lain.')
-        return redirect('reward:index')
+        return redirect_ke('reward:index', request.user, target_user.id)
     Tunjangan.objects.create(
         user=target_user,
         kode_prodi=target_user.kode_prodi or '',
@@ -226,7 +226,7 @@ def tambah_tunjangan(request):
         updated_by=request.user.username,
     )
     messages.success(request, 'Data tunjangan berhasil ditambahkan.')
-    return redirect('reward:index')
+    return redirect_ke('reward:index', request.user, target_user.id)
 
 
 @login_required
@@ -234,7 +234,7 @@ def edit_tunjangan(request, id):
     obj = get_object_or_404(Tunjangan, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('reward:index')
+        return redirect_ke('reward:index', request.user, obj.user_id)
     if request.method == 'POST':
         obj.jenis_tunjangan = request.POST.get('jenis_tunjangan', obj.jenis_tunjangan)
         obj.nama_tunjangan = request.POST.get('nama_tunjangan', '').strip()
@@ -246,7 +246,7 @@ def edit_tunjangan(request, id):
         obj.updated_by = request.user.username
         obj.save()
         messages.success(request, 'Data tunjangan berhasil diupdate.')
-    return redirect('reward:index')
+    return redirect_ke('reward:index', request.user, obj.user_id)
 
 
 @login_required
@@ -254,7 +254,7 @@ def hapus_tunjangan(request, id):
     obj = get_object_or_404(Tunjangan, id=id)
     if not request.user.dapat_kelola(obj.user):
         messages.error(request, 'Tidak memiliki akses.')
-        return redirect('reward:index')
+        return redirect_ke('reward:index', request.user, obj.user_id)
     obj.delete()
     messages.success(request, 'Data tunjangan berhasil dihapus.')
-    return redirect('reward:index')
+    return redirect_ke('reward:index', request.user, obj.user_id)
