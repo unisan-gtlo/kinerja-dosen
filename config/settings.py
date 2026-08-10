@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'axes.middleware.AxesMiddleware',
+    'accounts.force_password_middleware.WajibGantiPasswordMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'

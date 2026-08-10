@@ -127,6 +127,22 @@ def login_view(request):
                     nama=user.get_full_name(),
                     role=user.role
                 )
+                # Password masih sama dengan bawaan (username sendiri, atau
+                # default fallback import Excel "unichsan123") -- flag
+                # SESI (bukan field DB, tidak perlu migrasi) supaya
+                # WajibGantiPasswordMiddleware memaksa ke halaman Ganti
+                # Password dulu sebelum bisa akses menu lain. Otomatis
+                # hilang begitu password diganti (lihat ganti_password) ATAU
+                # dihitung ulang fresh di login berikutnya kalau sesi habis.
+                wajib_ganti = user.check_password(user.username) or user.check_password('unichsan123')
+                request.session['wajib_ganti_password'] = wajib_ganti
+                if wajib_ganti:
+                    messages.warning(
+                        request,
+                        'Password Anda masih bawaan (belum pernah diganti). '
+                        'Silakan buat password baru dulu sebelum melanjutkan.'
+                    )
+                    return redirect('accounts:ganti_password')
                 next_url = request.GET.get('next', '/')
                 return redirect(next_url)
             else:
@@ -627,6 +643,11 @@ def ganti_password(request):
             messages.error(request, 'Password tidak boleh hanya angka.')
         elif password_baru.isalpha():
             messages.error(request, 'Password harus mengandung minimal 1 angka.')
+        elif password_baru.lower() == user.username.lower() or password_baru == 'unichsan123':
+            # Menutup celah: kalau ini alur wajib-ganti (password lama =
+            # username/default), pengguna tidak boleh "mengganti" password
+            # baru jadi username/default lain -- lihat WajibGantiPasswordMiddleware.
+            messages.error(request, 'Password baru tidak boleh sama dengan username atau password bawaan.')
         else:
             user.set_password(password_baru)
             user.save()
@@ -637,9 +658,14 @@ def ganti_password(request):
                 f'pada {timezone.now()}'
             )
             messages.success(request, 'Password berhasil diubah.')
+            wajib_sebelumnya = request.session.pop('wajib_ganti_password', False)
+            if wajib_sebelumnya:
+                return redirect('dashboard:index')
             return redirect('accounts:ganti_password')
 
-    return render(request, 'accounts/ganti_password.html')
+    return render(request, 'accounts/ganti_password.html', {
+        'wajib_ganti': request.session.get('wajib_ganti_password', False),
+    })
 
 @login_required
 def unlock_user(request, user_id):

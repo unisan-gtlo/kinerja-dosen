@@ -5,6 +5,7 @@ import openpyxl
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import TestCase
+from django.urls import reverse
 
 from .models import User
 
@@ -220,3 +221,87 @@ class BackfillNipYayasanTendikCommandTest(TestCase):
         self.assertEqual(self.tendik_sudah_terisi.nip_yayasan, "beda000")
         # Role lain (dosen dkk) sama sekali tidak disentuh, walau nip_yayasan-nya kosong juga.
         self.assertEqual(self.dosen_kosong.nip_yayasan, "")
+
+
+class WajibGantiPasswordTest(TestCase):
+    """Password masih bawaan (sama dengan username sendiri, ATAU default
+    fallback import Excel "unichsan123") -- login_view menghitung flag
+    SEKALI saat login (session, bukan field DB), WajibGantiPasswordMiddleware
+    memaksa ke halaman Ganti Password untuk permintaan halaman lain sampai
+    berhasil diganti. Login lewat alur PENUH (bukan force_login) supaya
+    kode login_view yang menghitung flag itu benar-benar dieksekusi --
+    perlu tangani captcha (generate_captcha menyimpan jawabannya di sesi
+    saat halaman login di-GET)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="dosenimport1", password="dosenimport1", role="dosen",
+        )
+
+    def _login(self, username, password):
+        self.client.get(reverse("accounts:login"))
+        captcha_answer = self.client.session["captcha_answer"]
+        return self.client.post(reverse("accounts:login"), {
+            "username": username, "password": password, "captcha": str(captcha_answer),
+        })
+
+    def test_password_sama_username_dipaksa_ganti_password(self):
+        resp = self._login("dosenimport1", "dosenimport1")
+        self.assertRedirects(resp, reverse("accounts:ganti_password"))
+        self.assertTrue(self.client.session.get("wajib_ganti_password"))
+
+    def test_password_default_unichsan123_dipaksa_ganti_password(self):
+        self.user.set_password("unichsan123")
+        self.user.save()
+        resp = self._login("dosenimport1", "unichsan123")
+        self.assertRedirects(resp, reverse("accounts:ganti_password"))
+        self.assertTrue(self.client.session.get("wajib_ganti_password"))
+
+    def test_password_normal_tidak_dipaksa_ganti_password(self):
+        self.user.set_password("SudahDigantiAman123")
+        self.user.save()
+        resp = self._login("dosenimport1", "SudahDigantiAman123")
+        self.assertRedirects(resp, "/", fetch_redirect_response=False)
+        self.assertFalse(self.client.session.get("wajib_ganti_password"))
+
+    def test_middleware_memaksa_redirect_ke_ganti_password(self):
+        self._login("dosenimport1", "dosenimport1")
+        resp = self.client.get(reverse("dashboard:index"))
+        self.assertRedirects(resp, reverse("accounts:ganti_password"), fetch_redirect_response=False)
+
+    def test_middleware_tidak_memblokir_halaman_terkecuali(self):
+        self._login("dosenimport1", "dosenimport1")
+        resp = self.client.get(reverse("accounts:logout"))
+        # Halaman logout sendiri tidak boleh ikut di-redirect ke ganti
+        # password (harus tetap bisa dipakai kabur dari alur wajib-ganti).
+        self.assertNotEqual(resp.url if resp.status_code == 302 else None, reverse("accounts:ganti_password"))
+
+    def test_ganti_password_berhasil_menghapus_flag_dan_ke_dashboard(self):
+        self._login("dosenimport1", "dosenimport1")
+        resp = self.client.post(reverse("accounts:ganti_password"), {
+            "password_lama": "dosenimport1",
+            "password_baru": "PasswordAman123",
+            "password_konfirmasi": "PasswordAman123",
+        })
+        self.assertRedirects(resp, reverse("dashboard:index"), fetch_redirect_response=False)
+        self.assertFalse(self.client.session.get("wajib_ganti_password"))
+
+    def test_ganti_password_menolak_password_baru_sama_username(self):
+        self._login("dosenimport1", "dosenimport1")
+        self.client.post(reverse("accounts:ganti_password"), {
+            "password_lama": "dosenimport1",
+            "password_baru": "dosenimport1",
+            "password_konfirmasi": "dosenimport1",
+        })
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("dosenimport1"))
+
+    def test_ganti_password_menolak_password_baru_default_unichsan123(self):
+        self._login("dosenimport1", "dosenimport1")
+        self.client.post(reverse("accounts:ganti_password"), {
+            "password_lama": "dosenimport1",
+            "password_baru": "unichsan123",
+            "password_konfirmasi": "unichsan123",
+        })
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("dosenimport1"))
