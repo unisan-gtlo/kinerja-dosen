@@ -82,11 +82,22 @@ def halaman_absen(request):
     login -- lihat SessionAuthentication di REST_FRAMEWORK settings)."""
     sudah_enrolment = EnrolmentWajah.objects.filter(user=request.user, consent_disetujui=True).exists()
     nama = request.user.get_full_name() or request.user.username
+    kelompok = resolve_kelompok(request.user)
     return render(request, "presensi/absen.html", {
         "sudah_enrolment": sudah_enrolment,
         "sapaan": _sapaan_waktu(timezone.localtime(timezone.now()).hour),
         "nama_tampil": nama,
         "inisial": _inisial_nama(nama),
+        # Dipakai JS di halaman ini SEKADAR untuk menyembunyikan kotak
+        # Keterangan Lembur sampai benar-benar lewat 2 jam dari jadwal --
+        # murni bantuan tampilan (device clock), BUKAN validasi resmi.
+        # Validasi & waktu resmi tetap dari server (AbsenPulangView), kotak
+        # ini tidak wajib diisi tetap bisa dikirim kosong kalau ternyata
+        # server menghitung belum lembur. Kosong (null) kalau role belum
+        # dipetakan ke kelompok mana pun -- JS jatuh ke tampil selalu
+        # (perilaku lama) supaya tidak ada yang terhalang mengisi alasan.
+        "jam_pulang_jadwal": kelompok.jam_pulang.strftime("%H:%M") if kelompok else "",
+        "batas_menit_lembur": BATAS_MENIT_LEMBUR_WAJIB_KETERANGAN,
     })
 
 

@@ -156,6 +156,15 @@ if ('serviceWorker' in navigator) {
 <script>
 (function () {
   const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+  // Jam pulang jadwal (kelompok presensi user) + ambang wajib keterangan
+  // lembur -- dipakai SEKADAR menyembunyikan kotak Keterangan Lembur
+  // sampai benar-benar lewat 2 jam, murni bantuan tampilan (pakai jam
+  // perangkat). Validasi & waktu resmi TETAP dari server (AbsenPulangView
+  // pakai waktu server, bukan device) -- kalau perangkat user salah jam,
+  // paling buruk kotak ini muncul sedikit lebih awal/lambat dari
+  // seharusnya, tapi server tetap yang memutuskan wajib-tidaknya.
+  const JAM_PULANG_JADWAL = "{{ jam_pulang_jadwal }}";
+  const BATAS_MENIT_LEMBUR = {{ batas_menit_lembur }};
   const btnMasuk = document.getElementById('btn-masuk');
   const btnPulang = document.getElementById('btn-pulang');
   const kartuBeranda = document.getElementById('kartu-beranda');
@@ -237,6 +246,19 @@ if ('serviceWorker' in navigator) {
     });
   }
 
+  function sudahLewatBatasLembur(aksi) {
+    if (aksi !== 'pulang') return false;
+    // Jadwal jam pulang tidak diketahui (role belum dipetakan ke kelompok
+    // mana pun) -- jatuh ke tampil selalu (perilaku lama) supaya tidak ada
+    // yang terhalang mengisi alasan kalau ternyata memang lembur.
+    if (!JAM_PULANG_JADWAL) return true;
+    const [jam, menit] = JAM_PULANG_JADWAL.split(':').map(Number);
+    const jadwal = new Date();
+    jadwal.setHours(jam, menit, 0, 0);
+    const batasWajib = new Date(jadwal.getTime() + BATAS_MENIT_LEMBUR * 60000);
+    return new Date() > batasWajib;
+  }
+
   async function mulaiAlur(aksi) {
     sembunyikanPesan();
     aksiTertunda = aksi;
@@ -248,7 +270,7 @@ if ('serviceWorker' in navigator) {
     dot2.classList.remove('now', 'done');
     line1.classList.remove('done');
     keteranganLembur.value = '';
-    areaKeteranganLembur.classList.toggle('d-none', aksi !== 'pulang');
+    areaKeteranganLembur.classList.toggle('d-none', !sudahLewatBatasLembur(aksi));
 
     try {
       lokasiTertunda = await ambilLokasi();

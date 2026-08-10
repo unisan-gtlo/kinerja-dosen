@@ -8,6 +8,7 @@ import openpyxl
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError, IntegrityError, transaction
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APITestCase
@@ -367,6 +368,36 @@ class ResolveKelompokJabatanStrukturalTest(TestCase):
         mock_dosen_cls.objects.using.side_effect = DatabaseError("permission denied")
         user = _buat_dosen_user()
         self.assertEqual(resolve_kelompok(user), self.kelompok_dosen)
+
+
+class HalamanAbsenJamPulangJadwalTest(TestCase):
+    """halaman_absen() mengirim jam_pulang_jadwal & batas_menit_lembur ke
+    context -- dipakai JS di absen.html untuk menyembunyikan kotak
+    Keterangan Lembur sampai benar-benar lewat 2 jam dari jadwal (2026-08-10,
+    sebelumnya kotak itu SELALU muncul begitu klik Absen Pulang, terlepas
+    dari apakah lembur beneran berlaku, bikin dosen mengira wajib diisi)."""
+
+    def setUp(self):
+        KelompokPresensi.objects.all().delete()
+        self.kelompok_dosen = KelompokPresensi.objects.create(
+            nama="Dosen Test", roles=["dosen"], jam_masuk=dt_time(8, 0), jam_pulang=dt_time(14, 0),
+        )
+
+    def test_role_dengan_kelompok_mengirim_jam_pulang_jadwal(self):
+        user = _buat_dosen_user()
+        self.client.force_login(user)
+        resp = self.client.get(reverse("presensi_web:index"))
+        self.assertEqual(resp.context["jam_pulang_jadwal"], "14:00")
+        self.assertEqual(resp.context["batas_menit_lembur"], 120)
+        self.assertContains(resp, "14:00")
+
+    def test_role_tanpa_kelompok_jam_pulang_jadwal_kosong(self):
+        # role belum dipetakan ke kelompok mana pun -- JS di absen.html
+        # jatuh ke tampil selalu (fallback aman) kalau nilainya kosong.
+        user = User.objects.create_user(username="staf_tanpa_kelompok", password="testpass123", role="admin")
+        self.client.force_login(user)
+        resp = self.client.get(reverse("presensi_web:index"))
+        self.assertEqual(resp.context["jam_pulang_jadwal"], "")
 
 
 class TentukanStatusWaktuTest(TestCase):
