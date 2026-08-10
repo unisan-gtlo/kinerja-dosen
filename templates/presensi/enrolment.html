@@ -40,11 +40,13 @@ if ('serviceWorker' in navigator) {
 
         <div id="pratinjau-foto" class="d-flex gap-2 flex-wrap mb-3"></div>
 
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="consent-wajah">
-          <label class="form-check-label" for="consent-wajah">
-            Saya setuju data wajah saya dikumpulkan dan diproses (sebagai embedding
-            terenkripsi) semata-mata untuk verifikasi kehadiran presensi, sesuai
+        <div id="kotak-consent" class="d-flex align-items-start gap-2 p-3 mb-3"
+             style="border: 2px solid #f59f00; border-radius: 10px; background: #fff9e8;">
+          <input class="form-check-input flex-shrink-0" type="checkbox" id="consent-wajah"
+                 style="width: 22px; height: 22px; border: 2px solid #f59f00; margin-top: 2px; cursor: pointer;">
+          <label class="form-check-label mb-0" for="consent-wajah" style="cursor: pointer;">
+            <strong>Wajib dicentang</strong> — Saya setuju data wajah saya dikumpulkan dan diproses
+            (sebagai embedding terenkripsi) semata-mata untuk verifikasi kehadiran presensi, sesuai
             kebijakan privasi data biometrik.
           </label>
         </div>
@@ -72,6 +74,7 @@ if ('serviceWorker' in navigator) {
   const jumlahFotoEl = document.getElementById('jumlah-foto');
   const pratinjauEl = document.getElementById('pratinjau-foto');
   const consentEl = document.getElementById('consent-wajah');
+  const kotakConsentEl = document.getElementById('kotak-consent');
   const pesanEl = document.getElementById('enrolment-pesan');
 
   const MIN_FOTO = 2;
@@ -88,6 +91,11 @@ if ('serviceWorker' in navigator) {
     jumlahFotoEl.textContent = fotoBlobs.length + ' foto diambil (minimal ' + MIN_FOTO + ', maksimal ' + MAKS_FOTO + ')';
     btnAmbil.disabled = fotoBlobs.length >= MAKS_FOTO;
     btnDaftarkan.disabled = !(fotoBlobs.length >= MIN_FOTO && consentEl.checked);
+    // Bingkai amber (perlu perhatian) berubah hijau (sudah terpenuhi) begitu
+    // dicentang -- umpan balik visual supaya dosen yakin sudah tercentang.
+    kotakConsentEl.style.borderColor = consentEl.checked ? '#2fb344' : '#f59f00';
+    kotakConsentEl.style.background = consentEl.checked ? '#eefaf0' : '#fff9e8';
+    consentEl.style.borderColor = consentEl.checked ? '#2fb344' : '#f59f00';
   }
 
   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
