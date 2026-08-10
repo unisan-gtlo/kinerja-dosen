@@ -9,6 +9,11 @@
 <link rel="apple-touch-icon" href="{% static 'img/presensi-icon-192.png' %}">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Presensi">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register("{% url 'presensi_web:sw' %}");
+}
+</script>
 {% endblock %}
 
 {% block content %}

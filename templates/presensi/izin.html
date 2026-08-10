@@ -13,6 +13,11 @@
   body, .page-body, .container-xl { color: #333; }
   label, .form-label { color: #333; }
 </style>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register("{% url 'presensi_web:sw' %}");
+}
+</script>
 {% endblock %}
 
 {% block content %}
