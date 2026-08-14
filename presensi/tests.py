@@ -243,6 +243,71 @@ class DeteksiSpoofingTest(TestCase):
         self.assertLess(skor, SKOR_MOIRE_CURIGA)
 
 
+class BatasiThreadOnnxruntimeTest(TestCase):
+    """presensi.face._batasi_thread_onnxruntime -- mitigasi RAM/CPU saat
+    beberapa worker gunicorn aktif bersamaan di server yang dipakai
+    bareng banyak aplikasi lain (insiden 2026-08-14, server down saat
+    ~30 orang absen bersamaan). InsightFace tidak menyediakan cara resmi
+    meneruskan sess_options ke onnxruntime.InferenceSession (dicek
+    langsung ke source insightface terpasang), jadi ditempel langsung ke
+    __init__-nya. __init__ asli diganti dummy penangkap kwargs supaya
+    tidak butuh file model .onnx sungguhan (tidak tersedia di lingkungan
+    test) -- yang diuji murni logika penyisipan sess_options, bukan
+    inisialisasi ONNX Runtime yang sesungguhnya."""
+
+    def setUp(self):
+        import onnxruntime
+        self.onnxruntime = onnxruntime
+        self._init_asli = onnxruntime.InferenceSession.__init__
+        self._flag_asli = getattr(onnxruntime.InferenceSession, "_batas_thread_sikd", False)
+
+    def tearDown(self):
+        self.onnxruntime.InferenceSession.__init__ = self._init_asli
+        self.onnxruntime.InferenceSession._batas_thread_sikd = self._flag_asli
+
+    def _pasang_dummy_capture(self):
+        diterima = {}
+
+        def init_dummy(self_sess, *args, **kwargs):
+            diterima.update(kwargs)
+
+        self.onnxruntime.InferenceSession.__init__ = init_dummy
+        self.onnxruntime.InferenceSession._batas_thread_sikd = False
+        return diterima
+
+    def test_menyisipkan_sess_options_kalau_belum_ada(self):
+        from presensi.face import ORT_INTER_OP_THREADS, ORT_INTRA_OP_THREADS, _batasi_thread_onnxruntime
+
+        diterima = self._pasang_dummy_capture()
+        _batasi_thread_onnxruntime()
+        instance = self.onnxruntime.InferenceSession.__new__(self.onnxruntime.InferenceSession)
+        instance.__init__("model_palsu.onnx")
+
+        self.assertIn("sess_options", diterima)
+        self.assertEqual(diterima["sess_options"].intra_op_num_threads, ORT_INTRA_OP_THREADS)
+        self.assertEqual(diterima["sess_options"].inter_op_num_threads, ORT_INTER_OP_THREADS)
+
+    def test_tidak_menimpa_sess_options_yang_sudah_diisi_pemanggil(self):
+        from presensi.face import _batasi_thread_onnxruntime
+
+        diterima = self._pasang_dummy_capture()
+        _batasi_thread_onnxruntime()
+        instance = self.onnxruntime.InferenceSession.__new__(self.onnxruntime.InferenceSession)
+        so_custom = self.onnxruntime.SessionOptions()
+        instance.__init__("model_palsu.onnx", sess_options=so_custom)
+
+        self.assertIs(diterima["sess_options"], so_custom)
+
+    def test_idempoten_tidak_ditempel_dobel(self):
+        from presensi.face import _batasi_thread_onnxruntime
+
+        _batasi_thread_onnxruntime()
+        setelah_1 = self.onnxruntime.InferenceSession.__init__
+        _batasi_thread_onnxruntime()
+        setelah_2 = self.onnxruntime.InferenceSession.__init__
+        self.assertIs(setelah_1, setelah_2)
+
+
 class PresensiUniqueTogetherTest(TestCase):
     """Satu orang tidak boleh punya dua baris Presensi di tanggal yang sama."""
 

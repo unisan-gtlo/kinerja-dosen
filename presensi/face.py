@@ -74,11 +74,58 @@ SKOR_MOIRE_CURIGA = 20.0
 
 _face_app = None
 
+# Jumlah thread ONNX Runtime per proses worker. Dengan beberapa worker
+# gunicorn berjalan bersamaan di server yang dipakai bareng banyak
+# aplikasi lain, defaultnya ORT (intra_op_num_threads=0 = otomatis pakai
+# SEMUA core) bikin tiap worker berebut seluruh CPU sekaligus -- makin
+# banyak worker aktif, makin parah rebutannya. Dibatasi supaya total
+# thread ORT lintas-worker tidak jauh melebihi jumlah core server.
+ORT_INTRA_OP_THREADS = 2
+ORT_INTER_OP_THREADS = 1
+
+
+def _batasi_thread_onnxruntime():
+    """Tempel default SessionOptions berthread-terbatas ke onnxruntime.InferenceSession.
+
+    InsightFace (FaceAnalysis) tidak menyediakan cara resmi meneruskan
+    `sess_options` -- get_model() di internalnya cuma meneruskan
+    providers/provider_options, bukan sess_options (dicek langsung ke
+    source insightface terpasang). Ini SATU-SATUNYA titik yang bisa
+    dipakai untuk mengontrol thread ORT tanpa menulis ulang pemuatan
+    model FaceAnalysis sendiri. Cuma menyisipkan default kalau pemanggil
+    belum menyertakan sess_options -- tidak mengubah perilaku/hasil
+    inferensi, murni batas jumlah thread.
+    """
+    import onnxruntime
+
+    if getattr(onnxruntime.InferenceSession, "_batas_thread_sikd", False):
+        return  # sudah ditempel sebelumnya di proses ini
+
+    init_asli = onnxruntime.InferenceSession.__init__
+
+    def init_terbatas(self, *args, **kwargs):
+        if kwargs.get("sess_options") is None:
+            so = onnxruntime.SessionOptions()
+            so.intra_op_num_threads = ORT_INTRA_OP_THREADS
+            so.inter_op_num_threads = ORT_INTER_OP_THREADS
+            kwargs["sess_options"] = so
+        return init_asli(self, *args, **kwargs)
+
+    onnxruntime.InferenceSession.__init__ = init_terbatas
+    onnxruntime.InferenceSession._batas_thread_sikd = True
+
 
 def get_face_app():
     """Singleton FaceAnalysis -- dimuat sekali per proses worker gunicorn."""
     global _face_app
     if _face_app is None:
+        import cv2
+
+        # cv2 (dipakai _baca_gambar & deteksi_spoofing) juga punya thread
+        # pool sendiri -- API resmi OpenCV, aman & selalu berlaku.
+        cv2.setNumThreads(1)
+        _batasi_thread_onnxruntime()
+
         from insightface.app import FaceAnalysis
 
         app = FaceAnalysis(name="buffalo_l")
