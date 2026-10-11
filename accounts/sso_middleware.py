@@ -11,6 +11,7 @@ EXEMPT_PATHS = [
     '/accounts/logout/',
     '/admin/',
     '/static/',
+    '/media-akses/',  # subrequest nginx per berkas: jangan panggil API SSO (batas request)
     '/media/',
 ]
 

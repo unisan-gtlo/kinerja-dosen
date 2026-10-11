@@ -1,10 +1,13 @@
 from django.contrib import admin
+from config.media_akses import media_akses
 from django.urls import path, include
 from django.conf import settings
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # Pemeriksa akses /media/ untuk nginx auth_request (config/media_akses.py)
+    path('media-akses/', media_akses, name='media_akses'),
     path('', include('dashboard.urls')),
     path('accounts/', include('accounts.urls')),
     path('master/', include('master.urls')),

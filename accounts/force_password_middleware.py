@@ -11,6 +11,7 @@ EXEMPT_PATHS = [
     '/admin/',
     '/static/',
     '/media/',
+    '/media-akses/',  # subrequest nginx auth_request (config/media_akses.py)
 ]
 
 
