@@ -11,6 +11,10 @@ Aturan (mengikuti User.can_view_all & User.dapat_kelola):
   presensi: paraf/selfie/izin): pemiliknya, admin/rektorat/biro, dan atasan yang
   berhak mengelola dosen itu (dekan/wadek/operator se-fakultas, kaprodi/sekprodi se-prodi).
 - Berkas lama tanpa pemilik yang bisa dikenali (mis. media/dosen/ktp/...): admin/rektorat/biro.
+
+/simda-media/ (alias ke /var/www/simda/media/): berkas dosen/tendik milik SIMDA yang ditampilkan
+SIKD (KTP, ijazah, SK, BKD, ...). Pemilik dicari dari model simda_dosen (NIDN/NIP), lalu aturan
+yang sama berlaku. Foto dosen/tendik: semua pengguna login.
 """
 import os
 from urllib.parse import unquote, urlsplit
@@ -23,14 +27,43 @@ FOTO = ('dosen/foto/',)
 
 
 def _path_relatif(request):
+    """-> (sumber, path relatif) dengan sumber 'sikd' (/media/) atau 'simda' (/simda-media/)."""
     uri = request.META.get('HTTP_X_ORIGINAL_URI', '')
     path = unquote(urlsplit(uri).path)
-    if not path.startswith('/media/'):
-        return None
-    rel = path[len('/media/'):]
-    if not rel or rel.startswith('/') or '..' in rel.split('/'):
-        return None
-    return rel
+    for awal, sumber in (('/media/', 'sikd'), ('/simda-media/', 'simda')):
+        if path.startswith(awal):
+            rel = path[len(awal):]
+            if not rel or rel.startswith('/') or '..' in rel.split('/'):
+                return None, None
+            return sumber, rel
+    return None, None
+
+
+def _pemilik_simda(rel):
+    """User SIKD pemilik berkas SIMDA: cari baris simda_dosen yang menyimpan path ini."""
+    from django.apps import apps
+    from django.db.models import FileField, Q
+    from accounts.models import User
+
+    for model in apps.get_app_config('simda_dosen').get_models():
+        kolom = [f.name for f in model._meta.fields if isinstance(f, FileField)]
+        if not kolom:
+            continue
+        q = Q()
+        for k in kolom:
+            q |= Q(**{k: rel})
+        try:
+            obj = model.objects.filter(q).first()
+        except Exception:
+            continue
+        if obj is None:
+            continue
+        orang = getattr(obj, 'dosen', None) or getattr(obj, 'tendik', None) or obj
+        kunci = [x for x in (getattr(orang, 'nidn', None), getattr(orang, 'nip', None),
+                             getattr(orang, 'nip_yayasan', None)) if x]
+        if kunci:
+            return User.objects.filter(Q(username__in=kunci) | Q(nidn__in=kunci)).first()
+    return None
 
 
 def _pemilik(rel):
@@ -55,7 +88,7 @@ def _pemilik(rel):
 
 
 def media_akses(request):
-    rel = _path_relatif(request)
+    sumber, rel = _path_relatif(request)
     if rel is None:
         return HttpResponse(status=403)
     user = request.user
@@ -65,9 +98,10 @@ def media_akses(request):
         return HttpResponse(status=403)
     if user.is_superuser or getattr(user, 'can_view_all', False):
         return HttpResponse(status=204)
-    if rel.startswith(FOTO) or (rel.startswith('profil/') and os.path.basename(rel).lower().startswith('foto')):
+    if rel.startswith(FOTO + ('tendik/foto/',)) or (
+            sumber == 'sikd' and rel.startswith('profil/') and os.path.basename(rel).lower().startswith('foto')):
         return HttpResponse(status=204)
-    pemilik = _pemilik(rel)
+    pemilik = _pemilik_simda(rel) if sumber == 'simda' else _pemilik(rel)
     if pemilik is not None and user.dapat_kelola(pemilik):
         return HttpResponse(status=204)
     return HttpResponse(status=403)
